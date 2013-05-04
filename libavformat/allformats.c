@@ -243,6 +243,7 @@ void av_register_all(void)
     REGISTER_MUXDEMUX(RSO,              rso);
     REGISTER_MUXDEMUX(RTP,              rtp);
     REGISTER_MUXDEMUX(RTSP,             rtsp);
+    REGISTER_DEMUXER (SADL,             sadl);
     REGISTER_DEMUXER (SAMI,             sami);
     REGISTER_MUXDEMUX(SAP,              sap);
     REGISTER_DEMUXER (SBG,              sbg);

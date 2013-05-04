@@ -64,6 +64,9 @@ fate-adpcm-ima-oki: CMD = md5 -i $(TARGET_SAMPLES)/oki/test.wav -f s16le
 FATE_ADPCM-$(call DEMDEC, RSD, ADPCM_IMA_RAD) += fate-adpcm-ima-rad
 fate-adpcm-ima-rad: CMD = md5 -i $(TARGET_SAMPLES)/rsd/hit_run_partial.rsd -f s16le
 
+FATE_ADPCM-$(call DEMDEC, SADL, ADPCM_IMA_SADL) += fate-adpcm-ima-sadl
+fate-adpcm-ima-sadl: CMD = md5 -i $(SAMPLES)/sadl/layton_small.sad -f s16le
+
 FATE_ADPCM-$(call DEMDEC, SMJPEG, ADPCM_IMA_SMJPEG) += fate-adpcm-ima-smjpeg
 fate-adpcm-ima-smjpeg: CMD = framecrc -i $(TARGET_SAMPLES)/smjpeg/scenwin.mjpg -vn
 

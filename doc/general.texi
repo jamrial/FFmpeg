@@ -388,6 +388,8 @@ library:
     @tab Output is performed by publishing stream to RTMP server
 @item RTP                       @tab X @tab X
 @item RTSP                      @tab X @tab X
+@item SADL                      @tab   @tab X
+    @tab Used in Nintendo DS games.
 @item SAP                       @tab X @tab X
 @item SBG                       @tab   @tab X
 @item SDP                       @tab   @tab X
