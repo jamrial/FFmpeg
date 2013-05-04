@@ -503,6 +503,7 @@ static int get_nb_samples(AVCodecContext *avctx, GetByteContext *gb,
     case AV_CODEC_ID_ADPCM_IMA_APC:
     case AV_CODEC_ID_ADPCM_IMA_EA_SEAD:
     case AV_CODEC_ID_ADPCM_IMA_OKI:
+    case AV_CODEC_ID_ADPCM_IMA_SADL:
     case AV_CODEC_ID_ADPCM_IMA_WS:
     case AV_CODEC_ID_ADPCM_YAMAHA:
         nb_samples = buf_size * 2 / ch;
@@ -983,6 +984,19 @@ static int adpcm_decode_frame(AVCodecContext *avctx, void *data,
             for(channel = 0; channel < avctx->channels; channel++) {
                 *samples++ = adpcm_ima_expand_nibble(&c->status[channel], byte[channel] >> 4  , 3);
             }
+        }
+        break;
+    case AV_CODEC_ID_ADPCM_IMA_SADL:
+        for (n = 0; n < nb_samples / 2; n++) {
+            int byte[2];
+
+            byte[0] = bytestream2_get_byte(&gb);
+            if (st)
+                byte[st] = bytestream2_get_byte(&gb);
+            for (channel = 0; channel < avctx->channels; channel++)
+                *samples++ = adpcm_ima_qt_expand_nibble(&c->status[channel], byte[channel] & 0x0F, 3);
+            for (channel = 0; channel < avctx->channels; channel++)
+                *samples++ = adpcm_ima_qt_expand_nibble(&c->status[channel], byte[channel] >> 4,   3);
         }
         break;
     case AV_CODEC_ID_ADPCM_IMA_WS:
@@ -1563,6 +1577,7 @@ ADPCM_DECODER(AV_CODEC_ID_ADPCM_IMA_ISS,     sample_fmts_s16,  adpcm_ima_iss,   
 ADPCM_DECODER(AV_CODEC_ID_ADPCM_IMA_OKI,     sample_fmts_s16,  adpcm_ima_oki,     "ADPCM IMA Dialogic OKI");
 ADPCM_DECODER(AV_CODEC_ID_ADPCM_IMA_QT,      sample_fmts_s16p, adpcm_ima_qt,      "ADPCM IMA QuickTime");
 ADPCM_DECODER(AV_CODEC_ID_ADPCM_IMA_RAD,     sample_fmts_s16,  adpcm_ima_rad,     "ADPCM IMA Radical");
+ADPCM_DECODER(AV_CODEC_ID_ADPCM_IMA_SADL,    sample_fmts_s16,  adpcm_ima_sadl,    "ADPCM IMA SADL");
 ADPCM_DECODER(AV_CODEC_ID_ADPCM_IMA_SMJPEG,  sample_fmts_s16,  adpcm_ima_smjpeg,  "ADPCM IMA Loki SDL MJPEG");
 ADPCM_DECODER(AV_CODEC_ID_ADPCM_IMA_WAV,     sample_fmts_s16p, adpcm_ima_wav,     "ADPCM IMA WAV");
 ADPCM_DECODER(AV_CODEC_ID_ADPCM_IMA_WS,      sample_fmts_both, adpcm_ima_ws,      "ADPCM IMA Westwood");

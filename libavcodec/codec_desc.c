@@ -1860,6 +1860,13 @@ static const AVCodecDescriptor codec_descriptors[] = {
         .long_name = NULL_IF_CONFIG_SMALL("G.726 ADPCM little-endian"),
         .props     = AV_CODEC_PROP_LOSSY,
     },
+    {
+        .id        = AV_CODEC_ID_ADPCM_IMA_SADL,
+        .type      = AVMEDIA_TYPE_AUDIO,
+        .name      = "adpcm_ima_sadl",
+        .long_name = NULL_IF_CONFIG_SMALL("ADPCM IMA SADL"),
+        .props     = AV_CODEC_PROP_LOSSY,
+    },
 
     /* AMR */
     {
