@@ -30,6 +30,7 @@
 
 #include "avutil.h"
 #include "buffer.h"
+#include "channel_layout.h"
 #include "dict.h"
 #include "rational.h"
 #include "samplefmt.h"
@@ -493,10 +494,14 @@ typedef struct AVFrame {
      */
     int sample_rate;
 
+#if FF_API_OLD_CHANNEL_LAYOUT
     /**
      * Channel layout of the audio data.
+     * @deprecated use ch_layout instead
      */
+    attribute_deprecated
     uint64_t channel_layout;
+#endif
 
     /**
      * AVBuffer references backing the data for this frame. All the pointers in
@@ -681,6 +686,11 @@ typedef struct AVFrame {
      * for the target frame's private_ref field.
      */
     AVBufferRef *private_ref;
+
+    /**
+     * Channel layout of the audio data.
+     */
+    AVChannelLayout ch_layout;
 } AVFrame;
 
 
@@ -760,7 +770,7 @@ void av_frame_move_ref(AVFrame *dst, AVFrame *src);
  * The following fields must be set on frame before calling this function:
  * - format (pixel format for video, sample format for audio)
  * - width and height for video
- * - nb_samples and channel_layout for audio
+ * - nb_samples and ch_layout for audio
  *
  * This function will fill AVFrame.data and AVFrame.buf arrays and, if
  * necessary, allocate and fill AVFrame.extended_data and AVFrame.extended_buf.
