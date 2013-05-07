@@ -37,81 +37,132 @@ struct channel_name {
 };
 
 static const struct channel_name channel_names[] = {
-     [0] = { "FL",        "front left"            },
-     [1] = { "FR",        "front right"           },
-     [2] = { "FC",        "front center"          },
-     [3] = { "LFE",       "low frequency"         },
-     [4] = { "BL",        "back left"             },
-     [5] = { "BR",        "back right"            },
-     [6] = { "FLC",       "front left-of-center"  },
-     [7] = { "FRC",       "front right-of-center" },
-     [8] = { "BC",        "back center"           },
-     [9] = { "SL",        "side left"             },
-    [10] = { "SR",        "side right"            },
-    [11] = { "TC",        "top center"            },
-    [12] = { "TFL",       "top front left"        },
-    [13] = { "TFC",       "top front center"      },
-    [14] = { "TFR",       "top front right"       },
-    [15] = { "TBL",       "top back left"         },
-    [16] = { "TBC",       "top back center"       },
-    [17] = { "TBR",       "top back right"        },
-    [29] = { "DL",        "downmix left"          },
-    [30] = { "DR",        "downmix right"         },
-    [31] = { "WL",        "wide left"             },
-    [32] = { "WR",        "wide right"            },
-    [33] = { "SDL",       "surround direct left"  },
-    [34] = { "SDR",       "surround direct right" },
-    [35] = { "LFE2",      "low frequency 2"       },
-    [36] = { "TSL",       "top side left"         },
-    [37] = { "TSR",       "top side right"        },
-    [38] = { "BFC",       "bottom front center"   },
-    [39] = { "BFL",       "bottom front left"     },
-    [40] = { "BFR",       "bottom front right"    },
+    [AV_CHAN_FRONT_LEFT           ] = { "FL",        "front left"            },
+    [AV_CHAN_FRONT_RIGHT          ] = { "FR",        "front right"           },
+    [AV_CHAN_FRONT_CENTER         ] = { "FC",        "front center"          },
+    [AV_CHAN_LOW_FREQUENCY        ] = { "LFE",       "low frequency"         },
+    [AV_CHAN_BACK_LEFT            ] = { "BL",        "back left"             },
+    [AV_CHAN_BACK_RIGHT           ] = { "BR",        "back right"            },
+    [AV_CHAN_FRONT_LEFT_OF_CENTER ] = { "FLC",       "front left-of-center"  },
+    [AV_CHAN_FRONT_RIGHT_OF_CENTER] = { "FRC",       "front right-of-center" },
+    [AV_CHAN_BACK_CENTER          ] = { "BC",        "back center"           },
+    [AV_CHAN_SIDE_LEFT            ] = { "SL",        "side left"             },
+    [AV_CHAN_SIDE_RIGHT           ] = { "SR",        "side right"            },
+    [AV_CHAN_TOP_CENTER           ] = { "TC",        "top center"            },
+    [AV_CHAN_TOP_FRONT_LEFT       ] = { "TFL",       "top front left"        },
+    [AV_CHAN_TOP_FRONT_CENTER     ] = { "TFC",       "top front center"      },
+    [AV_CHAN_TOP_FRONT_RIGHT      ] = { "TFR",       "top front right"       },
+    [AV_CHAN_TOP_BACK_LEFT        ] = { "TBL",       "top back left"         },
+    [AV_CHAN_TOP_BACK_CENTER      ] = { "TBC",       "top back center"       },
+    [AV_CHAN_TOP_BACK_RIGHT       ] = { "TBR",       "top back right"        },
+    [AV_CHAN_STEREO_LEFT          ] = { "DL",        "downmix left"          },
+    [AV_CHAN_STEREO_RIGHT         ] = { "DR",        "downmix right"         },
+    [AV_CHAN_WIDE_LEFT            ] = { "WL",        "wide left"             },
+    [AV_CHAN_WIDE_RIGHT           ] = { "WR",        "wide right"            },
+    [AV_CHAN_SURROUND_DIRECT_LEFT ] = { "SDL",       "surround direct left"  },
+    [AV_CHAN_SURROUND_DIRECT_RIGHT] = { "SDR",       "surround direct right" },
+    [AV_CHAN_LOW_FREQUENCY_2      ] = { "LFE2",      "low frequency 2"       },
+    [AV_CHAN_TOP_SIDE_LEFT        ] = { "TSL",       "top side left"         },
+    [AV_CHAN_TOP_SIDE_RIGHT       ] = { "TSR",       "top side right"        },
+    [AV_CHAN_BOTTOM_FRONT_CENTER  ] = { "BFC",       "bottom front center"   },
+    [AV_CHAN_BOTTOM_FRONT_LEFT    ] = { "BFL",       "bottom front left"     },
+    [AV_CHAN_BOTTOM_FRONT_RIGHT   ] = { "BFR",       "bottom front right"    },
 };
 
-static const char *get_channel_name(int channel_id)
+static const char *get_channel_name(enum AVChannel channel_id)
 {
-    if (channel_id < 0 || channel_id >= FF_ARRAY_ELEMS(channel_names))
-        return NULL;
+    if ((unsigned) channel_id >= FF_ARRAY_ELEMS(channel_names) ||
+        !channel_names[channel_id].name)
+        return "?";
     return channel_names[channel_id].name;
 }
 
-static const struct {
+static inline void get_channel_str(AVBPrint *bp, const char *str,
+                                   enum AVChannel channel_id)
+{
+    if (str)
+        av_bprintf(bp, "%s", str);
+    else
+        av_bprintf(bp, "?");
+}
+
+int av_channel_name(char *buf, size_t buf_size, enum AVChannel channel_id)
+{
+    AVBPrint bp;
+
+    if (!buf && buf_size)
+        return AVERROR(EINVAL);
+
+    av_bprint_init_for_buffer(&bp, buf, buf_size);
+    get_channel_str(&bp, (unsigned)channel_id < FF_ARRAY_ELEMS(channel_names) ?
+                         channel_names[channel_id].name : NULL, channel_id);
+
+    return bp.len;
+}
+int av_channel_description(char *buf, size_t buf_size, enum AVChannel channel_id)
+{
+    AVBPrint bp;
+
+    if (!buf && buf_size)
+        return AVERROR(EINVAL);
+
+    av_bprint_init_for_buffer(&bp, buf, buf_size);
+    get_channel_str(&bp, (unsigned)channel_id < FF_ARRAY_ELEMS(channel_names) ?
+                         channel_names[channel_id].description : NULL, channel_id);
+
+    return bp.len;
+}
+
+enum AVChannel av_channel_from_string(const char *str)
+{
+    int i;
+    for (i = 0; i < FF_ARRAY_ELEMS(channel_names); i++) {
+        if (channel_names[i].name && !strcmp(str, channel_names[i].name))
+            return i;
+    }
+    return AV_CHAN_NONE;
+}
+
+struct channel_layout_name {
     const char *name;
-    int         nb_channels;
-    uint64_t     layout;
-} channel_layout_map[] = {
-    { "mono",        1,  AV_CH_LAYOUT_MONO },
-    { "stereo",      2,  AV_CH_LAYOUT_STEREO },
-    { "2.1",         3,  AV_CH_LAYOUT_2POINT1 },
-    { "3.0",         3,  AV_CH_LAYOUT_SURROUND },
-    { "3.0(back)",   3,  AV_CH_LAYOUT_2_1 },
-    { "4.0",         4,  AV_CH_LAYOUT_4POINT0 },
-    { "quad",        4,  AV_CH_LAYOUT_QUAD },
-    { "quad(side)",  4,  AV_CH_LAYOUT_2_2 },
-    { "3.1",         4,  AV_CH_LAYOUT_3POINT1 },
-    { "5.0",         5,  AV_CH_LAYOUT_5POINT0_BACK },
-    { "5.0(side)",   5,  AV_CH_LAYOUT_5POINT0 },
-    { "4.1",         5,  AV_CH_LAYOUT_4POINT1 },
-    { "5.1",         6,  AV_CH_LAYOUT_5POINT1_BACK },
-    { "5.1(side)",   6,  AV_CH_LAYOUT_5POINT1 },
-    { "6.0",         6,  AV_CH_LAYOUT_6POINT0 },
-    { "6.0(front)",  6,  AV_CH_LAYOUT_6POINT0_FRONT },
-    { "hexagonal",   6,  AV_CH_LAYOUT_HEXAGONAL },
-    { "6.1",         7,  AV_CH_LAYOUT_6POINT1 },
-    { "6.1(back)",   7,  AV_CH_LAYOUT_6POINT1_BACK },
-    { "6.1(front)",  7,  AV_CH_LAYOUT_6POINT1_FRONT },
-    { "7.0",         7,  AV_CH_LAYOUT_7POINT0 },
-    { "7.0(front)",  7,  AV_CH_LAYOUT_7POINT0_FRONT },
-    { "7.1",         8,  AV_CH_LAYOUT_7POINT1 },
-    { "7.1(wide)",   8,  AV_CH_LAYOUT_7POINT1_WIDE_BACK },
-    { "7.1(wide-side)",   8,  AV_CH_LAYOUT_7POINT1_WIDE },
-    { "octagonal",   8,  AV_CH_LAYOUT_OCTAGONAL },
-    { "hexadecagonal", 16, AV_CH_LAYOUT_HEXADECAGONAL },
-    { "downmix",     2,  AV_CH_LAYOUT_STEREO_DOWNMIX, },
-    { "22.2",          24, AV_CH_LAYOUT_22POINT2, },
+    AVChannelLayout layout;
 };
 
+static const struct channel_layout_name channel_layout_map[] = {
+    { "mono",           AV_CHANNEL_LAYOUT_MONO                },
+    { "stereo",         AV_CHANNEL_LAYOUT_STEREO              },
+    { "stereo",         AV_CHANNEL_LAYOUT_STEREO_DOWNMIX      },
+    { "2.1",            AV_CHANNEL_LAYOUT_2POINT1             },
+    { "3.0",            AV_CHANNEL_LAYOUT_SURROUND            },
+    { "3.0(back)",      AV_CHANNEL_LAYOUT_2_1                 },
+    { "4.0",            AV_CHANNEL_LAYOUT_4POINT0             },
+    { "quad",           AV_CHANNEL_LAYOUT_QUAD                },
+    { "quad(side)",     AV_CHANNEL_LAYOUT_2_2                 },
+    { "3.1",            AV_CHANNEL_LAYOUT_3POINT1             },
+    { "5.0",            AV_CHANNEL_LAYOUT_5POINT0_BACK        },
+    { "5.0(side)",      AV_CHANNEL_LAYOUT_5POINT0             },
+    { "4.1",            AV_CHANNEL_LAYOUT_4POINT1             },
+    { "5.1",            AV_CHANNEL_LAYOUT_5POINT1_BACK        },
+    { "5.1(side)",      AV_CHANNEL_LAYOUT_5POINT1             },
+    { "6.0",            AV_CHANNEL_LAYOUT_6POINT0             },
+    { "6.0(front)",     AV_CHANNEL_LAYOUT_6POINT0_FRONT       },
+    { "hexagonal",      AV_CHANNEL_LAYOUT_HEXAGONAL           },
+    { "6.1",            AV_CHANNEL_LAYOUT_6POINT1             },
+    { "6.1(back)",      AV_CHANNEL_LAYOUT_6POINT1_BACK        },
+    { "6.1(front)",     AV_CHANNEL_LAYOUT_6POINT1_FRONT       },
+    { "7.0",            AV_CHANNEL_LAYOUT_7POINT0             },
+    { "7.0(front)",     AV_CHANNEL_LAYOUT_7POINT0_FRONT       },
+    { "7.1",            AV_CHANNEL_LAYOUT_7POINT1             },
+    { "7.1(wide)",      AV_CHANNEL_LAYOUT_7POINT1_WIDE_BACK   },
+    { "7.1(wide-side)", AV_CHANNEL_LAYOUT_7POINT1_WIDE        },
+    { "octagonal",      AV_CHANNEL_LAYOUT_OCTAGONAL           },
+    { "hexadecagonal",  AV_CHANNEL_LAYOUT_HEXADECAGONAL       },
+    { "downmix",        AV_CHANNEL_LAYOUT_STEREO_DOWNMIX,     },
+    { "22.2",           AV_CHANNEL_LAYOUT_22POINT2,           },
+};
+
+#if FF_API_OLD_CHANNEL_LAYOUT
+FF_DISABLE_DEPRECATION_WARNINGS
 static uint64_t get_channel_layout_single(const char *name, int name_len)
 {
     int i;
@@ -121,7 +172,7 @@ static uint64_t get_channel_layout_single(const char *name, int name_len)
     for (i = 0; i < FF_ARRAY_ELEMS(channel_layout_map); i++) {
         if (strlen(channel_layout_map[i].name) == name_len &&
             !memcmp(channel_layout_map[i].name, name, name_len))
-            return channel_layout_map[i].layout;
+            return channel_layout_map[i].layout.u.mask;
     }
     for (i = 0; i < FF_ARRAY_ELEMS(channel_names); i++)
         if (channel_names[i].name &&
@@ -189,8 +240,8 @@ void av_bprint_channel_layout(struct AVBPrint *bp,
         nb_channels = av_get_channel_layout_nb_channels(channel_layout);
 
     for (i = 0; i < FF_ARRAY_ELEMS(channel_layout_map); i++)
-        if (nb_channels    == channel_layout_map[i].nb_channels &&
-            channel_layout == channel_layout_map[i].layout) {
+        if (nb_channels    == channel_layout_map[i].layout.nb_channels &&
+            channel_layout == channel_layout_map[i].layout.u.mask) {
             av_bprintf(bp, "%s", channel_layout_map[i].name);
             return;
         }
@@ -231,8 +282,8 @@ int av_get_channel_layout_nb_channels(uint64_t channel_layout)
 int64_t av_get_default_channel_layout(int nb_channels) {
     int i;
     for (i = 0; i < FF_ARRAY_ELEMS(channel_layout_map); i++)
-        if (nb_channels == channel_layout_map[i].nb_channels)
-            return channel_layout_map[i].layout;
+        if (nb_channels == channel_layout_map[i].layout.nb_channels)
+            return channel_layout_map[i].layout.u.mask;
     return 0;
 }
 
@@ -287,7 +338,310 @@ int av_get_standard_channel_layout(unsigned index, uint64_t *layout,
 {
     if (index >= FF_ARRAY_ELEMS(channel_layout_map))
         return AVERROR_EOF;
-    if (layout) *layout = channel_layout_map[index].layout;
+    if (layout) *layout = channel_layout_map[index].layout.u.mask;
     if (name)   *name   = channel_layout_map[index].name;
     return 0;
+}
+FF_ENABLE_DEPRECATION_WARNINGS
+#endif
+
+int av_channel_layout_from_mask(AVChannelLayout *channel_layout,
+                                uint64_t mask)
+{
+    if (!mask)
+        return AVERROR(EINVAL);
+
+    channel_layout->order       = AV_CHANNEL_ORDER_NATIVE;
+    channel_layout->nb_channels = av_popcount64(mask);
+    channel_layout->u.mask      = mask;
+
+    return 0;
+}
+
+int av_channel_layout_from_string(AVChannelLayout *channel_layout,
+                                  const char *str)
+{
+    int i, channels;
+    const char *dup = str;
+    char *end;
+    uint64_t mask = 0;
+
+    /* channel layout names */
+    for (i = 0; i < FF_ARRAY_ELEMS(channel_layout_map); i++) {
+        if (channel_layout_map[i].name && !strcmp(str, channel_layout_map[i].name)) {
+            *channel_layout = channel_layout_map[i].layout;
+            return 0;
+        }
+    }
+
+    /* channel names */
+    while (*dup) {
+        char *chname = av_get_token(&dup, "|");
+        if (!chname)
+            return AVERROR(ENOMEM);
+        if (*dup)
+            dup++; // skip separator
+        for (i = 0; i < FF_ARRAY_ELEMS(channel_names); i++) {
+            if (channel_names[i].name && !strcmp(chname, channel_names[i].name)) {
+                mask |= 1ULL << i;
+            }
+        }
+        av_free(chname);
+    }
+    if (mask) {
+        av_channel_layout_from_mask(channel_layout, mask);
+        return 0;
+    }
+
+    /* channel layout mask */
+    if (!strncmp(str, "0x", 2) && sscanf(str + 2, "%"SCNx64, &mask) == 1) {
+        av_channel_layout_from_mask(channel_layout, mask);
+        return 0;
+    }
+
+    errno = 0;
+    channels = strtol(str, &end, 10);
+
+    /* number of channels */
+    if (!errno && *end == 'c' && !*(end + 1) && channels >= 0) {
+        av_channel_layout_default(channel_layout, channels);
+        return 0;
+    }
+
+    /* number of unordered channels */
+    if (!errno && (!*end || av_strnstr(str, "channels", strlen(str))) && channels >= 0) {
+        channel_layout->order = AV_CHANNEL_ORDER_UNSPEC;
+        channel_layout->nb_channels = channels;
+        return 0;
+    }
+
+    return AVERROR_INVALIDDATA;
+}
+
+void av_channel_layout_uninit(AVChannelLayout *channel_layout)
+{
+    if (channel_layout->order == AV_CHANNEL_ORDER_CUSTOM)
+        av_freep(&channel_layout->u.map);
+    memset(channel_layout, 0, sizeof(*channel_layout));
+}
+
+int av_channel_layout_copy(AVChannelLayout *dst, const AVChannelLayout *src)
+{
+    av_channel_layout_uninit(dst);
+    *dst = *src;
+    if (src->order == AV_CHANNEL_ORDER_CUSTOM) {
+        dst->u.map = av_malloc(src->nb_channels * sizeof(*dst->u.map));
+        if (!dst->u.map)
+            return AVERROR(ENOMEM);
+        memcpy(dst->u.map, src->u.map, src->nb_channels * sizeof(*src->u.map));
+    }
+    return 0;
+}
+
+int av_channel_layout_describe(const AVChannelLayout *channel_layout,
+                               char *buf, size_t buf_size)
+{
+    AVBPrint bp;
+    int i;
+
+    if (!buf && buf_size)
+        return AVERROR(EINVAL);
+
+    av_bprint_init_for_buffer(&bp, buf, buf_size);
+
+    switch (channel_layout->order) {
+    case AV_CHANNEL_ORDER_NATIVE:
+        for (i = 0; i < FF_ARRAY_ELEMS(channel_layout_map); i++)
+            if (channel_layout->u.mask == channel_layout_map[i].layout.u.mask) {
+                av_bprintf(&bp, "%s", channel_layout_map[i].name);
+                return bp.len;
+            }
+        // fall-through
+    case AV_CHANNEL_ORDER_CUSTOM:
+        for (i = 0; i < channel_layout->nb_channels; i++) {
+            enum AVChannel ch = av_channel_layout_channel_from_index(channel_layout, i);
+            const char *ch_name = get_channel_name(ch);
+
+            if (i)
+                av_bprintf(&bp, "|");
+            av_bprintf(&bp, "%s", ch_name);
+        }
+        if (channel_layout->nb_channels)
+            return bp.len;
+        // fall-through
+    case AV_CHANNEL_ORDER_UNSPEC:
+        av_bprintf(&bp, "%d channels", channel_layout->nb_channels);
+        return bp.len;
+    default:
+        return AVERROR(EINVAL);
+    }
+}
+
+enum AVChannel
+av_channel_layout_channel_from_index(const AVChannelLayout *channel_layout,
+                                     unsigned int idx)
+{
+    int i;
+
+    if (idx >= channel_layout->nb_channels)
+        return AV_CHAN_NONE;
+
+    switch (channel_layout->order) {
+    case AV_CHANNEL_ORDER_CUSTOM:
+        return channel_layout->u.map[idx].id;
+    case AV_CHANNEL_ORDER_NATIVE:
+        for (i = 0; i < 64; i++) {
+            if ((1ULL << i) & channel_layout->u.mask && !idx--)
+                return i;
+        }
+    default:
+        return AV_CHAN_NONE;
+    }
+}
+
+enum AVChannel
+av_channel_layout_channel_from_string(const AVChannelLayout *channel_layout,
+                                      const char *name)
+{
+    enum AVChannel;
+    int channel, ret;
+
+    switch (channel_layout->order) {
+    case AV_CHANNEL_ORDER_CUSTOM:
+    case AV_CHANNEL_ORDER_NATIVE:
+        channel = av_channel_from_string(name);
+        if (channel < 0)
+            return channel;
+        ret = av_channel_layout_index_from_channel(channel_layout, channel);
+        if (ret < 0)
+            return ret;
+        return channel;
+    }
+
+    return AV_CHAN_NONE;
+}
+
+int av_channel_layout_index_from_channel(const AVChannelLayout *channel_layout,
+                                         enum AVChannel channel)
+{
+    int i;
+
+    switch (channel_layout->order) {
+    case AV_CHANNEL_ORDER_CUSTOM:
+        for (i = 0; i < channel_layout->nb_channels; i++)
+            if (channel_layout->u.map[i].id == channel)
+                return i;
+        return AVERROR(EINVAL);
+    case AV_CHANNEL_ORDER_NATIVE: {
+        uint64_t mask = channel_layout->u.mask;
+        if (!(mask & (1ULL << channel)))
+            return AVERROR(EINVAL);
+        mask &= (1ULL << channel) - 1;
+        return av_popcount64(mask);
+        }
+    default:
+        return AVERROR(EINVAL);
+    }
+}
+
+int av_channel_layout_index_from_string(const AVChannelLayout *channel_layout,
+                                        const char *name)
+{
+    int ret;
+
+    if (channel_layout->order == AV_CHANNEL_ORDER_UNSPEC)
+        return AVERROR(EINVAL);
+
+    ret = av_channel_from_string(name);
+    if (ret < 0)
+        return ret;
+    return av_channel_layout_index_from_channel(channel_layout, ret);
+}
+
+int av_channel_layout_check(const AVChannelLayout *channel_layout)
+{
+    if (channel_layout->nb_channels <= 0)
+        return 0;
+
+    switch (channel_layout->order) {
+    case AV_CHANNEL_ORDER_NATIVE:
+        return av_popcount64(channel_layout->u.mask) == channel_layout->nb_channels;
+    case AV_CHANNEL_ORDER_CUSTOM:
+        return !!channel_layout->u.map;
+    case AV_CHANNEL_ORDER_UNSPEC:
+        return 1;
+    default:
+        return 0;
+    }
+}
+
+int av_channel_layout_compare(const AVChannelLayout *chl, const AVChannelLayout *chl1)
+{
+    int i;
+
+    /* different channel counts -> not equal */
+    if (chl->nb_channels != chl1->nb_channels)
+        return 1;
+
+    /* if only one is unspecified -> not equal */
+    if ((chl->order  == AV_CHANNEL_ORDER_UNSPEC) !=
+        (chl1->order == AV_CHANNEL_ORDER_UNSPEC))
+        return 1;
+    /* both are unspecified -> equal */
+    else if (chl->order == AV_CHANNEL_ORDER_UNSPEC)
+        return 0;
+
+    /* can compare masks directly */
+    if (chl->order != AV_CHANNEL_ORDER_CUSTOM &&
+        chl->order == chl1->order)
+        return chl->u.mask != chl1->u.mask;
+
+    /* compare channel by channel */
+    for (i = 0; i < chl->nb_channels; i++)
+        if (av_channel_layout_channel_from_index(chl,  i) !=
+            av_channel_layout_channel_from_index(chl1, i))
+            return 1;
+    return 0;
+}
+
+void av_channel_layout_default(AVChannelLayout *ch_layout, int nb_channels)
+{
+    int i;
+    for (i = 0; i < FF_ARRAY_ELEMS(channel_layout_map); i++)
+        if (nb_channels == channel_layout_map[i].layout.nb_channels) {
+            *ch_layout = channel_layout_map[i].layout;
+            return;
+        }
+
+    ch_layout->order       = AV_CHANNEL_ORDER_UNSPEC;
+    ch_layout->nb_channels = nb_channels;
+}
+
+const AVChannelLayout *av_channel_layout_standard(void **opaque)
+{
+    uintptr_t i = (uintptr_t)*opaque;
+    const AVChannelLayout *ch_layout = NULL;
+
+    if (i < FF_ARRAY_ELEMS(channel_layout_map)) {
+        ch_layout = &channel_layout_map[i].layout;
+        *opaque = (void*)(i + 1);
+    }
+
+    return ch_layout;
+}
+
+uint64_t av_channel_layout_subset(const AVChannelLayout *channel_layout,
+                                  uint64_t mask)
+{
+    uint64_t ret = 0;
+    int i;
+
+    if (channel_layout->order == AV_CHANNEL_ORDER_NATIVE)
+        return channel_layout->u.mask & mask;
+
+    for (i = 0; i < 64; i++)
+        if (mask & (1ULL << i) && av_channel_layout_index_from_channel(channel_layout, i) >= 0)
+            ret |= (1ULL << i);
+
+    return ret;
 }
