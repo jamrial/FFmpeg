@@ -32,6 +32,7 @@ HEADERS = adler32.h                                                     \
           lfg.h                                                         \
           log.h                                                         \
           mathematics.h                                                 \
+          md4.h                                                         \
           md5.h                                                         \
           mem.h                                                         \
           murmur3.h                                                     \
@@ -94,6 +95,7 @@ OBJS = adler32.o                                                        \
        log.o                                                            \
        log2_tab.o                                                       \
        mathematics.o                                                    \
+       md4.o                                                            \
        md5.o                                                            \
        mem.o                                                            \
        murmur3.o                                                        \
@@ -144,6 +146,7 @@ TESTPROGS = adler32                                                     \
             hmac                                                        \
             lfg                                                         \
             lls                                                         \
+            md4                                                         \
             md5                                                         \
             murmur3                                                     \
             opt                                                         \

@@ -79,6 +79,7 @@ Other:
   integer.c, integer.h                  Michael Niedermayer
   lzo                                   Reimar Doeffinger
   mathematics.c, mathematics.h          Michael Niedermayer
+  md4.c, md4.h                          James Almer
   mem.c, mem.h                          Michael Niedermayer
   opencl.c, opencl.h                    Wei Gao
   opt.c, opt.h                          Michael Niedermayer
