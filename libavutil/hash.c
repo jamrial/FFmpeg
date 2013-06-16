@@ -22,6 +22,7 @@
 
 #include "adler32.h"
 #include "crc.h"
+#include "md4.h"
 #include "md5.h"
 #include "murmur3.h"
 #include "ripemd.h"
@@ -34,6 +35,7 @@
 #include "mem.h"
 
 enum hashtype {
+    MD4,
     MD5,
     MURMUR3,
     RIPEMD128,
@@ -63,6 +65,7 @@ struct {
     const char *name;
     int size;
 } hashdesc[] = {
+    [MD4]     = {"MD4",     16},
     [MD5]     = {"MD5",     16},
     [MURMUR3] = {"murmur3", 16},
     [RIPEMD128] = {"RIPEMD128", 16},
@@ -109,6 +112,7 @@ int av_hash_alloc(AVHashContext **ctx, const char *name)
     if (!res) return AVERROR(ENOMEM);
     res->type = i;
     switch (i) {
+    case MD4:     res->ctx = av_md4_alloc(); break;
     case MD5:     res->ctx = av_md5_alloc(); break;
     case MURMUR3: res->ctx = av_murmur3_alloc(); break;
     case RIPEMD128:
@@ -136,6 +140,7 @@ int av_hash_alloc(AVHashContext **ctx, const char *name)
 void av_hash_init(AVHashContext *ctx)
 {
     switch (ctx->type) {
+    case MD4:     av_md4_init(ctx->ctx); break;
     case MD5:     av_md5_init(ctx->ctx); break;
     case MURMUR3: av_murmur3_init(ctx->ctx); break;
     case RIPEMD128: av_ripemd_init(ctx->ctx, 128); break;
@@ -157,6 +162,7 @@ void av_hash_init(AVHashContext *ctx)
 void av_hash_update(AVHashContext *ctx, const uint8_t *src, int len)
 {
     switch (ctx->type) {
+    case MD4:     av_md4_update(ctx->ctx, src, len); break;
     case MD5:     av_md5_update(ctx->ctx, src, len); break;
     case MURMUR3: av_murmur3_update(ctx->ctx, src, len); break;
     case RIPEMD128:
@@ -178,6 +184,7 @@ void av_hash_update(AVHashContext *ctx, const uint8_t *src, int len)
 void av_hash_final(AVHashContext *ctx, uint8_t *dst)
 {
     switch (ctx->type) {
+    case MD4:     av_md4_final(ctx->ctx, dst); break;
     case MD5:     av_md5_final(ctx->ctx, dst); break;
     case MURMUR3: av_murmur3_final(ctx->ctx, dst); break;
     case RIPEMD128:
