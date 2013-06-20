@@ -22,6 +22,7 @@
 
 #include "adler32.h"
 #include "crc.h"
+#include "crc64.h"
 #include "md4.h"
 #include "md5.h"
 #include "murmur3.h"
@@ -50,6 +51,7 @@ enum hashtype {
     SHA384,
     SHA512,
     CRC32,
+    CRC64,
     ADLER32,
     NUM_HASHES
 };
@@ -58,7 +60,9 @@ typedef struct AVHashContext {
     void *ctx;
     enum hashtype type;
     const AVCRC *crctab;
+    const AVCRC64 *crc64tab;
     uint32_t crc;
+    uint64_t crc64;
 } AVHashContext;
 
 struct {
@@ -80,6 +84,7 @@ struct {
     [SHA384]  = {"SHA384",  48},
     [SHA512]  = {"SHA512",  64},
     [CRC32]   = {"CRC32",    4},
+    [CRC64]   = {"CRC64",    8},
     [ADLER32] = {"adler32",  4},
 };
 
@@ -127,9 +132,10 @@ int av_hash_alloc(AVHashContext **ctx, const char *name)
     case SHA384:
     case SHA512:  res->ctx = av_sha512_alloc(); break;
     case CRC32:   res->crctab = av_crc_get_table(AV_CRC_32_IEEE_LE); break;
+    case CRC64:   res->crc64tab = av_crc64_get_table(AV_CRC64_64_ECMA_LE); break;
     case ADLER32: break;
     }
-    if (i != ADLER32 && i != CRC32 && !res->ctx) {
+    if (i != ADLER32 && i != CRC32 && i != CRC64 && !res->ctx) {
         av_free(res);
         return AVERROR(ENOMEM);
     }
@@ -155,6 +161,7 @@ void av_hash_init(AVHashContext *ctx)
     case SHA384:  av_sha512_init(ctx->ctx, 384); break;
     case SHA512:  av_sha512_init(ctx->ctx, 512); break;
     case CRC32:   ctx->crc = UINT32_MAX; break;
+    case CRC64:   ctx->crc64 = UINT64_MAX; break;
     case ADLER32: ctx->crc = 1; break;
     }
 }
@@ -177,6 +184,7 @@ void av_hash_update(AVHashContext *ctx, const uint8_t *src, int len)
     case SHA384:
     case SHA512:  av_sha512_update(ctx->ctx, src, len); break;
     case CRC32:   ctx->crc = av_crc(ctx->crctab, ctx->crc, src, len); break;
+    case CRC64:   ctx->crc64 = av_crc64(ctx->crc64tab, ctx->crc64, src, len); break;
     case ADLER32: ctx->crc = av_adler32_update(ctx->crc, src, len); break;
     }
 }
@@ -199,6 +207,7 @@ void av_hash_final(AVHashContext *ctx, uint8_t *dst)
     case SHA384:
     case SHA512:  av_sha512_final(ctx->ctx, dst); break;
     case CRC32:   AV_WB32(dst, ctx->crc ^ UINT32_MAX); break;
+    case CRC64:   AV_WB64(dst, ctx->crc64 ^ UINT64_MAX); break;
     case ADLER32: AV_WB32(dst, ctx->crc); break;
     }
 }
