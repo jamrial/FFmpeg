@@ -19,6 +19,7 @@ HEADERS = adler32.h                                                     \
           common.h                                                      \
           cpu.h                                                         \
           crc.h                                                         \
+          crc64.h                                                       \
           error.h                                                       \
           eval.h                                                        \
           fifo.h                                                        \
@@ -77,6 +78,7 @@ OBJS = adler32.o                                                        \
        channel_layout.o                                                 \
        cpu.o                                                            \
        crc.o                                                            \
+       crc64.o                                                          \
        des.o                                                            \
        error.o                                                          \
        eval.o                                                           \
@@ -138,6 +140,7 @@ TESTPROGS = adler32                                                     \
             bprint                                                      \
             cpu                                                         \
             crc                                                         \
+            crc64                                                       \
             des                                                         \
             error                                                       \
             eval                                                        \

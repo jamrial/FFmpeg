@@ -70,6 +70,7 @@ Internal Interfaces:
 
 Other:
   bprint                                Nicolas George
+  crc64.c, crc64.h                      James Almer
   bswap.h
   des                                   Reimar Doeffinger
   eval.c, eval.h                        Michael Niedermayer
