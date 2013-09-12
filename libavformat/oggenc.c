@@ -57,6 +57,7 @@ typedef struct {
     OGGPage page; ///< current page
     unsigned serial_num; ///< serial number
     int64_t last_granule; ///< last packet granule
+    int pcm;
 } OGGStreamContext;
 
 typedef struct OGGPageList {
@@ -398,6 +399,59 @@ static int ogg_build_opus_headers(AVCodecContext *avctx,
     return 0;
 }
 
+#define PCM_HEADER_SIZE 28
+
+static int ogg_pcm_get_format_id(int codec_id)
+{
+    switch (codec_id) {
+    case AV_CODEC_ID_PCM_S8:    return 0x00;
+    case AV_CODEC_ID_PCM_U8:    return 0x01;
+    case AV_CODEC_ID_PCM_S16LE: return 0x02;
+    case AV_CODEC_ID_PCM_S16BE: return 0x03;
+    case AV_CODEC_ID_PCM_S24LE: return 0x04;
+    case AV_CODEC_ID_PCM_S24BE: return 0x05;
+    case AV_CODEC_ID_PCM_S32LE: return 0x06;
+    case AV_CODEC_ID_PCM_S32BE: return 0x07;
+    case AV_CODEC_ID_PCM_F32LE: return 0x20;
+    case AV_CODEC_ID_PCM_F32BE: return 0x21;
+    case AV_CODEC_ID_PCM_F64LE: return 0x22;
+    case AV_CODEC_ID_PCM_F64BE: return 0x23;
+    }
+
+    return -1;
+}
+
+static int ogg_build_pcm_headers(AVCodecContext *avctx,
+                                 OGGStreamContext *oggstream, int bitexact,
+                                 AVDictionary **m)
+{
+    uint8_t *p;
+
+    /* first packet: PCM header */
+    p = av_mallocz(PCM_HEADER_SIZE);
+    if (!p)
+        return AVERROR(ENOMEM);
+    oggstream->header[0] = p;
+    oggstream->header_len[0] = PCM_HEADER_SIZE;
+    bytestream_put_buffer(&p, "PCM     ", 8);
+    bytestream_put_be16(&p, 0); // major version
+    bytestream_put_be16(&p, 0); // minor version
+    bytestream_put_be32(&p, oggstream->pcm);
+    bytestream_put_be32(&p, avctx->sample_rate);
+    bytestream_put_byte(&p, 0); // Significant bits. 0 = same as format.
+    bytestream_put_byte(&p, avctx->channels);
+    bytestream_put_be16(&p, 0); // FIXME: Max frames per packet. 0 = UINT16_MAX.
+    bytestream_put_be32(&p, 0); // TODO: Channel mapping and conversion extra headers.
+
+    /* second packet: VorbisComment */
+    p = ogg_write_vorbiscomment(0, bitexact, &oggstream->header_len[1], m, 0);
+    if (!p)
+        return AVERROR(ENOMEM);
+    oggstream->header[1] = p;
+
+    return 0;
+}
+
 static int ogg_write_header(AVFormatContext *s)
 {
     OGGContext *ogg = s->priv_data;
@@ -410,6 +464,7 @@ static int ogg_write_header(AVFormatContext *s)
     for (i = 0; i < s->nb_streams; i++) {
         AVStream *st = s->streams[i];
         unsigned serial_num = i;
+        int pcm = -1;
 
         if (st->codec->codec_type == AVMEDIA_TYPE_AUDIO) {
             if (st->codec->codec_id == AV_CODEC_ID_OPUS)
@@ -423,17 +478,19 @@ static int ogg_write_header(AVFormatContext *s)
             st->codec->codec_id != AV_CODEC_ID_THEORA &&
             st->codec->codec_id != AV_CODEC_ID_SPEEX  &&
             st->codec->codec_id != AV_CODEC_ID_FLAC   &&
-            st->codec->codec_id != AV_CODEC_ID_OPUS) {
+            st->codec->codec_id != AV_CODEC_ID_OPUS   &&
+            (pcm = ogg_pcm_get_format_id(st->codec->codec_id)) < 0) {
             av_log(s, AV_LOG_ERROR, "Unsupported codec id in stream %d\n", i);
             return -1;
         }
 
-        if (!st->codec->extradata || !st->codec->extradata_size) {
+        if ((!st->codec->extradata || !st->codec->extradata_size) && pcm < 0) {
             av_log(s, AV_LOG_ERROR, "No extradata present\n");
             return -1;
         }
         oggstream = av_mallocz(sizeof(*oggstream));
         oggstream->page.stream_index = i;
+        oggstream->pcm = pcm;
 
         if (!(st->codec->flags & CODEC_FLAG_BITEXACT))
             do {
@@ -473,6 +530,15 @@ static int ogg_write_header(AVFormatContext *s)
                                              &st->metadata);
             if (err) {
                 av_log(s, AV_LOG_ERROR, "Error writing Opus headers\n");
+                av_freep(&st->priv_data);
+                return err;
+            }
+        } else if (oggstream->pcm >= 0) {
+            int err = ogg_build_pcm_headers(st->codec, oggstream,
+                                            st->codec->flags & CODEC_FLAG_BITEXACT,
+                                            &st->metadata);
+            if (err) {
+                av_log(s, AV_LOG_ERROR, "Error writing PCM headers\n");
                 av_freep(&st->priv_data);
                 return err;
             }
@@ -613,7 +679,8 @@ static int ogg_write_trailer(AVFormatContext *s)
         OGGStreamContext *oggstream = st->priv_data;
         if (st->codec->codec_id == AV_CODEC_ID_FLAC ||
             st->codec->codec_id == AV_CODEC_ID_SPEEX ||
-            st->codec->codec_id == AV_CODEC_ID_OPUS) {
+            st->codec->codec_id == AV_CODEC_ID_OPUS ||
+            oggstream->pcm >= 0) {
             av_freep(&oggstream->header[0]);
         }
         av_freep(&oggstream->header[1]);
