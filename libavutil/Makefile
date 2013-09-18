@@ -49,6 +49,7 @@ HEADERS = adler32.h                                                     \
           samplefmt.h                                                   \
           sha.h                                                         \
           sha512.h                                                      \
+          tiger.h                                                       \
           time.h                                                        \
           timecode.h                                                    \
           timestamp.h                                                   \
@@ -112,6 +113,7 @@ OBJS = adler32.o                                                        \
        samplefmt.o                                                      \
        sha.o                                                            \
        sha512.o                                                         \
+       tiger.o                                                          \
        time.o                                                           \
        timecode.o                                                       \
        tree.o                                                           \
@@ -160,6 +162,7 @@ TESTPROGS = adler32                                                     \
             ripemd                                                      \
             sha                                                         \
             sha512                                                      \
+            tiger                                                       \
             tree                                                        \
             xtea                                                        \
 

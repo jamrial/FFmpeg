@@ -86,6 +86,10 @@ FATE_LIBAVUTIL += fate-sha512
 fate-sha512: libavutil/sha512-test$(EXESUF)
 fate-sha512: CMD = run libavutil/sha512-test
 
+FATE_LIBAVUTIL += fate-tiger
+fate-tiger: libavutil/tiger-test$(EXESUF)
+fate-tiger: CMD = run libavutil/tiger-test
+
 FATE_LIBAVUTIL += fate-tree
 fate-tree: libavutil/tree-test$(EXESUF)
 fate-tree: CMD = run libavutil/tree-test

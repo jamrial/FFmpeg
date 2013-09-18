@@ -87,6 +87,7 @@ Other:
   rational.c, rational.h                Michael Niedermayer
   rc4                                   Reimar Doeffinger
   ripemd.c, ripemd.h                    James Almer
+  tiger.c, tiger.h                      James Almer
   timecode                              Clément Bœsch
 
 
