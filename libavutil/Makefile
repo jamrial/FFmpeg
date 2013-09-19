@@ -54,6 +54,7 @@ HEADERS = adler32.h                                                     \
           timecode.h                                                    \
           timestamp.h                                                   \
           version.h                                                     \
+          whirlpool.h                                                   \
           xtea.h                                                        \
 
 HEADERS-$(CONFIG_LZO)                   += lzo.h
@@ -118,6 +119,7 @@ OBJS = adler32.o                                                        \
        timecode.o                                                       \
        tree.o                                                           \
        utils.o                                                          \
+       whirlpool.o                                                      \
        xga_font_data.o                                                  \
        xtea.o                                                           \
 
@@ -164,6 +166,7 @@ TESTPROGS = adler32                                                     \
             sha512                                                      \
             tiger                                                       \
             tree                                                        \
+            whirlpool                                                   \
             xtea                                                        \
 
 TESTPROGS-$(HAVE_LZO1X_999_COMPRESS) += lzo

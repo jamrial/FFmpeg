@@ -89,6 +89,7 @@ Other:
   ripemd.c, ripemd.h                    James Almer
   tiger.c, tiger.h                      James Almer
   timecode                              Clément Bœsch
+  whirlpool.c whirlpool.h               James Almer
 
 
 libavcodec
