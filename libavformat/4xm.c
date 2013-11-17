@@ -108,6 +108,9 @@ static int parse_vtrk(AVFormatContext *s,
         return AVERROR(ENOMEM);
 
     avpriv_set_pts_info(st, 60, fourxm->fps.den, fourxm->fps.num);
+    st->avg_frame_rate = fourxm->fps;
+
+    st->ts_flags = AVFORMAT_TS_FLAG_RATE | AVFORMAT_TS_FLAG_PTS;
 
     fourxm->video_stream_index = st->index;
 
@@ -185,6 +188,8 @@ static int parse_strk(AVFormatContext *s,
 
     st->id = track;
     avpriv_set_pts_info(st, 60, 1, fourxm->tracks[track].sample_rate);
+
+    st->ts_flags = AVFORMAT_TS_FLAG_PTS;
 
     fourxm->tracks[track].stream_index = st->index;
 
