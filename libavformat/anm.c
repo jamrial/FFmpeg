@@ -82,7 +82,7 @@ static int read_header(AVFormatContext *s)
     AnmDemuxContext *anm = s->priv_data;
     AVIOContext *pb = s->pb;
     AVStream *st;
-    int i, ret;
+    int i, ret, fps;
 
     avio_skip(pb, 4); /* magic number */
     if (avio_rl16(pb) != MAX_PAGES) {
@@ -129,7 +129,18 @@ static int read_header(AVFormatContext *s)
 
     avio_skip(pb, 32); /* record_types */
     st->nb_frames = avio_rl32(pb);
-    avpriv_set_pts_info(st, 64, 1, avio_rl16(pb));
+
+    fps = avio_rl16(pb);
+    if (!fps) {
+        av_log(s, AV_LOG_ERROR, "Invalid framerate.\n");
+        goto invalid;
+    }
+
+    avpriv_set_pts_info(st, 64, 1, fps);
+    st->avg_frame_rate = (AVRational){ fps, 1 };
+
+    st->ts_flags = AVFORMAT_TS_FLAG_RATE;
+
     avio_skip(pb, 58);
 
     /* color cycling and palette data */
