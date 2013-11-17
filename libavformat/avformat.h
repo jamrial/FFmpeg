@@ -833,6 +833,34 @@ const char *av_disposition_to_string(int disposition);
 #define AV_PTS_WRAP_ADD_OFFSET  1   ///< add the format specific offset on wrap detection
 #define AV_PTS_WRAP_SUB_OFFSET  -1  ///< subtract the format specific offset on wrap detection
 
+enum AVFormatTSFlags {
+    /**
+     * Video only. Frame rate information is stored in the container, exported
+     * in AVStream.avg_frame_rate.
+     */
+    AVFORMAT_TS_FLAG_RATE       = (1 << 0),
+
+    /**
+     * Presentation timestamps are stored in the container.
+     */
+    AVFORMAT_TS_FLAG_PTS        = (1 << 1),
+
+    /**
+     * Decoding timestamps are stored in the container.
+     */
+    AVFORMAT_TS_FLAG_DTS        = (1 << 2),
+
+    /**
+     * Packet durations are stored in the container.
+     */
+    AVFORMAT_TS_FLAG_DURATION   = (1 << 3),
+
+    /**
+     * The timestamps (PTS, DTS, durations) may be missing for some of the packets.
+     */
+    AVFORMAT_TS_FLAG_SPARSE     = (1 << 4),
+};
+
 /**
  * Stream structure.
  * New fields can be added to the end with minor version bumps.
@@ -1016,6 +1044,14 @@ typedef struct AVStream {
      *
      */
     int pts_wrap_bits;
+
+    /**
+     * Flags indicating how the timestamps are stored in the file for this
+     * stream, a combination of AVFORMAT_TS_FLAG_*.
+     *
+     * Demuxing only, set by the demuxer on stream creation.
+     */
+    unsigned ts_flags;
 } AVStream;
 
 enum AVStreamGroupParamsType {
