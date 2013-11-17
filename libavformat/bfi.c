@@ -34,8 +34,6 @@
 
 typedef struct BFIContext {
     int nframes;
-    int audio_frame;
-    int video_frame;
     int video_size;
     int avflag;
 } BFIContext;
@@ -80,6 +78,11 @@ static int bfi_read_header(AVFormatContext * s)
     avio_rl32(pb);
     avio_rl32(pb);
     fps                    = avio_rl32(pb);
+    if (!fps) {
+        av_log(s, AV_LOG_ERROR, "Invalid video framerate.\n");
+        return AVERROR_INVALIDDATA;
+    }
+
     avio_skip(pb, 12);
     vstream->codecpar->width  = avio_rl32(pb);
     vstream->codecpar->height = avio_rl32(pb);
@@ -98,6 +101,9 @@ static int bfi_read_header(AVFormatContext * s)
 
     /* Set up the video codec... */
     avpriv_set_pts_info(vstream, 32, 1, fps);
+    vstream->avg_frame_rate       = (AVRational){ fps, 1 };
+    vstream->ts_flags             = AVFORMAT_TS_FLAG_RATE;
+
     vstream->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
     vstream->codecpar->codec_id   = AV_CODEC_ID_BFI;
     vstream->codecpar->format     = AV_PIX_FMT_PAL8;
@@ -113,6 +119,8 @@ static int bfi_read_header(AVFormatContext * s)
         (int64_t)astream->codecpar->sample_rate * astream->codecpar->bits_per_coded_sample;
     avio_seek(pb, chunk_header - 3, SEEK_SET);
     avpriv_set_pts_info(astream, 64, 1, astream->codecpar->sample_rate);
+    astream->ts_flags = AVFORMAT_TS_FLAG_DURATION;
+
     return 0;
 }
 
@@ -152,17 +160,13 @@ static int bfi_read_packet(AVFormatContext * s, AVPacket * pkt)
         if (ret < 0)
             return ret;
 
-        pkt->pts          = bfi->audio_frame;
-        bfi->audio_frame += ret;
+        pkt->duration = audio_size;
     } else if (bfi->video_size > 0) {
 
         //Tossing a video packet at the video decoder.
         ret = av_get_packet(pb, pkt, bfi->video_size);
         if (ret < 0)
             return ret;
-
-        pkt->pts          = bfi->video_frame;
-        bfi->video_frame += ret / bfi->video_size;
 
         /* One less frame to read. A cursory decrement. */
         bfi->nframes--;
