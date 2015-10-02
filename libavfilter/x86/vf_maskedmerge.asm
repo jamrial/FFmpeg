@@ -22,7 +22,6 @@
 
 %include "libavutil/x86/x86util.asm"
 
-%if ARCH_X86_64
 SECTION_RODATA
 
 pw_128: times 8 dw 128
@@ -31,7 +30,16 @@ pw_256: times 8 dw 256
 SECTION .text
 
 INIT_XMM sse2
+%if ARCH_X86_64
 cglobal maskedmerge8, 10, 11, 7, 0, bsrc, osrc, msrc, dst, blinesize, olinesize, mlinesize, dlinesize, w, h
+%else
+cglobal maskedmerge8, 6, 7, 7, bsrc, osrc, msrc, dst, blinesize, olinesize
+%define r10q r6q
+%define mlinesizeq r6mp
+%define dlinesizeq r7mp
+%define wq         r8mp
+%define hd         r9mp
+%endif
     mova        m4, [pw_256]
     mova        m5, [pw_128]
     pxor        m6, m6
@@ -70,4 +78,3 @@ cglobal maskedmerge8, 10, 11, 7, 0, bsrc, osrc, msrc, dst, blinesize, olinesize,
     sub         hd, 1
     jg .nextrow
 REP_RET
-%endif
