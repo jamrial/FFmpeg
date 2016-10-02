@@ -1914,9 +1914,6 @@ static void mkv_flush_dynbuf(AVFormatContext *s)
     int bufsize;
     uint8_t *dyn_buf;
 
-    if (!mkv->dyn_bc)
-        return;
-
     bufsize = avio_close_dyn_buf(mkv->dyn_bc, &dyn_buf);
     avio_write(s->pb, dyn_buf, bufsize);
     av_free(dyn_buf);
@@ -1926,14 +1923,11 @@ static void mkv_flush_dynbuf(AVFormatContext *s)
 static void mkv_start_new_cluster(AVFormatContext *s, AVPacket *pkt)
 {
     MatroskaMuxContext *mkv = s->priv_data;
-    AVIOContext *pb;
+    AVIOContext *pb = mkv->dyn_bc;
 
-    if (s->pb->seekable) {
-        pb = s->pb;
-    } else {
-        pb = mkv->dyn_bc;
-    }
-
+    end_ebml_master(pb, mkv->cluster);
+    mkv->cluster_pos = -1;
+    mkv_flush_dynbuf(s);
     if (s->pb->seekable)
         av_log(s, AV_LOG_DEBUG,
                "Starting new cluster at offset %" PRIu64 " bytes, "
@@ -1943,10 +1937,6 @@ static void mkv_start_new_cluster(AVFormatContext *s, AVPacket *pkt)
         av_log(s, AV_LOG_DEBUG, "Starting new cluster, "
                "pts %" PRIu64 "dts %" PRIu64 "\n",
                pkt->pts, pkt->dts);
-    end_ebml_master(pb, mkv->cluster);
-    mkv->cluster_pos = -1;
-    if (mkv->dyn_bc)
-        mkv_flush_dynbuf(s);
     avio_flush(s->pb);
 }
 
@@ -1976,16 +1966,14 @@ static int mkv_write_packet_internal(AVFormatContext *s, AVPacket *pkt, int add_
         }
     }
 
-    if (!s->pb->seekable) {
-        if (!mkv->dyn_bc) {
-            ret = avio_open_dyn_buf(&mkv->dyn_bc);
-            if (ret < 0) {
-                av_log(s, AV_LOG_ERROR, "Failed to open dynamic buffer\n");
-                return ret;
-            }
+    if (!mkv->dyn_bc) {
+        ret = avio_open_dyn_buf(&mkv->dyn_bc);
+        if (ret < 0) {
+            av_log(s, AV_LOG_ERROR, "Failed to open dynamic buffer\n");
+            return ret;
         }
-        pb = mkv->dyn_bc;
     }
+    pb = mkv->dyn_bc;
 
     if (mkv->cluster_pos == -1) {
         mkv->cluster_pos = avio_tell(s->pb);
@@ -1994,7 +1982,7 @@ static int mkv_write_packet_internal(AVFormatContext *s, AVPacket *pkt, int add_
         mkv->cluster_pts = FFMAX(0, ts);
     }
 
-    relative_packet_pos = avio_tell(s->pb) - mkv->cluster.pos;
+    relative_packet_pos = avio_tell(pb) - mkv->cluster.pos;
 
     if (par->codec_type != AVMEDIA_TYPE_SUBTITLE) {
         mkv_write_block(s, pb, MATROSKA_ID_SIMPLEBLOCK, pkt, keyframe);
@@ -2058,11 +2046,7 @@ static int mkv_write_packet(AVFormatContext *s, AVPacket *pkt)
 
     // start a new cluster every 5 MB or 5 sec, or 32k / 1 sec for streaming or
     // after 4k and on a keyframe
-    if (s->pb->seekable) {
-        cluster_size = avio_tell(s->pb) - mkv->cluster_pos;
-    } else {
-        cluster_size = avio_tell(mkv->dyn_bc);
-    }
+    cluster_size = avio_tell(mkv->dyn_bc);
 
     if (mkv->is_dash && codec_type == AVMEDIA_TYPE_VIDEO) {
         // WebM DASH specification states that the first block of every cluster
@@ -2118,23 +2102,18 @@ static int mkv_write_packet(AVFormatContext *s, AVPacket *pkt)
 static int mkv_write_flush_packet(AVFormatContext *s, AVPacket *pkt)
 {
     MatroskaMuxContext *mkv = s->priv_data;
-    AVIOContext *pb;
-    if (s->pb->seekable)
-        pb = s->pb;
-    else
-        pb = mkv->dyn_bc;
+    AVIOContext *pb = mkv->dyn_bc;
     if (!pkt) {
         if (mkv->cluster_pos != -1) {
+            end_ebml_master(pb, mkv->cluster);
+            mkv->cluster_pos = -1;
+            mkv_flush_dynbuf(s);
             if (s->pb->seekable)
                 av_log(s, AV_LOG_DEBUG,
                        "Flushing cluster at offset %" PRIu64 " bytes\n",
                        avio_tell(s->pb));
             else
                 av_log(s, AV_LOG_DEBUG, "Flushing cluster\n");
-            end_ebml_master(pb, mkv->cluster);
-            mkv->cluster_pos = -1;
-            if (mkv->dyn_bc)
-                mkv_flush_dynbuf(s);
             avio_flush(s->pb);
         }
         return 1;
@@ -2163,8 +2142,6 @@ static int mkv_write_trailer(AVFormatContext *s)
     if (mkv->dyn_bc) {
         end_ebml_master(mkv->dyn_bc, mkv->cluster);
         mkv_flush_dynbuf(s);
-    } else if (mkv->cluster_pos != -1) {
-        end_ebml_master(pb, mkv->cluster);
     }
 
     if (mkv->mode != MODE_WEBM) {
