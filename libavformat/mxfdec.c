@@ -553,18 +553,19 @@ static int mxf_get_d10_aes3_packet(AVIOContext *pb, AVStream *st, AVPacket *pkt,
     end_ptr = pkt->data + length;
     buf_ptr = pkt->data + 4; /* skip SMPTE 331M header */
 
-    if (st->codecpar->channels > 8)
+    if (st->codecpar->ch_layout.nb_channels > 8)
         return AVERROR_INVALIDDATA;
 
-    for (; end_ptr - buf_ptr >= st->codecpar->channels * 4; ) {
-        for (i = 0; i < st->codecpar->channels; i++) {
+    for (; end_ptr - buf_ptr >= st->codecpar->ch_layout.nb_channels * 4; ) {
+        for (i = 0; i < st->codecpar->ch_layout.nb_channels; i++) {
             uint32_t sample = bytestream_get_le32(&buf_ptr);
             if (st->codecpar->bits_per_coded_sample == 24)
                 bytestream_put_le24(&data_ptr, (sample >> 4) & 0xffffff);
             else
                 bytestream_put_le16(&data_ptr, (sample >> 12) & 0xffff);
         }
-        buf_ptr += 32 - st->codecpar->channels*4; // always 8 channels stored SMPTE 331M
+        // always 8 channels stored SMPTE 331M
+        buf_ptr += 32 - st->codecpar->ch_layout.nb_channels * 4;
     }
     av_shrink_packet(pkt, data_ptr - pkt->data);
     return 0;
@@ -2654,7 +2655,8 @@ static int mxf_parse_structural_metadata(MXFContext *mxf)
             /* Only overwrite existing codec ID if it is unset or A-law, which is the default according to SMPTE RP 224. */
             if (st->codecpar->codec_id == AV_CODEC_ID_NONE || (st->codecpar->codec_id == AV_CODEC_ID_PCM_ALAW && (enum AVCodecID)container_ul->id != AV_CODEC_ID_NONE))
                 st->codecpar->codec_id = (enum AVCodecID)container_ul->id;
-            st->codecpar->channels = descriptor->channels;
+            st->codecpar->ch_layout.order       = AV_CHANNEL_ORDER_UNSPEC;
+            st->codecpar->ch_layout.nb_channels = descriptor->channels;
 
             if (descriptor->sample_rate.den > 0) {
                 st->codecpar->sample_rate = descriptor->sample_rate.num / descriptor->sample_rate.den;
@@ -3274,7 +3276,8 @@ static int mxf_handle_missing_index_segment(MXFContext *mxf, AVStream *st)
         return 0;
 
     if (st->codecpar->codec_type == AVMEDIA_TYPE_AUDIO && is_pcm(st->codecpar->codec_id)) {
-        edit_unit_byte_count = (av_get_bits_per_sample(st->codecpar->codec_id) * st->codecpar->channels) >> 3;
+        edit_unit_byte_count = (av_get_bits_per_sample(st->codecpar->codec_id) *
+                                st->codecpar->ch_layout.nb_channels) >> 3;
     } else if (st->duration > 0 && p->first_essence_klv.length > 0 && p->first_essence_klv.length % st->duration == 0) {
         edit_unit_byte_count = p->first_essence_klv.length / st->duration;
     }
@@ -3579,12 +3582,12 @@ static int mxf_set_audio_pts(MXFContext *mxf, AVCodecParameters *par,
 
     pkt->pts = track->sample_count;
 
-    if (   par->channels <= 0
-        || bits_per_sample <= 0
-        || par->channels * (int64_t)bits_per_sample < 8)
+    if (par->ch_layout.nb_channels <= 0 ||
+        bits_per_sample <= 0            ||
+        par->ch_layout.nb_channels * (int64_t)bits_per_sample < 8)
         track->sample_count = mxf_compute_sample_count(mxf, st, av_rescale_q(track->sample_count, st->time_base, av_inv_q(track->edit_rate)) + 1);
     else
-        track->sample_count += pkt->size / (par->channels * (int64_t)bits_per_sample / 8);
+        track->sample_count += pkt->size / (par->ch_layout.nb_channels * (int64_t)bits_per_sample / 8);
 
     return 0;
 }
