@@ -1951,7 +1951,7 @@ static int has_codec_parameters(const AVStream *st, const char **errmsg_ptr)
             FAIL("unspecified sample format");
         if (!avctx->sample_rate)
             FAIL("unspecified sample rate");
-        if (!avctx->channels)
+        if (!avctx->ch_layout.nb_channels)
             FAIL("unspecified number of channels");
         if (sti->info->found_decoder >= 0 && !sti->nb_decoded_frames && avctx->codec_id == AV_CODEC_ID_DTS)
             FAIL("no decodable DTS frames");
