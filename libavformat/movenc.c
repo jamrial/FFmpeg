@@ -1154,6 +1154,27 @@ static int mov_write_smdm_tag(AVFormatContext *s, AVIOContext *pb, MOVTrack *tra
     return update_size(pb, pos);
 }
 
+static int mov_write_coll_tag(AVIOContext *pb, MOVTrack *track)
+{
+    int size = 0;
+    int64_t pos;
+    const AVContentLightMetadata *coll =
+        (const AVContentLightMetadata *) av_stream_get_side_data(track->st,
+                                             AV_PKT_DATA_CONTENT_LIGHT_LEVEL,
+                                             &size);
+    if (!size)
+        return 0;
+
+    pos = avio_tell(pb);
+
+    avio_wb32(pb, 0);
+    ffio_wfourcc(pb, "CoLL");
+    avio_wb32(pb, 0); /* version & flags */
+    avio_wb16(pb, coll->MaxCLL);
+    avio_wb16(pb, coll->MaxFALL);
+    return update_size(pb, pos);
+}
+
 static int mov_write_hvcc_tag(AVIOContext *pb, MOVTrack *track)
 {
     int64_t pos = avio_tell(pb);
@@ -2001,6 +2022,7 @@ static int mov_write_video_tag(AVIOContext *pb, MOVMuxContext *mov, MOVTrack *tr
     } else if (track->par->codec_id == AV_CODEC_ID_VP9) {
         mov_write_vpcc_tag(mov->fc, pb, track);
         mov_write_smdm_tag(mov->fc, pb, track);
+        mov_write_coll_tag(pb, track);
     } else if (track->par->codec_id == AV_CODEC_ID_VC1 && track->vos_len > 0)
         mov_write_dvc1_tag(pb, track);
     else if (track->par->codec_id == AV_CODEC_ID_VP6F ||
