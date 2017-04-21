@@ -42,6 +42,7 @@
 #include "libavutil/avstring.h"
 #include "libavutil/intfloat.h"
 #include "libavutil/mathematics.h"
+#include "libavutil/mastering_display_metadata.h"
 #include "libavutil/libm.h"
 #include "libavutil/opt.h"
 #include "libavutil/dict.h"
@@ -1118,6 +1119,41 @@ static int mov_write_vpcc_tag(AVFormatContext *s, AVIOContext *pb, MOVTrack *tra
     return update_size(pb, pos);
 }
 
+static int mov_write_smdm_tag(AVFormatContext *s, AVIOContext *pb, MOVTrack *track)
+{
+    int size = 0;
+    int64_t pos;
+    const AVMasteringDisplayMetadata *mastering =
+        (const AVMasteringDisplayMetadata *) av_stream_get_side_data(track->st,
+                                                 AV_PKT_DATA_MASTERING_DISPLAY_METADATA,
+                                                 &size);
+    if (!size)
+        return 0;
+
+    if (!mastering->has_primaries || !mastering->has_luminance) {
+        av_log(s, AV_LOG_WARNING, "Incomplete Mastering Display metadata. Both luminance "
+                                  "and display primaries are needed\n");
+        return 0;
+    }
+
+    pos = avio_tell(pb);
+
+    avio_wb32(pb, 0);
+    ffio_wfourcc(pb, "SmDm");
+    avio_wb32(pb, 0); /* version & flags */
+    avio_wb16(pb, lrint(av_q2d(mastering->display_primaries[0][0]) * (1 << 16)));
+    avio_wb16(pb, lrint(av_q2d(mastering->display_primaries[0][1]) * (1 << 16)));
+    avio_wb16(pb, lrint(av_q2d(mastering->display_primaries[1][0]) * (1 << 16)));
+    avio_wb16(pb, lrint(av_q2d(mastering->display_primaries[1][1]) * (1 << 16)));
+    avio_wb16(pb, lrint(av_q2d(mastering->display_primaries[2][0]) * (1 << 16)));
+    avio_wb16(pb, lrint(av_q2d(mastering->display_primaries[2][1]) * (1 << 16)));
+    avio_wb16(pb, lrint(av_q2d(mastering->white_point[0])          * (1 << 16)));
+    avio_wb16(pb, lrint(av_q2d(mastering->white_point[1])          * (1 << 16)));
+    avio_wb32(pb, lrint(av_q2d(mastering->max_luminance)           * (1 <<  8)));
+    avio_wb32(pb, lrint(av_q2d(mastering->min_luminance)           * (1 << 14)));
+    return update_size(pb, pos);
+}
+
 static int mov_write_hvcc_tag(AVIOContext *pb, MOVTrack *track)
 {
     int64_t pos = avio_tell(pb);
@@ -1964,6 +2000,7 @@ static int mov_write_video_tag(AVIOContext *pb, MOVMuxContext *mov, MOVTrack *tr
             mov_write_uuid_tag_ipod(pb);
     } else if (track->par->codec_id == AV_CODEC_ID_VP9) {
         mov_write_vpcc_tag(mov->fc, pb, track);
+        mov_write_smdm_tag(mov->fc, pb, track);
     } else if (track->par->codec_id == AV_CODEC_ID_VC1 && track->vos_len > 0)
         mov_write_dvc1_tag(pb, track);
     else if (track->par->codec_id == AV_CODEC_ID_VP6F ||
