@@ -66,6 +66,10 @@ int main(void)
     printf("With AV_CHAN_FRONT_RIGHT: %26s\n", bp.str);
     av_channel_name_bprint(&bp, 63);
     printf("With 63: %43s\n", bp.str);
+    av_channel_name_bprint(&bp, AV_CHAN_AMBISONIC_BASE);
+    printf("With AV_CHAN_AMBISONIC_BASE: %23s\n", bp.str);
+    av_channel_name_bprint(&bp, AV_CHAN_AMBISONIC_END);
+    printf("With AV_CHAN_AMBISONIC_END: %24s\n", bp.str);
 
     printf("Testing av_channel_description\n");
     av_channel_description_bprint(&bp, AV_CHAN_FRONT_LEFT);
@@ -74,11 +78,17 @@ int main(void)
     printf("With AV_CHAN_FRONT_RIGHT: %26s\n", bp.str);
     av_channel_description_bprint(&bp, 63);
     printf("With 63: %43s\n", bp.str);
+    av_channel_description_bprint(&bp, AV_CHAN_AMBISONIC_BASE);
+    printf("With AV_CHAN_AMBISONIC_BASE: %23s\n", bp.str);
+    av_channel_description_bprint(&bp, AV_CHAN_AMBISONIC_END);
+    printf("With AV_CHAN_AMBISONIC_END: %24s\n", bp.str);
 
     printf("\nTesting av_channel_from_string\n");
     printf("With \"FL\": %41d\n", av_channel_from_string("FL"));
     printf("With \"FR\": %41d\n", av_channel_from_string("FR"));
     printf("With \"USR63\": %38d\n", av_channel_from_string("USR63"));
+    printf("With \"AMBI0\": %38d\n", av_channel_from_string("AMBI0"));
+    printf("With \"AMBI1023\": %35d\n", av_channel_from_string("AMBI1023"));
 
     printf("\n==Native layouts==\n");
 
@@ -177,6 +187,8 @@ int main(void)
     printf("\nTesting av_channel_layout_from_string\n");
     CHANNEL_LAYOUT_FROM_STRING(custom, "FL+FR+FC+BL+BR+LFE");
     printf("With \"FL+FR+FC+BL+BR+LFE\": %25s\n", bp.str);
+    CHANNEL_LAYOUT_FROM_STRING(custom, "ambisonic 1+FR+FL");
+    printf("With \"ambisonic 1+FR+FL\": %26s\n", bp.str);
     CHANNEL_LAYOUT_FROM_STRING(custom, "FR+FL+USR63");
     printf("With \"FR+FL+USR63\" layout: %25s\n", bp.str);
 
@@ -224,6 +236,14 @@ int main(void)
     printf("On \"FR+FL+USR63\" layout with 2: %20d\n", ret);
     CHANNEL_LAYOUT_CHANNEL_FROM_INDEX(custom, 3);
     printf("On \"FR+FL+USR63\" layout with 3: %20d\n", ret);
+
+    printf("\n==Ambisonic layouts==\n");
+
+    printf("\nTesting av_channel_layout_from_string\n");
+    CHANNEL_LAYOUT_FROM_STRING(custom, "ambisonic 1");
+    printf("With \"ambisonic 1\": %32s\n", bp.str);
+    CHANNEL_LAYOUT_FROM_STRING(custom, "ambisonic 2+stereo");
+    printf("With \"ambisonic 2+stereo\": %25s\n", bp.str);
 
     av_channel_layout_uninit(&surround);
     av_channel_layout_uninit(&custom);
