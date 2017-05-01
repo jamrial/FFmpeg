@@ -2,15 +2,21 @@ Testing av_channel_name
 With AV_CHAN_FRONT_LEFT:                          FL
 With AV_CHAN_FRONT_RIGHT:                         FR
 With 63:                                       USR63
+With AV_CHAN_AMBISONIC_BASE:                   AMBI0
+With AV_CHAN_AMBISONIC_END:                 AMBI1023
 Testing av_channel_description
 With AV_CHAN_FRONT_LEFT:                  front left
 With AV_CHAN_FRONT_RIGHT:                front right
 With 63:                                     user 63
+With AV_CHAN_AMBISONIC_BASE:         ambisonic ACN 0
+With AV_CHAN_AMBISONIC_END:       ambisonic ACN 1023
 
 Testing av_channel_from_string
 With "FL":                                         0
 With "FR":                                         1
 With "USR63":                                     63
+With "AMBI0":                                   1024
+With "AMBI1023":                                2047
 
 ==Native layouts==
 
@@ -69,6 +75,7 @@ On 5.1(side) layout with "BC":                    -1
 
 Testing av_channel_layout_from_string
 With "FL|FR|FC|BL|BR|LFE":        FL|FR|FC|BL|BR|LFE
+With "ambisonic 1|FR|FL":          ambisonic 1|FR|FL
 With "FR|FL|USR63" layout:               FR|FL|USR63
 
 Testing av_channel_layout_index_from_string
@@ -96,3 +103,9 @@ On "FR|FL|USR63" layout with 0:                    1
 On "FR|FL|USR63" layout with 1:                    0
 On "FR|FL|USR63" layout with 2:                   63
 On "FR|FL|USR63" layout with 3:                   -1
+
+==Ambisonic layouts==
+
+Testing av_channel_layout_from_string
+With "ambisonic 1":                      ambisonic 1
+With "ambisonic 2|stereo":        ambisonic 2|stereo
