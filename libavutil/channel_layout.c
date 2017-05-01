@@ -31,6 +31,9 @@
 #include "bprint.h"
 #include "common.h"
 
+#define CHAN_IS_AMBI(x) ((x) >= AV_CHAN_AMBISONIC_BASE &&\
+                         (x) <= AV_CHAN_AMBISONIC_END)
+
 struct channel_name {
     const char *name;
     const char *description;
@@ -80,7 +83,10 @@ static const char *get_channel_name(enum AVChannel channel_id)
 static inline void get_channel_str(AVBPrint *bp, const char *str,
                                    enum AVChannel channel_id)
 {
-    if (str)
+    if (channel_id >= AV_CHAN_AMBISONIC_BASE &&
+        channel_id <= AV_CHAN_AMBISONIC_END)
+        av_bprintf(bp, "ambisonic %d", channel_id - AV_CHAN_AMBISONIC_BASE);
+    else if (str)
         av_bprintf(bp, "%s", str);
     else
         av_bprintf(bp, "?");
@@ -116,6 +122,14 @@ int av_channel_description(char *buf, size_t buf_size, enum AVChannel channel_id
 enum AVChannel av_channel_from_string(const char *str)
 {
     int i;
+
+    if (!strncmp(str, "ambisonic", 9)) {
+        i = strtol(str + 9, NULL, 0);
+        if (i < 0 || i > AV_CHAN_AMBISONIC_END - AV_CHAN_AMBISONIC_BASE)
+            return AV_CHAN_NONE;
+        return AV_CHAN_AMBISONIC_BASE + i;
+    }
+
     for (i = 0; i < FF_ARRAY_ELEMS(channel_names); i++) {
         if (channel_names[i].name && !strcmp(str, channel_names[i].name))
             return i;
@@ -415,6 +429,53 @@ int av_channel_layout_from_string(AVChannelLayout *channel_layout,
         return 0;
     }
 
+    /* ambisonic */
+    if (!strncmp(str, "ambisonic ", 10)) {
+        const char *p = str + 10;
+        char *endptr;
+        AVChannelLayout extra = {0};
+        int order;
+
+        order = strtol(p, &endptr, 0);
+        if (order < 0 || order + 1  > INT_MAX / (order + 1) ||
+            (*endptr && *endptr != '|'))
+            return AVERROR(EINVAL);
+
+        channel_layout->order       = AV_CHANNEL_ORDER_AMBISONIC;
+        channel_layout->nb_channels = (order + 1) * (order + 1);
+
+        if (*endptr) {
+            int ret = av_channel_layout_from_string(&extra, endptr + 1);
+            if (ret < 0)
+                return ret;
+            if (extra.order != AV_CHANNEL_ORDER_NATIVE ||
+                extra.nb_channels >= INT_MAX - channel_layout->nb_channels) {
+                av_channel_layout_uninit(&extra);
+                return AVERROR(EINVAL);
+            }
+
+            channel_layout->order = AV_CHANNEL_ORDER_CUSTOM;
+            channel_layout->u.map =
+                av_mallocz_array(channel_layout->nb_channels + extra.nb_channels,
+                                sizeof(*channel_layout->u.map));
+            if (!channel_layout->u.map) {
+                av_channel_layout_uninit(&extra);
+                return AVERROR(ENOMEM);
+            }
+
+            for (i = 0; i < channel_layout->nb_channels; i++)
+                channel_layout->u.map[i].id = AV_CHAN_AMBISONIC_BASE + i;
+            for (i = 0; i < extra.nb_channels; i++) {
+                enum AVChannel ch = av_channel_layout_channel_from_index(&extra, i);
+                channel_layout->u.map[channel_layout->nb_channels + i].id = ch;
+            }
+            channel_layout->nb_channels += extra.nb_channels;
+            av_channel_layout_uninit(&extra);
+        }
+
+        return 0;
+    }
+
     return AVERROR_INVALIDDATA;
 }
 
@@ -438,6 +499,67 @@ int av_channel_layout_copy(AVChannelLayout *dst, const AVChannelLayout *src)
     return 0;
 }
 
+/**
+ * If the custom layout is n-th order standard-order ambisonic, with optional
+ * extra non-diegetic channels at the end, write its string description in dst
+ * and return 0.
+ * If it is something else, write NULL in dst and return 0.
+ * Return negative error code on error.
+ */
+static int try_describe_ambisonic(AVBPrint *bp, const AVChannelLayout *channel_layout)
+{
+    const AVChannelCustom *map = channel_layout->u.map;
+    int i, highest_ambi, order;
+
+    highest_ambi = -1;
+    for (i = 0; i < channel_layout->nb_channels; i++) {
+        int is_ambi = CHAN_IS_AMBI(map[i].id);
+
+        /* ambisonic following non-ambisonic */
+        if (i > 0 && is_ambi && !CHAN_IS_AMBI(map[i - 1].id))
+            return 0;
+
+        /* non-default ordering */
+        if (is_ambi && map[i].id - AV_CHAN_AMBISONIC_BASE != i)
+            return 0;
+
+        if (CHAN_IS_AMBI(map[i].id))
+            highest_ambi = i;
+    }
+    /* no ambisonic channels*/
+    if (highest_ambi < 0)
+        return 0;
+
+    order = floor(sqrt(highest_ambi));
+    /* incomplete order - some harmonics are missing */
+    if ((order + 1) * (order + 1) != highest_ambi + 1)
+        return 0;
+
+    av_bprintf(bp, "ambisonic %d", order);
+
+    /* extra channels present */
+    if (highest_ambi < channel_layout->nb_channels - 1) {
+        AVChannelLayout extra;
+        char buf[128];
+
+        extra.order       = AV_CHANNEL_ORDER_CUSTOM;
+        extra.nb_channels = channel_layout->nb_channels - highest_ambi - 1;
+        extra.u.map       = av_mallocz_array(extra.nb_channels, sizeof(*extra.u.map));
+        if (!extra.u.map)
+            return AVERROR(ENOMEM);
+
+        for (i = 0; i < extra.nb_channels; i++)
+            extra.u.map[i].id = map[highest_ambi + 1 + i].id;
+
+        av_channel_layout_describe(&extra, buf, sizeof(buf));
+        av_channel_layout_uninit(&extra);
+
+        av_bprintf(bp, "|%s", buf);
+    }
+
+    return 0;
+}
+
 int av_channel_layout_describe(const AVChannelLayout *channel_layout,
                                char *buf, size_t buf_size)
 {
@@ -458,6 +580,12 @@ int av_channel_layout_describe(const AVChannelLayout *channel_layout,
             }
         // fall-through
     case AV_CHANNEL_ORDER_CUSTOM:
+        if (channel_layout->order == AV_CHANNEL_ORDER_CUSTOM) {
+            int res = try_describe_ambisonic(&bp, channel_layout);
+            if (res < 0)
+                return res;
+        }
+
         for (i = 0; i < channel_layout->nb_channels; i++) {
             enum AVChannel ch = av_channel_layout_channel_from_index(channel_layout, i);
             const char *ch_name = get_channel_name(ch);
@@ -471,6 +599,9 @@ int av_channel_layout_describe(const AVChannelLayout *channel_layout,
         // fall-through
     case AV_CHANNEL_ORDER_UNSPEC:
         av_bprintf(&bp, "%d channels", channel_layout->nb_channels);
+        return bp.len;
+    case AV_CHANNEL_ORDER_AMBISONIC:
+        av_bprintf(&bp, "ambisonic %d", (int)floor(sqrt(channel_layout->nb_channels - 1)));
         return bp.len;
     default:
         return AVERROR(EINVAL);
@@ -489,6 +620,8 @@ av_channel_layout_channel_from_index(const AVChannelLayout *channel_layout,
     switch (channel_layout->order) {
     case AV_CHANNEL_ORDER_CUSTOM:
         return channel_layout->u.map[idx].id;
+    case AV_CHANNEL_ORDER_AMBISONIC:
+        return AV_CHAN_AMBISONIC_BASE + idx;
     case AV_CHANNEL_ORDER_NATIVE:
         for (i = 0; i < 64; i++) {
             if ((1ULL << i) & channel_layout->u.mask && !idx--)
@@ -532,6 +665,11 @@ int av_channel_layout_index_from_channel(const AVChannelLayout *channel_layout,
             if (channel_layout->u.map[i].id == channel)
                 return i;
         return AVERROR(EINVAL);
+    case AV_CHANNEL_ORDER_AMBISONIC:
+        if (!CHAN_IS_AMBI(channel) ||
+            channel - AV_CHAN_AMBISONIC_BASE >= channel_layout->nb_channels)
+            return AVERROR(EINVAL);
+        return channel - AV_CHAN_AMBISONIC_BASE;
     case AV_CHANNEL_ORDER_NATIVE: {
         uint64_t mask = channel_layout->u.mask;
         if (!(mask & (1ULL << channel)))
@@ -591,8 +729,13 @@ int av_channel_layout_compare(const AVChannelLayout *chl, const AVChannelLayout 
     else if (chl->order == AV_CHANNEL_ORDER_UNSPEC)
         return 0;
 
+    /* both ambisonic with same channel count -> equal */
+    if (chl->order == AV_CHANNEL_ORDER_AMBISONIC &&
+        chl1->order == chl->order)
+        return 0;
+
     /* can compare masks directly */
-    if (chl->order != AV_CHANNEL_ORDER_CUSTOM &&
+    if (chl->order == AV_CHANNEL_ORDER_NATIVE &&
         chl->order == chl1->order)
         return chl->u.mask != chl1->u.mask;
 

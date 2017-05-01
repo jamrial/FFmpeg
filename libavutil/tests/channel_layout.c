@@ -64,16 +64,26 @@ int main(void)
     printf("With AV_CHAN_FRONT_LEFT: %27s\n", buf);
     av_channel_name(buf, sizeof(buf), AV_CHAN_FRONT_RIGHT);
     printf("With AV_CHAN_FRONT_RIGHT: %26s\n", buf);
+    av_channel_name(buf, sizeof(buf), AV_CHAN_AMBISONIC_BASE);
+    printf("With AV_CHAN_AMBISONIC_BASE: %23s\n", buf);
+    av_channel_name(buf, sizeof(buf), AV_CHAN_AMBISONIC_END);
+    printf("With AV_CHAN_AMBISONIC_END: %24s\n", buf);
 
     printf("Testing av_channel_description\n");
     av_channel_description(buf, sizeof(buf), AV_CHAN_FRONT_LEFT);
     printf("With AV_CHAN_FRONT_LEFT: %27s\n", buf);
     av_channel_description(buf, sizeof(buf), AV_CHAN_FRONT_RIGHT);
     printf("With AV_CHAN_FRONT_RIGHT: %26s\n", buf);
+    av_channel_description(buf, sizeof(buf), AV_CHAN_AMBISONIC_BASE);
+    printf("With AV_CHAN_AMBISONIC_BASE: %23s\n", buf);
+    av_channel_description(buf, sizeof(buf), AV_CHAN_AMBISONIC_END);
+    printf("With AV_CHAN_AMBISONIC_END: %24s\n", buf);
 
     printf("\nTesting av_channel_from_string\n");
     printf("With \"FL\": %41d\n", av_channel_from_string("FL"));
     printf("With \"FR\": %41d\n", av_channel_from_string("FR"));
+    printf("With \"ambisonic 0\": %32d\n", av_channel_from_string("ambisonic 0"));
+    printf("With \"ambisonic 1023\": %29d\n", av_channel_from_string("ambisonic 1023"));
 
     printf("\nTesting av_channel_layout_from_string\n");
     CHANNEL_LAYOUT_FROM_STRING(surround, "0x3f");

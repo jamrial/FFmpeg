@@ -1,13 +1,19 @@
 Testing av_channel_name
 With AV_CHAN_FRONT_LEFT:                          FL
 With AV_CHAN_FRONT_RIGHT:                         FR
+With AV_CHAN_AMBISONIC_BASE:             ambisonic 0
+With AV_CHAN_AMBISONIC_END:           ambisonic 1023
 Testing av_channel_description
 With AV_CHAN_FRONT_LEFT:                  front left
 With AV_CHAN_FRONT_RIGHT:                front right
+With AV_CHAN_AMBISONIC_BASE:             ambisonic 0
+With AV_CHAN_AMBISONIC_END:           ambisonic 1023
 
 Testing av_channel_from_string
 With "FL":                                         0
 With "FR":                                         1
+With "ambisonic 0":                             1024
+With "ambisonic 1023":                          2047
 
 Testing av_channel_layout_from_string
 With "0x3f":                                     5.1
