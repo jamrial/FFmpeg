@@ -40,8 +40,8 @@ static void test_add_squares(void)
     LOCAL_ALIGNED_16(INTFLOAT, dst1, [BUF_SIZE]);
     LOCAL_ALIGNED_16(INTFLOAT, src, [BUF_SIZE], [2]);
 
-    declare_func_emms(AV_CPU_FLAG_MMX, void, INTFLOAT *dst,
-                      const INTFLOAT (*src)[2], int n);
+    declare_func(void, INTFLOAT *dst,
+                 const INTFLOAT (*src)[2], int n);
 
     randomize((INTFLOAT *)src, BUF_SIZE * 2);
     randomize(dst0, BUF_SIZE);
@@ -60,8 +60,8 @@ static void test_mul_pair_single(void)
     LOCAL_ALIGNED_16(INTFLOAT, src0, [BUF_SIZE], [2]);
     LOCAL_ALIGNED_16(INTFLOAT, src1, [BUF_SIZE]);
 
-    declare_func_emms(AV_CPU_FLAG_MMX, void, INTFLOAT (*dst)[2],
-                      INTFLOAT (*src0)[2], INTFLOAT *src1, int n);
+    declare_func(void, INTFLOAT (*dst)[2],
+                       INTFLOAT (*src0)[2], INTFLOAT *src1, int n);
 
     randomize((INTFLOAT *)src0, BUF_SIZE * 2);
     randomize(src1, BUF_SIZE);
@@ -79,10 +79,9 @@ static void test_hybrid_analysis(void)
     LOCAL_ALIGNED_16(INTFLOAT, in, [12], [2]);
     LOCAL_ALIGNED_16(INTFLOAT, filter, [N], [8][2]);
 
-    declare_func_emms(AV_CPU_FLAG_MMX, void,
-                      INTFLOAT (*out)[2], INTFLOAT (*in)[2],
-                      const INTFLOAT (*filter)[8][2],
-                      int stride, int n);
+    declare_func(void, INTFLOAT (*out)[2], INTFLOAT (*in)[2],
+                 const INTFLOAT (*filter)[8][2],
+                 int stride, int n);
 
     randomize((INTFLOAT *)in, 12 * 2);
     randomize((INTFLOAT *)filter, N * 8 * 2);
@@ -111,8 +110,8 @@ static void test_stereo_interpolate(PSDSPContext *psdsp)
     LOCAL_ALIGNED_16(INTFLOAT, h_step, [2], [4]);
     int i;
 
-    declare_func_emms(AV_CPU_FLAG_MMX, void, INTFLOAT (*l)[2], INTFLOAT (*r)[2],
-                      INTFLOAT h[2][4], INTFLOAT h_step[2][4], int len);
+    declare_func(void, INTFLOAT (*l)[2], INTFLOAT (*r)[2],
+                       INTFLOAT h[2][4], INTFLOAT h_step[2][4], int len);
 
     randomize((INTFLOAT *)l, BUF_SIZE * 2);
     randomize((INTFLOAT *)r, BUF_SIZE * 2);
