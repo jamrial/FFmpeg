@@ -99,7 +99,7 @@ static void test_hybrid_analysis(void)
     bench_new(dst1, in, filter, STRIDE, N);
 }
 
-static void test_stereo_interpolate(const char *name, int id)
+static void test_stereo_interpolate(PSDSPContext *psdsp)
 {
     LOCAL_ALIGNED_16(INTFLOAT, l,  [BUF_SIZE], [2]);
     LOCAL_ALIGNED_16(INTFLOAT, r,  [BUF_SIZE], [2]);
@@ -109,29 +109,35 @@ static void test_stereo_interpolate(const char *name, int id)
     LOCAL_ALIGNED_16(INTFLOAT, r1, [BUF_SIZE], [2]);
     LOCAL_ALIGNED_16(INTFLOAT, h, [2], [4]);
     LOCAL_ALIGNED_16(INTFLOAT, h_step, [2], [4]);
+    int i;
 
     declare_func_emms(AV_CPU_FLAG_MMX, void, INTFLOAT (*l)[2], INTFLOAT (*r)[2],
                       INTFLOAT h[2][4], INTFLOAT h_step[2][4], int len);
 
     randomize((INTFLOAT *)l, BUF_SIZE * 2);
     randomize((INTFLOAT *)r, BUF_SIZE * 2);
-    memcpy(l0, l, BUF_SIZE * 2 * sizeof(INTFLOAT));
-    memcpy(l1, l, BUF_SIZE * 2 * sizeof(INTFLOAT));
-    memcpy(r0, r, BUF_SIZE * 2 * sizeof(INTFLOAT));
-    memcpy(r1, r, BUF_SIZE * 2 * sizeof(INTFLOAT));
 
-    randomize((INTFLOAT *)h, 2 * 4);
-    randomize((INTFLOAT *)h_step, 2 * 4);
+    for (i = 0; i < 2; i++) {
+        if (check_func(psdsp->stereo_interpolate[i], "ps_stereo_interpolate%s", i ? "_ipdopd" : "")) {
+            memcpy(l0, l, BUF_SIZE * 2 * sizeof(INTFLOAT));
+            memcpy(l1, l, BUF_SIZE * 2 * sizeof(INTFLOAT));
+            memcpy(r0, r, BUF_SIZE * 2 * sizeof(INTFLOAT));
+            memcpy(r1, r, BUF_SIZE * 2 * sizeof(INTFLOAT));
 
-    call_ref(l0, r0, h, h_step, BUF_SIZE);
-    call_new(l1, r1, h, h_step, BUF_SIZE);
-    if (!float_near_abs_eps_array((float *)l0, (float *)l1, EPS, BUF_SIZE * 2) ||
-        !float_near_abs_eps_array((float *)r0, (float *)r1, EPS, BUF_SIZE * 2))
-        fail();
+            randomize((INTFLOAT *)h, 2 * 4);
+            randomize((INTFLOAT *)h_step, 2 * 4);
 
-    memcpy(l1, l, BUF_SIZE * 2 * sizeof(INTFLOAT));
-    memcpy(r1, r, BUF_SIZE * 2 * sizeof(INTFLOAT));
-    bench_new(l1, r1, h, h_step, BUF_SIZE);
+            call_ref(l0, r0, h, h_step, BUF_SIZE);
+            call_new(l1, r1, h, h_step, BUF_SIZE);
+            if (!float_near_abs_eps_array((float *)l0, (float *)l1, EPS, BUF_SIZE * 2) ||
+                !float_near_abs_eps_array((float *)r0, (float *)r1, EPS, BUF_SIZE * 2))
+                fail();
+
+            memcpy(l1, l, BUF_SIZE * 2 * sizeof(INTFLOAT));
+            memcpy(r1, r, BUF_SIZE * 2 * sizeof(INTFLOAT));
+            bench_new(l1, r1, h, h_step, BUF_SIZE);
+        }
+    }
 }
 
 void checkasm_check_aacpsdsp(void)
@@ -152,11 +158,6 @@ void checkasm_check_aacpsdsp(void)
         test_hybrid_analysis();
     report("hybrid_analysis");
 
-    if (check_func(psdsp.stereo_interpolate[0], "ps_stereo_interpolate"))
-        test_stereo_interpolate("stereo_interpolate", 0);
+    test_stereo_interpolate(&psdsp);
     report("stereo_interpolate");
-
-    if (check_func(psdsp.stereo_interpolate[1], "ps_stereo_interpolate_ipdopd"))
-        test_stereo_interpolate("stereo_interpolate_ipdopd", 1);
-    report("stereo_interpolate_ipdopd");
 }
