@@ -101,6 +101,8 @@ static void test_hybrid_analysis(void)
 
 static void test_stereo_interpolate(const char *name, int id)
 {
+    LOCAL_ALIGNED_16(INTFLOAT, l,  [BUF_SIZE], [2]);
+    LOCAL_ALIGNED_16(INTFLOAT, r,  [BUF_SIZE], [2]);
     LOCAL_ALIGNED_16(INTFLOAT, l0, [BUF_SIZE], [2]);
     LOCAL_ALIGNED_16(INTFLOAT, r0, [BUF_SIZE], [2]);
     LOCAL_ALIGNED_16(INTFLOAT, l1, [BUF_SIZE], [2]);
@@ -111,10 +113,12 @@ static void test_stereo_interpolate(const char *name, int id)
     declare_func_emms(AV_CPU_FLAG_MMX, void, INTFLOAT (*l)[2], INTFLOAT (*r)[2],
                       INTFLOAT h[2][4], INTFLOAT h_step[2][4], int len);
 
-    randomize((INTFLOAT *)l0, BUF_SIZE * 2);
-    randomize((INTFLOAT *)r0, BUF_SIZE * 2);
-    memcpy(l1, l0, BUF_SIZE * 2 * sizeof(INTFLOAT));
-    memcpy(r1, r0, BUF_SIZE * 2 * sizeof(INTFLOAT));
+    randomize((INTFLOAT *)l, BUF_SIZE * 2);
+    randomize((INTFLOAT *)r, BUF_SIZE * 2);
+    memcpy(l0, l, BUF_SIZE * 2 * sizeof(INTFLOAT));
+    memcpy(l1, l, BUF_SIZE * 2 * sizeof(INTFLOAT));
+    memcpy(r0, r, BUF_SIZE * 2 * sizeof(INTFLOAT));
+    memcpy(r1, r, BUF_SIZE * 2 * sizeof(INTFLOAT));
 
     randomize((INTFLOAT *)h, 2 * 4);
     randomize((INTFLOAT *)h_step, 2 * 4);
@@ -124,6 +128,9 @@ static void test_stereo_interpolate(const char *name, int id)
     if (!float_near_abs_eps_array((float *)l0, (float *)l1, EPS, BUF_SIZE * 2) ||
         !float_near_abs_eps_array((float *)r0, (float *)r1, EPS, BUF_SIZE * 2))
         fail();
+
+    memcpy(l1, l, BUF_SIZE * 2 * sizeof(INTFLOAT));
+    memcpy(r1, r, BUF_SIZE * 2 * sizeof(INTFLOAT));
     bench_new(l1, r1, h, h_step, BUF_SIZE);
 }
 
