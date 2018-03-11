@@ -264,7 +264,7 @@ static inline int parse_nal_units(AVCodecParserContext *s,
     if (!buf_size)
         return 0;
 
-    av_fast_padded_malloc(&rbsp.rbsp_buffer, &rbsp.rbsp_buffer_alloc_size, buf_size);
+    rbsp.rbsp_buffer = av_buffer_alloc(buf_size + AV_INPUT_BUFFER_PADDING_SIZE);
     if (!rbsp.rbsp_buffer)
         return AVERROR(ENOMEM);
 
@@ -551,18 +551,18 @@ static inline int parse_nal_units(AVCodecParserContext *s,
                 p->last_frame_num = p->poc.frame_num;
             }
 
-            av_freep(&rbsp.rbsp_buffer);
+            av_buffer_unref(&rbsp.rbsp_buffer);
             return 0; /* no need to evaluate the rest */
         }
     }
     if (q264) {
-        av_freep(&rbsp.rbsp_buffer);
+        av_buffer_unref(&rbsp.rbsp_buffer);
         return 0;
     }
     /* didn't find a picture! */
     av_log(avctx, AV_LOG_ERROR, "missing picture in access unit with size %d\n", buf_size);
 fail:
-    av_freep(&rbsp.rbsp_buffer);
+    av_buffer_unref(&rbsp.rbsp_buffer);
     return -1;
 }
 

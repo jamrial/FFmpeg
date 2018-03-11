@@ -34,6 +34,7 @@ int ff_h2645_extract_rbsp(const uint8_t *src, int length,
                           H2645RBSP *rbsp, H2645NAL *nal, int small_padding)
 {
     int i, si, di;
+    int ret;
     uint8_t *dst;
 
     nal->skipped_bytes = 0;
@@ -82,16 +83,20 @@ int ff_h2645_extract_rbsp(const uint8_t *src, int length,
     }
 #endif /* HAVE_FAST_UNALIGNED */
 
+    ret = av_buffer_make_writable(&rbsp->rbsp_buffer);
+    if (ret < 0)
+        return ret;
+
     if (i >= length - 1 && small_padding) { // no escaped 0
-        nal->data     =
-        nal->raw_data = src;
-        nal->size     =
-        nal->raw_size = length;
-        return length;
+        dst = &rbsp->rbsp_buffer->data[rbsp->rbsp_buffer_size];
+
+        memcpy(dst, src, length);
+        si = di = length;
+        goto nsc;
     } else if (i > length)
         i = length;
 
-    nal->rbsp_buffer = &rbsp->rbsp_buffer[rbsp->rbsp_buffer_size];
+    nal->rbsp_buffer = &rbsp->rbsp_buffer->data[rbsp->rbsp_buffer_size];
     dst = nal->rbsp_buffer;
 
     memcpy(dst, src, i);
@@ -270,10 +275,15 @@ int ff_h2645_packet_split(H2645Packet *pkt, const uint8_t *buf, int length,
     int64_t padding = small_padding ? 0 : MAX_MBPAIR_SIZE;
 
     bytestream2_init(&bc, buf, length);
-    av_fast_padded_malloc(&pkt->rbsp.rbsp_buffer, &pkt->rbsp.rbsp_buffer_alloc_size, length + padding);
-    if (!pkt->rbsp.rbsp_buffer)
-        return AVERROR(ENOMEM);
 
+    if (length > pkt->rbsp.rbsp_buffer_alloc_size) {
+        av_buffer_unref(&pkt->rbsp.rbsp_buffer);
+        pkt->rbsp.rbsp_buffer = av_buffer_alloc(length + padding + AV_INPUT_BUFFER_PADDING_SIZE);
+        if (!pkt->rbsp.rbsp_buffer)
+            return AVERROR(ENOMEM);
+    }
+
+    pkt->rbsp.rbsp_buffer_alloc_size = length;
     pkt->rbsp.rbsp_buffer_size = 0;
     pkt->nb_nals = 0;
     while (bytestream2_get_bytes_left(&bc) >= 4) {
@@ -391,6 +401,6 @@ void ff_h2645_packet_uninit(H2645Packet *pkt)
     }
     av_freep(&pkt->nals);
     pkt->nals_allocated = 0;
-    av_freep(&pkt->rbsp.rbsp_buffer);
+    av_buffer_unref(&pkt->rbsp.rbsp_buffer);
     pkt->rbsp.rbsp_buffer_alloc_size = pkt->rbsp.rbsp_buffer_size = 0;
 }

@@ -70,7 +70,7 @@ static int generate_fake_vps(QSVEncContext *q, AVCodecContext *avctx)
         return AVERROR_UNKNOWN;
     }
 
-    av_fast_padded_malloc(&sps_rbsp.rbsp_buffer, &sps_rbsp.rbsp_buffer_alloc_size, avctx->extradata_size);
+    sps_rbsp.rbsp_buffer = av_buffer_alloc(avctx->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
     if (!sps_rbsp.rbsp_buffer)
         return AVERROR(ENOMEM);
 
@@ -83,7 +83,7 @@ static int generate_fake_vps(QSVEncContext *q, AVCodecContext *avctx)
 
     ret = init_get_bits8(&gb, sps_nal.data, sps_nal.size);
     if (ret < 0) {
-        av_freep(&sps_rbsp.rbsp_buffer);
+        av_buffer_unref(&sps_rbsp.rbsp_buffer);
         return ret;
     }
 
@@ -92,13 +92,13 @@ static int generate_fake_vps(QSVEncContext *q, AVCodecContext *avctx)
     if (type != HEVC_NAL_SPS) {
         av_log(avctx, AV_LOG_ERROR, "Unexpected NAL type in the extradata: %d\n",
                type);
-        av_freep(&sps_rbsp.rbsp_buffer);
+        av_buffer_unref(&sps_rbsp.rbsp_buffer);
         return AVERROR_INVALIDDATA;
     }
     get_bits(&gb, 9);
 
     ret = ff_hevc_parse_sps(&sps, &gb, &sps_id, 0, NULL, avctx);
-    av_freep(&sps_rbsp.rbsp_buffer);
+    av_buffer_unref(&sps_rbsp.rbsp_buffer);
     if (ret < 0) {
         av_log(avctx, AV_LOG_ERROR, "Error parsing the SPS\n");
         return ret;

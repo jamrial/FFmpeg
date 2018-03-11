@@ -65,7 +65,7 @@ typedef struct H2645NAL {
 } H2645NAL;
 
 typedef struct H2645RBSP {
-    uint8_t *rbsp_buffer;
+    AVBufferRef *rbsp_buffer;
     int rbsp_buffer_alloc_size;
     int rbsp_buffer_size;
 } H2645RBSP;
