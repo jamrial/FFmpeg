@@ -24,6 +24,7 @@
 
 #include "buffer.h"
 #include "thread.h"
+#include "tree.h"
 
 /**
  * The buffer is always treated as read-only.
@@ -61,6 +62,7 @@ struct AVBuffer {
 
 typedef struct BufferPoolEntry {
     uint8_t *data;
+    int      size;
 
     /*
      * Backups of the original opaque/free of the AVBuffer corresponding to
@@ -71,11 +73,13 @@ typedef struct BufferPoolEntry {
 
     AVBufferPool *pool;
     struct BufferPoolEntry *next;
+    struct AVTreeNode *node;
 } BufferPoolEntry;
 
 struct AVBufferPool {
     AVMutex mutex;
     BufferPoolEntry *pool;
+    struct AVTreeNode *root;
 
     /*
      * This is used to track when the pool is to be freed.

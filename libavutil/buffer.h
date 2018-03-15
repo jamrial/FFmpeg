@@ -284,6 +284,8 @@ void av_buffer_pool_uninit(AVBufferPool **pool);
  */
 AVBufferRef *av_buffer_pool_get(AVBufferPool *pool);
 
+AVBufferRef *av_buffer_pool_get_dyn(AVBufferPool *pool, int size);
+
 /**
  * @}
  */

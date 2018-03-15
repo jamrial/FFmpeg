@@ -251,6 +251,15 @@ AVBufferPool *av_buffer_pool_init(int size, AVBufferRef* (*alloc)(int size))
     return pool;
 }
 
+static int free_node(void *opaque, void *elem)
+{
+    BufferPoolEntry *buf = elem;
+
+    buf->free(buf->opaque, buf->data);
+    av_free(buf);
+    return 0;
+}
+
 /*
  * This function gets called when the pool has been uninited and
  * all the buffers returned to it.
@@ -264,6 +273,9 @@ static void buffer_pool_free(AVBufferPool *pool)
         buf->free(buf->opaque, buf->data);
         av_freep(&buf);
     }
+    av_tree_enumerate(pool->root, NULL, NULL, free_node);
+    av_tree_destroy(pool->root);
+
     ff_mutex_destroy(&pool->mutex);
 
     if (pool->pool_free)
@@ -302,15 +314,42 @@ static void pool_release_buffer(void *opaque, uint8_t *data)
         buffer_pool_free(pool);
 }
 
+static int cmp_insert(const void *key, const void *node)
+{
+    int ret = FFDIFFSIGN(((const BufferPoolEntry *) key)->size, ((const BufferPoolEntry *) node)->size);
+
+    if (!ret)
+        ret = FFDIFFSIGN(((const BufferPoolEntry *) key)->data, ((const BufferPoolEntry *) node)->data);
+    return ret;
+}
+
+static void pool_release_dyn_buffer(void *opaque, uint8_t *data)
+{
+    BufferPoolEntry *buf = opaque;
+    AVBufferPool *pool = buf->pool;
+
+    if(CONFIG_MEMORY_POISONING)
+        memset(buf->data, FF_MEMORY_POISON, buf->size);
+
+    ff_mutex_lock(&pool->mutex);
+    av_tree_insert(&pool->root, buf, cmp_insert, &buf->node);
+    ff_mutex_unlock(&pool->mutex);
+
+    if (atomic_fetch_sub_explicit(&pool->refcount, 1, memory_order_acq_rel) == 1)
+        buffer_pool_free(pool);
+}
+
 /* allocate a new buffer and override its free() callback so that
  * it is returned to the pool on free */
-static AVBufferRef *pool_alloc_buffer(AVBufferPool *pool)
+static AVBufferRef *pool_alloc_buffer(AVBufferPool *pool, int *psize,
+                                      void (free)(void *opaque, uint8_t *data))
 {
     BufferPoolEntry *buf;
     AVBufferRef     *ret;
+    int size = psize ? *psize : pool->size;
 
-    ret = pool->alloc2 ? pool->alloc2(pool->opaque, pool->size) :
-                         pool->alloc(pool->size);
+    ret = pool->alloc2 ? pool->alloc2(pool->opaque, size) :
+                         pool->alloc(size);
     if (!ret)
         return NULL;
 
@@ -320,13 +359,19 @@ static AVBufferRef *pool_alloc_buffer(AVBufferPool *pool)
         return NULL;
     }
 
+    if (psize && !(buf->node = av_tree_node_alloc())) {
+        av_free(buf);
+        av_buffer_unref(&ret);
+        return NULL;
+    }
     buf->data   = ret->buffer->data;
     buf->opaque = ret->buffer->opaque;
     buf->free   = ret->buffer->free;
+    buf->size   = size;
     buf->pool   = pool;
 
     ret->buffer->opaque = buf;
-    ret->buffer->free   = pool_release_buffer;
+    ret->buffer->free   = free;
 
     return ret;
 }
@@ -346,7 +391,48 @@ AVBufferRef *av_buffer_pool_get(AVBufferPool *pool)
             buf->next = NULL;
         }
     } else {
-        ret = pool_alloc_buffer(pool);
+        ret = pool_alloc_buffer(pool, NULL, pool_release_buffer);
+    }
+    ff_mutex_unlock(&pool->mutex);
+
+    if (ret)
+        atomic_fetch_add_explicit(&pool->refcount, 1, memory_order_relaxed);
+
+    return ret;
+}
+
+static int cmp_int(const void *key, const void *node)
+{
+    return FFDIFFSIGN(*(const int *)key, ((const BufferPoolEntry *) node)->size);
+}
+
+AVBufferRef *av_buffer_pool_get_dyn(AVBufferPool *pool, int size)
+{
+    AVBufferRef *ret;
+    BufferPoolEntry *buf, *next[2] = { NULL, NULL };
+
+    ff_mutex_lock(&pool->mutex);
+    buf = av_tree_find(pool->root, &size, cmp_int, (void **)next);
+
+    if (!buf)
+        buf = next[1];
+    if (!buf && (buf = next[0])) {
+        av_tree_insert(&pool->root, buf, cmp_insert, &buf->node);
+        buf->free(buf->opaque, buf->data);
+        av_free(buf->node);
+        av_freep(&buf);
+    }
+
+    if (buf) {
+        ret = av_buffer_create(buf->data, buf->size, pool_release_dyn_buffer,
+                               buf, 0);
+        if (ret) {
+            av_tree_insert(&pool->root, buf, cmp_insert, &buf->node);
+            memset(buf->node, 0, av_tree_node_size);
+            ret->size = size;
+        }
+    } else {
+        ret = pool_alloc_buffer(pool, &size, pool_release_dyn_buffer);
     }
     ff_mutex_unlock(&pool->mutex);
 
