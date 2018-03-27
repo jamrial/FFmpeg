@@ -288,4 +288,60 @@ AVBufferRef *av_buffer_pool_get(AVBufferPool *pool);
  * @}
  */
 
+/**
+ * @defgroup lavu_bufferdynpool AVBufferDynPool
+ * @ingroup lavu_data
+ *
+ * @{
+ * AVBufferDynPool is an API for a lock-free thread-safe pool of AVBuffers.
+ *
+ * Unlike AVBufferPool, AVBufferDynPool allows the user to request buffers
+ * of any arbitrary size. It is functionally the same otherwise.
+ */
+
+/**
+ * The buffer pool. This structure is opaque and not meant to be accessed
+ * directly. It is allocated with av_buffer_dyn_pool_init() and freed with
+ * av_buffer_dyn_pool_uninit().
+ */
+typedef struct AVBufferDynPool AVBufferDynPool;
+
+/**
+ * Allocate and initialize a buffer pool.
+ *
+ * @param alloc a function that will be used to allocate new buffers when the
+ * pool is empty. May be NULL, then the default allocator will be used
+ * (av_buffer_alloc()).
+ * @return newly created buffer pool on success, NULL on error.
+ */
+AVBufferDynPool *av_buffer_dyn_pool_init(AVBufferRef* (*alloc)(int size));
+
+/**
+ * Mark the pool as being available for freeing. It will actually be freed only
+ * once all the allocated buffers associated with the pool are released. Thus it
+ * is safe to call this function while some of the allocated buffers are still
+ * in use.
+ *
+ * @param pool pointer to the pool to be freed. It will be set to NULL.
+ */
+void av_buffer_dyn_pool_uninit(AVBufferDynPool **pool);
+
+/**
+ * Allocate a new AVBuffer, reusing an old, big enough buffer from the pool when
+ * available.
+ * This function may be called simultaneously from multiple threads.
+ *
+ * @note The returned buffer may be bigger than the requested size.
+ *
+ * @param pool pointer to an initialized pool.
+ * @param size Required buffer size in bytes.
+ *
+ * @return a reference to the new buffer on success, NULL on error.
+ */
+AVBufferRef *av_buffer_dyn_pool_get(AVBufferDynPool *pool, int size);
+
+/**
+ * @}
+ */
+
 #endif /* AVUTIL_BUFFER_H */

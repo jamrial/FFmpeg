@@ -61,6 +61,7 @@ struct AVBuffer {
 
 typedef struct BufferPoolEntry {
     uint8_t *data;
+    size_t   size;
 
     /*
      * Backups of the original opaque/free of the AVBuffer corresponding to
@@ -71,6 +72,9 @@ typedef struct BufferPoolEntry {
 
     AVBufferPool *pool;
     struct BufferPoolEntry *next;
+
+    AVBufferDynPool *dynpool;
+    struct AVTreeNode *node;
 } BufferPoolEntry;
 
 struct AVBufferPool {
@@ -93,6 +97,16 @@ struct AVBufferPool {
     AVBufferRef* (*alloc)(int size);
     AVBufferRef* (*alloc2)(void *opaque, int size);
     void         (*pool_free)(void *opaque);
+};
+
+struct AVBufferDynPool {
+    AVMutex mutex;
+    struct AVTreeNode *root;
+
+    atomic_uint refcount;
+
+    int size;
+    AVBufferRef* (*alloc)(int size);
 };
 
 #endif /* AVUTIL_BUFFER_INTERNAL_H */
