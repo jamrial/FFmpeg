@@ -53,6 +53,9 @@ typedef struct CodedBitstreamType {
     int (*assemble_fragment)(CodedBitstreamContext *ctx,
                              CodedBitstreamFragment *frag);
 
+    // Initialize the codec internal state.
+    int (*init)(CodedBitstreamContext *ctx);
+
     // Free the codec internal state.
     void (*close)(CodedBitstreamContext *ctx);
 } CodedBitstreamType;

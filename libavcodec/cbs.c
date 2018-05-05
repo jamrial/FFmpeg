@@ -89,6 +89,17 @@ int ff_cbs_init(CodedBitstreamContext **ctx_ptr,
         return AVERROR(ENOMEM);
     }
 
+    if (ctx->codec->init) {
+        int ret = ctx->codec->init(ctx);
+        if (ret < 0) {
+            if (ctx->codec->close)
+                ctx->codec->close(ctx);
+            av_freep(&ctx->priv_data);
+            av_freep(&ctx);
+            return ret;
+        }
+    }
+
     ctx->decompose_unit_types = NULL;
 
     ctx->trace_enable = 0;
