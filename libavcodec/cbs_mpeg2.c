@@ -235,21 +235,41 @@ static int cbs_mpeg2_read_unit(CodedBitstreamContext *ctx,
 
 static int cbs_mpeg2_write_header(CodedBitstreamContext *ctx,
                                   CodedBitstreamUnit *unit,
-                                  PutBitContext *pbc)
+                                  PutBitContext *pbc,
+                                  AVBufferRef **pbuf)
 {
+    CodedBitstreamMPEG2Context *priv = ctx->priv_data;
+    AVBufferRef *buf;
     int err;
 
     switch (unit->type) {
 #define START(start_code, type, func) \
     case start_code: \
+        buf = av_buffer_pool_get(priv->func##_pool); \
+        if (!buf) \
+            return AVERROR(ENOMEM); \
+        *pbuf = buf; \
+        init_put_bits(pbc, buf->data, buf->size); \
         err = cbs_mpeg2_write_ ## func(ctx, pbc, unit->content); \
         break;
         START(0x00, MPEG2RawPictureHeader,  picture_header);
-        START(0xb2, MPEG2RawUserData,       user_data);
         START(0xb3, MPEG2RawSequenceHeader, sequence_header);
         START(0xb5, MPEG2RawExtensionData,  extension_data);
         START(0xb8, MPEG2RawGroupOfPicturesHeader, group_of_pictures_header);
 #undef START
+    case 0xb2:
+        {
+            MPEG2RawUserData *user_data = unit->content;
+
+            buf = av_buffer_dyn_pool_get(priv->dyn_pool,
+                                         user_data->user_data_length + 1);
+            if (!buf)
+                return AVERROR(ENOMEM);
+            *pbuf = buf;
+            init_put_bits(pbc, buf->data, buf->size);
+            err = cbs_mpeg2_write_user_data(ctx, pbc, user_data);
+            break;
+        }
     default:
         av_log(ctx->log_ctx, AV_LOG_ERROR, "Write unimplemented for start "
                "code %02"PRIx32".\n", unit->type);
@@ -261,21 +281,30 @@ static int cbs_mpeg2_write_header(CodedBitstreamContext *ctx,
 
 static int cbs_mpeg2_write_slice(CodedBitstreamContext *ctx,
                                  CodedBitstreamUnit *unit,
-                                 PutBitContext *pbc)
+                                 PutBitContext *pbc,
+                                 AVBufferRef **pbuf)
 {
+    CodedBitstreamMPEG2Context *priv = ctx->priv_data;
     MPEG2RawSlice *slice = unit->content;
     GetBitContext gbc;
+    AVBufferRef *buf;
     size_t bits_left;
     int err;
+
+    buf = av_buffer_dyn_pool_get(priv->dyn_pool,
+                                 sizeof(slice->header) + slice->data_size +
+                                 slice->header.extra_information_length);
+    if (!buf)
+        return AVERROR(ENOMEM);
+    *pbuf = buf;
+
+    init_put_bits(pbc, buf->data, buf->size);
 
     err = cbs_mpeg2_write_slice_header(ctx, pbc, &slice->header);
     if (err < 0)
         return err;
 
     if (slice->data) {
-        if (slice->data_size * 8 + 8 > put_bits_left(pbc))
-            return AVERROR(ENOSPC);
-
         init_get_bits(&gbc, slice->data, slice->data_size * 8);
         skip_bits_long(&gbc, slice->data_bit_start);
 
@@ -296,38 +325,17 @@ static int cbs_mpeg2_write_slice(CodedBitstreamContext *ctx,
 static int cbs_mpeg2_write_unit(CodedBitstreamContext *ctx,
                                 CodedBitstreamUnit *unit)
 {
-    CodedBitstreamMPEG2Context *priv = ctx->priv_data;
     PutBitContext pbc;
+    AVBufferRef *buf = NULL;
     int err;
 
-    if (!priv->write_buffer) {
-        // Initial write buffer size is 1MB.
-        priv->write_buffer_size = 1024 * 1024;
-
-    reallocate_and_try_again:
-        err = av_reallocp(&priv->write_buffer, priv->write_buffer_size);
-        if (err < 0) {
-            av_log(ctx->log_ctx, AV_LOG_ERROR, "Unable to allocate a "
-                   "sufficiently large write buffer (last attempt "
-                   "%"SIZE_SPECIFIER" bytes).\n", priv->write_buffer_size);
-            return err;
-        }
-    }
-
-    init_put_bits(&pbc, priv->write_buffer, priv->write_buffer_size);
-
     if (unit->type >= 0x01 && unit->type <= 0xaf)
-        err = cbs_mpeg2_write_slice(ctx, unit, &pbc);
+        err = cbs_mpeg2_write_slice(ctx, unit, &pbc, &buf);
     else
-        err = cbs_mpeg2_write_header(ctx, unit, &pbc);
+        err = cbs_mpeg2_write_header(ctx, unit, &pbc, &buf);
 
-    if (err == AVERROR(ENOSPC)) {
-        // Overflow.
-        priv->write_buffer_size *= 2;
-        goto reallocate_and_try_again;
-    }
     if (err < 0) {
-        // Write failed for some other reason.
+        av_buffer_unref(&buf);
         return err;
     }
 
@@ -336,14 +344,10 @@ static int cbs_mpeg2_write_unit(CodedBitstreamContext *ctx,
     else
         unit->data_bit_padding = 0;
 
+    unit->data = buf->data;
+    unit->data_ref = buf;
     unit->data_size = (put_bits_count(&pbc) + 7) / 8;
     flush_put_bits(&pbc);
-
-    err = ff_cbs_alloc_unit_data(ctx, unit, unit->data_size);
-    if (err < 0)
-        return err;
-
-    memcpy(unit->data, priv->write_buffer, unit->data_size);
 
     return 0;
 }
@@ -385,11 +389,38 @@ static int cbs_mpeg2_assemble_fragment(CodedBitstreamContext *ctx,
     return 0;
 }
 
+static int cbs_mpeg2_init(CodedBitstreamContext *ctx)
+{
+    CodedBitstreamMPEG2Context *priv = ctx->priv_data;
+
+    priv->picture_header_pool =
+        av_buffer_pool_init(sizeof(MPEG2RawPictureHeader), NULL);
+    priv->sequence_header_pool =
+        av_buffer_pool_init(sizeof(MPEG2RawSequenceHeader), NULL);
+    priv->extension_data_pool =
+        av_buffer_pool_init(sizeof(MPEG2RawExtensionData), NULL);
+    priv->group_of_pictures_header_pool =
+        av_buffer_pool_init(sizeof(MPEG2RawGroupOfPicturesHeader),NULL);
+
+    priv->dyn_pool = av_buffer_dyn_pool_init(NULL);
+
+    if (!priv->picture_header_pool || !priv->sequence_header_pool ||
+        !priv->extension_data_pool || !priv->group_of_pictures_header_pool ||
+        !priv->dyn_pool)
+        return AVERROR(ENOMEM);
+
+    return 0;
+}
+
 static void cbs_mpeg2_close(CodedBitstreamContext *ctx)
 {
     CodedBitstreamMPEG2Context *priv = ctx->priv_data;
 
-    av_freep(&priv->write_buffer);
+    av_buffer_pool_uninit(&priv->picture_header_pool);
+    av_buffer_pool_uninit(&priv->sequence_header_pool);
+    av_buffer_pool_uninit(&priv->extension_data_pool);
+    av_buffer_pool_uninit(&priv->group_of_pictures_header_pool);
+    av_buffer_dyn_pool_uninit(&priv->dyn_pool);
 }
 
 const CodedBitstreamType ff_cbs_type_mpeg2 = {
@@ -402,5 +433,6 @@ const CodedBitstreamType ff_cbs_type_mpeg2 = {
     .write_unit        = &cbs_mpeg2_write_unit,
     .assemble_fragment = &cbs_mpeg2_assemble_fragment,
 
+    .init              = &cbs_mpeg2_init,
     .close             = &cbs_mpeg2_close,
 };

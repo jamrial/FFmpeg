@@ -220,9 +220,11 @@ typedef struct CodedBitstreamMPEG2Context {
     uint8_t progressive_sequence;
     uint8_t number_of_frame_centre_offsets;
 
-    // Write buffer.
-    uint8_t *write_buffer;
-    size_t write_buffer_size;
+    AVBufferPool *picture_header_pool;
+    AVBufferPool *sequence_header_pool;
+    AVBufferPool *extension_data_pool;
+    AVBufferPool *group_of_pictures_header_pool;
+    AVBufferDynPool *dyn_pool;
 } CodedBitstreamMPEG2Context;
 
 
