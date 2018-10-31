@@ -379,6 +379,7 @@ static int FUNC(uncompressed_header)(CodedBitstreamContext *ctx, RWContext *rw,
                 .subsampling_x  = vp9->subsampling_x,
                 .subsampling_y  = vp9->subsampling_y,
                 .bit_depth      = vp9->bit_depth,
+                .intra_only     = current->intra_only,
             };
         }
     }

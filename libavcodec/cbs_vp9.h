@@ -187,6 +187,7 @@ typedef struct VP9ReferenceFrameState {
     int subsampling_x;  // RefSubsamplingX
     int subsampling_y;  // RefSubsamplingY
     int bit_depth;      // RefBitDepth
+    int intra_only;
 } VP9ReferenceFrameState;
 
 typedef struct CodedBitstreamVP9Context {
