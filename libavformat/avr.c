@@ -52,10 +52,11 @@ static int avr_read_header(AVFormatContext *s)
     avio_skip(s->pb, 8); // sample_name
 
     chan = avio_rb16(s->pb);
+    st->codecpar->ch_layout.order = AV_CHANNEL_ORDER_UNSPEC;
     if (!chan) {
-        st->codecpar->channels = 1;
+        st->codecpar->ch_layout.nb_channels = 1;
     } else if (chan == 0xFFFFu) {
-        st->codecpar->channels = 2;
+        st->codecpar->ch_layout.nb_channels = 2;
     } else {
         avpriv_request_sample(s, "chan %d", chan);
         return AVERROR_PATCHWELCOME;
@@ -81,7 +82,7 @@ static int avr_read_header(AVFormatContext *s)
         return AVERROR_PATCHWELCOME;
     }
 
-    st->codecpar->block_align = bps * st->codecpar->channels / 8;
+    st->codecpar->block_align = bps * st->codecpar->ch_layout.nb_channels / 8;
 
     avpriv_set_pts_info(st, 64, 1, st->codecpar->sample_rate);
     return 0;
