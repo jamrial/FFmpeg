@@ -5,8 +5,7 @@
 #media_type 0: audio
 #codec_id 0: flac
 #sample_rate 0: 44100
-#channel_layout 0: 5
-#channel_layout_name 0: 2 channels (FL+FC)
+#channel_layout_name 0: FL|FC
 #tb 1: 1/90000
 #media_type 1: video
 #codec_id 1: png
@@ -36,8 +35,7 @@
 #media_type 6: audio
 #codec_id 6: pcm_s16le
 #sample_rate 6: 44100
-#channel_layout 6: 5
-#channel_layout_name 6: 2 channels (FL+FC)
+#channel_layout_name 6: FL|FC
 0,          0,          0,     4608,       14, 0x242b036d
 1,          0,          0,        0,    66888, 0x1fd72743
 2,          0,          0,        0,   438706, 0x8bcb753b
