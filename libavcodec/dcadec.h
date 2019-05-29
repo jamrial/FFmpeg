@@ -43,6 +43,11 @@
 #define DCA_PACKET_RECOVERY     0x10    ///< Sync error recovery flag
 #define DCA_PACKET_RESIDUAL     0x20    ///< Core valid for residual decoding
 
+enum DCAOutputChannelOrder {
+    CHANNEL_ORDER_DEFAULT,
+    CHANNEL_ORDER_CODED,
+};
+
 typedef struct DCAContext {
     const AVClass   *class;       ///< class for AVOptions
     AVCodecContext  *avctx;
@@ -63,6 +68,8 @@ typedef struct DCAContext {
 
     int     request_channel_layout; ///< Converted from avctx.request_channel_layout
     int     core_only;              ///< Core only decoding flag
+    int     output_channel_order;
+    AVChannelLayout downmix_layout;
 } DCAContext;
 
 int ff_dca_set_channel_layout(AVCodecContext *avctx, int *ch_remap, int dca_mask);
