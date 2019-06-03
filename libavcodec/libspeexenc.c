@@ -28,8 +28,8 @@
  * order to control various encoding parameters.
  *
  * Channels
- *     Speex only supports mono or stereo, so avctx->channels must be set to
- *     1 or 2.
+ *     Speex only supports mono or stereo, so avctx->ch_layout.nb_channels must
+ *     be set to 1 or 2.
  *
  * Sample Rate / Encoding Mode
  *     Speex has 3 modes, each of which uses a specific sample rate.
@@ -114,7 +114,7 @@ static av_cold void print_enc_params(AVCodecContext *avctx,
 {
     const char *mode_str = "unknown";
 
-    av_log(avctx, AV_LOG_DEBUG, "channels: %d\n", avctx->channels);
+    av_log(avctx, AV_LOG_DEBUG, "channels: %d\n", avctx->ch_layout.nb_channels);
     switch (s->header.mode) {
     case SPEEX_MODEID_NB:  mode_str = "narrowband";     break;
     case SPEEX_MODEID_WB:  mode_str = "wideband";       break;
@@ -146,15 +146,16 @@ static av_cold void print_enc_params(AVCodecContext *avctx,
 static av_cold int encode_init(AVCodecContext *avctx)
 {
     LibSpeexEncContext *s = avctx->priv_data;
+    int channels = avctx->ch_layout.nb_channels;
     const SpeexMode *mode;
     uint8_t *header_data;
     int header_size;
     int32_t complexity;
 
     /* channels */
-    if (avctx->channels < 1 || avctx->channels > 2) {
+    if (channels < 1 || channels > 2) {
         av_log(avctx, AV_LOG_ERROR, "Invalid channels (%d). Only stereo and "
-               "mono are supported\n", avctx->channels);
+               "mono are supported\n", channels);
         return AVERROR(EINVAL);
     }
 
@@ -175,7 +176,7 @@ static av_cold int encode_init(AVCodecContext *avctx)
         av_log(avctx, AV_LOG_ERROR, "Error initializing libspeex\n");
         return -1;
     }
-    speex_init_header(&s->header, avctx->sample_rate, avctx->channels, mode);
+    speex_init_header(&s->header, avctx->sample_rate, channels, mode);
 
     /* rate control method and parameters */
     if (avctx->flags & AV_CODEC_FLAG_QSCALE) {
@@ -210,7 +211,7 @@ static av_cold int encode_init(AVCodecContext *avctx)
         }
         /* stereo side information adds about 800 bps to the base bitrate */
         /* TODO: this should be calculated exactly */
-        avctx->bit_rate = s->header.bitrate + (avctx->channels == 2 ? 800 : 0);
+        avctx->bit_rate = s->header.bitrate + (channels == 2 ? 800 : 0);
     }
 
     /* VAD is activated with VBR or can be turned on by itself */
@@ -275,7 +276,7 @@ static int encode_frame(AVCodecContext *avctx, AVPacket *avpkt,
 
     if (samples) {
         /* encode Speex frame */
-        if (avctx->channels == 2)
+        if (avctx->ch_layout.nb_channels == 2)
             speex_encode_stereo_int(samples, s->header.frame_size, &s->bits);
         speex_encode_int(s->enc_state, samples, &s->bits);
         s->pkt_frame_count++;
