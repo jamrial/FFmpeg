@@ -85,9 +85,9 @@ libcodec2_init_common_error:
 static av_cold int libcodec2_init_decoder(AVCodecContext *avctx)
 {
     avctx->sample_rate      = 8000;
-    avctx->channels         = 1;
     avctx->sample_fmt       = AV_SAMPLE_FMT_S16;
-    avctx->channel_layout   = AV_CH_LAYOUT_MONO;
+    av_channel_layout_uninit(&avctx->ch_layout);
+    avctx->ch_layout = (AVChannelLayout)AV_CHANNEL_LAYOUT_MONO;
 
     if (avctx->extradata_size != CODEC2_EXTRADATA_SIZE) {
         av_log(avctx, AV_LOG_ERROR, "must have exactly %i bytes of extradata (got %i)\n",
