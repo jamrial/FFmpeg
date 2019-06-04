@@ -1077,12 +1077,14 @@ static av_cold int vorbis_decode_init(AVCodecContext *avctx)
         return ret;
     }
 
-    if (vc->audio_channels > 8)
-        avctx->channel_layout = 0;
-    else
-        avctx->channel_layout = ff_vorbis_channel_layouts[vc->audio_channels - 1];
+    av_channel_layout_uninit(&avctx->ch_layout);
+    if (vc->audio_channels > 8) {
+        avctx->ch_layout.order       = AV_CHANNEL_ORDER_UNSPEC;
+        avctx->ch_layout.nb_channels = vc->audio_channels;
+    } else {
+        av_channel_layout_from_mask(&avctx->ch_layout, ff_vorbis_channel_layouts[vc->audio_channels - 1]);
+    }
 
-    avctx->channels    = vc->audio_channels;
     avctx->sample_rate = vc->audio_samplerate;
 
     return 0;
@@ -1788,12 +1790,14 @@ static int vorbis_decode_frame(AVCodecContext *avctx, void *data,
             return ret;
         }
 
-        if (vc->audio_channels > 8)
-            avctx->channel_layout = 0;
-        else
-            avctx->channel_layout = ff_vorbis_channel_layouts[vc->audio_channels - 1];
+        av_channel_layout_uninit(&avctx->ch_layout);
+        if (vc->audio_channels > 8) {
+            avctx->ch_layout.order       = AV_CHANNEL_ORDER_UNSPEC;
+            avctx->ch_layout.nb_channels = vc->audio_channels;
+        } else {
+            av_channel_layout_from_mask(&avctx->ch_layout, ff_vorbis_channel_layouts[vc->audio_channels - 1]);
+        }
 
-        avctx->channels    = vc->audio_channels;
         avctx->sample_rate = vc->audio_samplerate;
         return buf_size;
     }
