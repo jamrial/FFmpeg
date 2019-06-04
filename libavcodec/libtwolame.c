@@ -76,7 +76,7 @@ static av_cold int twolame_encode_init(AVCodecContext *avctx)
     twolame_set_copyright(s->glopts, s->copyright);
     twolame_set_original(s->glopts, s->original);
 
-    twolame_set_num_channels(s->glopts, avctx->channels);
+    twolame_set_num_channels(s->glopts, avctx->ch_layout.nb_channels);
     twolame_set_in_samplerate(s->glopts, avctx->sample_rate);
     twolame_set_out_samplerate(s->glopts, avctx->sample_rate);
 
