@@ -604,6 +604,12 @@ int attribute_align_arg avcodec_open2(AVCodecContext *avctx, const AVCodec *code
         goto free_and_end;
     }
 
+    avctx->internal->compat_encode_packet = av_packet_alloc();
+    if (!avctx->internal->compat_encode_packet) {
+        ret = AVERROR(ENOMEM);
+        goto free_and_end;
+    }
+
     avctx->internal->buffer_pkt = av_packet_alloc();
     if (!avctx->internal->buffer_pkt) {
         ret = AVERROR(ENOMEM);
@@ -1044,6 +1050,7 @@ FF_ENABLE_DEPRECATION_WARNINGS
         av_frame_free(&avctx->internal->to_free);
         av_frame_free(&avctx->internal->compat_decode_frame);
         av_frame_free(&avctx->internal->buffer_frame);
+        av_packet_free(&avctx->internal->compat_encode_packet);
         av_packet_free(&avctx->internal->buffer_pkt);
         av_packet_free(&avctx->internal->last_pkt_props);
 
@@ -1099,6 +1106,7 @@ av_cold int avcodec_close(AVCodecContext *avctx)
         av_frame_free(&avctx->internal->to_free);
         av_frame_free(&avctx->internal->compat_decode_frame);
         av_frame_free(&avctx->internal->buffer_frame);
+        av_packet_free(&avctx->internal->compat_encode_packet);
         av_packet_free(&avctx->internal->buffer_pkt);
         av_packet_free(&avctx->internal->last_pkt_props);
 
