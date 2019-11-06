@@ -30,6 +30,7 @@
 
 typedef struct AnnexBContext {
     const AVClass *class;
+    AVBSFContext *bsf;
     int64_t temporal_unit_size;
     int64_t frame_unit_size;
     AVRational framerate;
@@ -102,21 +103,40 @@ static int annexb_probe(const AVProbeData *p)
 static int annexb_read_header(AVFormatContext *s)
 {
     AnnexBContext *c = s->priv_data;
+    const AVBitStreamFilter *filter = av_bsf_get_by_name("av1_frame_merge");
     AVStream *st;
+    int ret;
+
+    if (!filter) {
+        av_log(c, AV_LOG_ERROR, "av1_frame_merge bitstream filter "
+               "not found. This is a bug, please report it.\n");
+        return AVERROR_BUG;
+    }
 
     st = avformat_new_stream(s, NULL);
     if (!st)
         return AVERROR(ENOMEM);
 
     st->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
-    st->codecpar->codec_id = AV_CODEC_ID_AV1;
+    st->codecpar->codec_id =
+    st->internal->avctx->codec_id = AV_CODEC_ID_AV1;
     st->need_parsing = AVSTREAM_PARSE_HEADERS;
 
     st->internal->avctx->framerate = c->framerate;
     // placeholder value, taken from rawvideo demuxers
     avpriv_set_pts_info(st, 64, 1, 1200000);
 
-    return 0;
+    ret = av_bsf_alloc(filter, &c->bsf);
+    if (ret < 0)
+        return ret;
+
+    ret = avcodec_parameters_from_context(c->bsf->par_in, st->internal->avctx);
+    if (ret < 0) {
+        av_bsf_free(&c->bsf);
+        return ret;
+    }
+
+    return av_bsf_init(c->bsf);
 }
 
 static int annexb_read_packet(AVFormatContext *s, AVPacket *pkt)
@@ -125,8 +145,13 @@ static int annexb_read_packet(AVFormatContext *s, AVPacket *pkt)
     int64_t obu_unit_size;
     int ret, len;
 
-    if (avio_feof(s->pb))
-        return (c->temporal_unit_size || c->frame_unit_size) ? AVERROR(EIO) : AVERROR_EOF;
+retry:
+    if (avio_feof(s->pb)) {
+        if (c->temporal_unit_size || c->frame_unit_size)
+            return AVERROR(EIO);
+        av_bsf_send_packet(c->bsf, NULL);
+        goto end;
+    }
 
     if (!c->temporal_unit_size) {
         len = leb(s->pb, &c->temporal_unit_size);
@@ -159,7 +184,32 @@ static int annexb_read_packet(AVFormatContext *s, AVPacket *pkt)
         return AVERROR_INVALIDDATA;
     }
 
+    ret = av_bsf_send_packet(c->bsf, pkt);
+    if (ret < 0) {
+        av_log(s, AV_LOG_ERROR, "av1_frame_merge filter "
+               "failed to send input packet\n");
+        return ret;
+    }
+
+end:
+    ret = av_bsf_receive_packet(c->bsf, pkt);
+
+    if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF)
+        av_log(s, AV_LOG_ERROR, "av1_frame_merge filter "
+               "failed to receive output packet\n");
+
+    if (ret == AVERROR(EAGAIN))
+        goto retry;
+
     return ret;
+}
+
+static int annexb_read_close(AVFormatContext *s)
+{
+    AnnexBContext *c = s->priv_data;
+
+    av_bsf_free(&c->bsf);
+    return 0;
 }
 
 #define OFFSET(x) offsetof(AnnexBContext, x)
@@ -183,6 +233,7 @@ AVInputFormat ff_obu_demuxer = {
     .read_probe     = annexb_probe,
     .read_header    = annexb_read_header,
     .read_packet    = annexb_read_packet,
+    .read_close     = annexb_read_close,
     .extensions     = "obu",
     .flags          = AVFMT_GENERIC_INDEX,
     .priv_class     = &annexb_demuxer_class,
