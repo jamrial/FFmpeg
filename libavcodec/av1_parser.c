@@ -80,6 +80,11 @@ static int av1_parser_parse(AVCodecParserContext *ctx,
         goto end;
     }
 
+    if (!av1->sequence_header) {
+        av_log(avctx, AV_LOG_ERROR, "No sequence header available\n");
+        goto end;
+    }
+
     for (int i = 0; i < td->nb_units; i++) {
         CodedBitstreamUnit *unit = &td->units[i];
         AV1RawOBU *obu = unit->content;
@@ -94,11 +99,6 @@ static int av1_parser_parse(AVCodecParserContext *ctx,
             frame = &obu->obu.frame_header;
         else
             continue;
-
-        if (!seq) {
-            av_log(avctx, AV_LOG_ERROR, "No sequence header available\n");
-            goto end;
-        }
 
         if (frame->show_existing_frame) {
             AV1ReferenceFrameState *ref = &av1->ref[frame->frame_to_show_map_idx];
