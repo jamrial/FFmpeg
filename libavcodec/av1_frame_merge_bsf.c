@@ -26,13 +26,14 @@
 typedef struct AV1FMergeContext {
     CodedBitstreamContext *cbc;
     CodedBitstreamFragment temporal_unit;
+    CodedBitstreamFragment frag;
 } AV1FMergeContext;
 
 static int av1_frame_merge_filter(AVBSFContext *bsf, AVPacket *pkt)
 {
     AV1FMergeContext *ctx = bsf->priv_data;
-    CodedBitstreamFragment frag = { 0 }, *tu = &ctx->temporal_unit;
-    int err;
+    CodedBitstreamFragment *frag = &ctx->frag, *tu = &ctx->temporal_unit;
+    int err, i;
 
     err = ff_bsf_get_packet_ref(bsf, pkt);
     if (err < 0) {
@@ -41,25 +42,25 @@ static int av1_frame_merge_filter(AVBSFContext *bsf, AVPacket *pkt)
         return err;
     }
 
-    err = ff_cbs_read_packet(ctx->cbc, &frag, pkt);
+    err = ff_cbs_read_packet(ctx->cbc, frag, pkt);
     if (err < 0) {
         av_log(bsf, AV_LOG_ERROR, "Failed to read packet.\n");
         goto fail;
     }
 
-    if (frag.nb_units != 1) {
-        av_log(bsf, AV_LOG_ERROR, "OBU count in packet must be exactly 1.\n");
+    if (frag->nb_units == 0) {
+        av_log(bsf, AV_LOG_ERROR, "No OBU in packet.\n");
         err = AVERROR_INVALIDDATA;
         goto fail;
     }
 
-    if (tu->nb_units == 0 && frag.units[0].type != AV1_OBU_TEMPORAL_DELIMITER) {
+    if (tu->nb_units == 0 && frag->units[0].type != AV1_OBU_TEMPORAL_DELIMITER) {
         av_log(bsf, AV_LOG_ERROR, "Missing Temporal Delimiter.\n");
         err = AVERROR_INVALIDDATA;
         goto fail;
     }
 
-    if (tu->nb_units > 0 && frag.units[0].type == AV1_OBU_TEMPORAL_DELIMITER) {
+    if (tu->nb_units > 0 && frag->units[0].type == AV1_OBU_TEMPORAL_DELIMITER) {
 eof:
         err = ff_cbs_write_packet(ctx->cbc, pkt, tu);
         if (err < 0) {
@@ -68,25 +69,41 @@ eof:
         }
         ff_cbs_fragment_reset(ctx->cbc, tu);
 
-        if (frag.nb_units > 0) {
-            err = ff_cbs_insert_unit_content(ctx->cbc, tu, -1, frag.units[0].type,
-                                             frag.units[0].content, frag.units[0].content_ref);
-            ff_cbs_fragment_reset(ctx->cbc, &frag);
+        for (i = 0; i < frag->nb_units; i++) {
+            if (i && frag->units[i].type == AV1_OBU_TEMPORAL_DELIMITER) {
+                av_log(bsf, AV_LOG_ERROR, "Temporal Delimiter in the middle of a packet.\n");
+                err = AVERROR_INVALIDDATA;
+                goto fail;
+            }
+            err = ff_cbs_insert_unit_content(ctx->cbc, tu, -1, frag->units[i].type,
+                                             frag->units[i].content, frag->units[i].content_ref);
+            if (err < 0)
+                goto fail;
         }
+        ff_cbs_fragment_reset(ctx->cbc, frag);
 
         return err;
     }
 
-    err = ff_cbs_insert_unit_content(ctx->cbc, tu, -1, frag.units[0].type,
-                                     frag.units[0].content, frag.units[0].content_ref);
-    ff_cbs_fragment_reset(ctx->cbc, &frag);
+    for (i = 0; i < frag->nb_units; i++) {
+        if (i && frag->units[i].type == AV1_OBU_TEMPORAL_DELIMITER) {
+            av_log(bsf, AV_LOG_ERROR, "Temporal Delimiter in the middle of a packet.\n");
+            err = AVERROR_INVALIDDATA;
+            goto fail;
+        }
+        err = ff_cbs_insert_unit_content(ctx->cbc, tu, -1, frag->units[i].type,
+                                         frag->units[i].content, frag->units[i].content_ref);
+        if (err < 0)
+            goto fail;
+    }
+    ff_cbs_fragment_reset(ctx->cbc, frag);
     av_packet_unref(pkt);
 
     return err < 0 ? err : AVERROR(EAGAIN);
 
 fail:
     ff_cbs_fragment_reset(ctx->cbc, tu);
-    ff_cbs_fragment_reset(ctx->cbc, &frag);
+    ff_cbs_fragment_reset(ctx->cbc, frag);
     av_packet_unref(pkt);
 
     return err;
@@ -109,6 +126,7 @@ static void av1_frame_merge_flush(AVBSFContext *bsf)
     AV1FMergeContext *ctx = bsf->priv_data;
 
     ff_cbs_fragment_reset(ctx->cbc, &ctx->temporal_unit);
+    ff_cbs_fragment_reset(ctx->cbc, &ctx->frag);
 }
 
 static void av1_frame_merge_close(AVBSFContext *bsf)
@@ -116,6 +134,7 @@ static void av1_frame_merge_close(AVBSFContext *bsf)
     AV1FMergeContext *ctx = bsf->priv_data;
 
     ff_cbs_fragment_free(ctx->cbc, &ctx->temporal_unit);
+    ff_cbs_fragment_free(ctx->cbc, &ctx->frag);
     ff_cbs_close(&ctx->cbc);
 }
 
