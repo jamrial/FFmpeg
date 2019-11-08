@@ -31,12 +31,12 @@
 typedef struct AnnexBContext {
     const AVClass *class;
     AVBSFContext *bsf;
-    int64_t temporal_unit_size;
-    int64_t frame_unit_size;
+    uint32_t temporal_unit_size;
+    uint32_t frame_unit_size;
     AVRational framerate;
 } AnnexBContext;
 
-static int leb(AVIOContext *pb, int64_t *len) {
+static int leb(AVIOContext *pb, uint32_t *len) {
     int more, i = 0;
     uint8_t byte;
     *len = 0;
@@ -57,14 +57,13 @@ static int leb(AVIOContext *pb, int64_t *len) {
     return i;
 }
 
-static int read_obu(const uint8_t *buf, int size)
+static int read_obu(const uint8_t *buf, int size, int64_t *obu_size, int *type)
 {
-    int64_t obu_size;
-    int start_pos, type, temporal_id, spatial_id;
+    int start_pos, temporal_id, spatial_id;
     int len;
 
-    len = parse_obu_header(buf, size, &obu_size, &start_pos,
-                           &type, &temporal_id, &spatial_id);
+    len = parse_obu_header(buf, size, obu_size, &start_pos,
+                           type, &temporal_id, &spatial_id);
     if (len < 0)
         return len;
 
@@ -74,8 +73,9 @@ static int read_obu(const uint8_t *buf, int size)
 static int annexb_probe(const AVProbeData *p)
 {
     AVIOContext pb;
-    int64_t temporal_unit_size, frame_unit_size, obu_unit_size;
-    int ret, cnt = 0;
+    int64_t obu_size;
+    uint32_t temporal_unit_size, frame_unit_size, obu_unit_size;
+    int ret, type, cnt = 0;
 
     ffio_init_context(&pb, p->buf, p->buf_size, 0,
                       NULL, NULL, NULL, NULL);
@@ -88,14 +88,43 @@ static int annexb_probe(const AVProbeData *p)
     if (ret < 0 || (frame_unit_size + ret) > temporal_unit_size)
         return 0;
     cnt += ret;
+    temporal_unit_size -= ret;
     ret = leb(&pb, &obu_unit_size);
-    if (ret < 0 || (obu_unit_size + ret) > frame_unit_size)
+    if (ret < 0 || (obu_unit_size + ret) >= frame_unit_size)
         return 0;
     cnt += ret;
 
-    ret = read_obu(p->buf + cnt, p->buf_size - cnt);
+    temporal_unit_size -= obu_unit_size + ret;
+    frame_unit_size -= obu_unit_size + ret;
+
+    avio_skip(&pb, obu_unit_size);
+    if (pb.eof_reached || pb.error)
+        return 0;
+
+    // Check that the first OBU is a Temporal Delimiter.
+    ret = read_obu(p->buf + cnt, FFMIN(p->buf_size - cnt, obu_unit_size), &obu_size, &type);
+    if (ret < 0 || type != AV1_OBU_TEMPORAL_DELIMITER || obu_size > 0)
+        return 0;
+    cnt += obu_unit_size;
+
+    ret = leb(&pb, &obu_unit_size);
+    if (ret < 0 || (obu_unit_size + ret) >= frame_unit_size)
+        return 0;
+    cnt += ret;
+
+    avio_skip(&pb, obu_unit_size);
+    if (pb.eof_reached || pb.error)
+        return 0;
+
+    // Check that the second OBU is a Sequence Header or Metadata.
+    // OBUs like Padding or even a new OBU defined in a future spec revision could be here and
+    // still make a valid bitstream, but none are out in the wild right now, so just return a
+    // conservative probe result in that case.
+    ret = read_obu(p->buf + cnt, FFMIN(p->buf_size - cnt, obu_unit_size), &obu_size, &type);
     if (ret < 0)
         return 0;
+    if ((type != AV1_OBU_SEQUENCE_HEADER && type != AV1_OBU_METADATA) || !obu_size)
+        return AVPROBE_SCORE_EXTENSION / 2;
 
     return AVPROBE_SCORE_EXTENSION + 1;
 }
@@ -118,19 +147,18 @@ static int annexb_read_header(AVFormatContext *s)
         return AVERROR(ENOMEM);
 
     st->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
-    st->codecpar->codec_id =
-    st->internal->avctx->codec_id = AV_CODEC_ID_AV1;
+    st->codecpar->codec_id = AV_CODEC_ID_AV1;
     st->need_parsing = AVSTREAM_PARSE_HEADERS;
 
     st->internal->avctx->framerate = c->framerate;
-    // placeholder value, taken from rawvideo demuxers
+    // taken from rawvideo demuxers
     avpriv_set_pts_info(st, 64, 1, 1200000);
 
     ret = av_bsf_alloc(filter, &c->bsf);
     if (ret < 0)
         return ret;
 
-    ret = avcodec_parameters_from_context(c->bsf->par_in, st->internal->avctx);
+    ret = avcodec_parameters_copy(c->bsf->par_in, st->codecpar);
     if (ret < 0) {
         av_bsf_free(&c->bsf);
         return ret;
@@ -142,7 +170,7 @@ static int annexb_read_header(AVFormatContext *s)
 static int annexb_read_packet(AVFormatContext *s, AVPacket *pkt)
 {
     AnnexBContext *c = s->priv_data;
-    int64_t obu_unit_size;
+    uint32_t obu_unit_size;
     int ret, len;
 
 retry:
@@ -179,10 +207,6 @@ retry:
 
     c->temporal_unit_size -= obu_unit_size + len;
     c->frame_unit_size -= obu_unit_size + len;
-    if (c->temporal_unit_size < 0) {
-        av_packet_unref(pkt);
-        return AVERROR_INVALIDDATA;
-    }
 
     ret = av_bsf_send_packet(c->bsf, pkt);
     if (ret < 0) {
