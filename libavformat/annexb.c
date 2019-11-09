@@ -75,6 +75,7 @@ static int annexb_probe(const AVProbeData *p)
     AVIOContext pb;
     int64_t obu_size;
     uint32_t temporal_unit_size, frame_unit_size, obu_unit_size;
+    int seq = 0, frame_header = 0;
     int ret, type, cnt = 0;
 
     ffio_init_context(&pb, p->buf, p->buf_size, 0,
@@ -107,26 +108,37 @@ static int annexb_probe(const AVProbeData *p)
         return 0;
     cnt += obu_unit_size;
 
-    ret = leb(&pb, &obu_unit_size);
-    if (ret < 0 || (obu_unit_size + ret) >= frame_unit_size)
-        return 0;
-    cnt += ret;
+    do {
+        ret = leb(&pb, &obu_unit_size);
+        if (ret < 0 || (obu_unit_size + ret) > frame_unit_size)
+            return 0;
+        cnt += ret;
 
-    avio_skip(&pb, obu_unit_size);
-    if (pb.eof_reached || pb.error)
-        return 0;
+        avio_skip(&pb, obu_unit_size);
+        if (pb.eof_reached || pb.error)
+            return 0;
 
-    // Check that the second OBU is a Sequence Header or Metadata.
-    // OBUs like Padding or even a new OBU defined in a future spec revision could be here and
-    // still make a valid bitstream, but none are out in the wild right now, so just return a
-    // conservative probe result in that case.
-    ret = read_obu(p->buf + cnt, FFMIN(p->buf_size - cnt, obu_unit_size), &obu_size, &type);
-    if (ret < 0)
-        return 0;
-    if ((type != AV1_OBU_SEQUENCE_HEADER && type != AV1_OBU_METADATA) || !obu_size)
-        return AVPROBE_SCORE_EXTENSION / 2;
+        ret = read_obu(p->buf + cnt, FFMIN(p->buf_size - cnt, obu_unit_size), &obu_size, &type);
+        if (ret < 0)
+            return 0;
+        cnt += obu_unit_size;
 
-    return AVPROBE_SCORE_EXTENSION + 1;
+        if (type == AV1_OBU_SEQUENCE_HEADER)
+            seq = 1;
+        if (type == AV1_OBU_FRAME || type == AV1_OBU_FRAME_HEADER) {
+            if (frame_header || !seq)
+                return 0;
+            frame_header = 1;
+            break;
+        }
+        if (type == AV1_OBU_TILE_GROUP && !frame_header)
+            return 0;
+
+        temporal_unit_size -= obu_unit_size + ret;
+        frame_unit_size -= obu_unit_size + ret;
+    } while (!seq || !frame_header || frame_unit_size);
+
+    return (seq && frame_header) ? AVPROBE_SCORE_EXTENSION + 1 : 0;
 }
 
 static int annexb_read_header(AVFormatContext *s)
