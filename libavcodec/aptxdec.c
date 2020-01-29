@@ -181,7 +181,10 @@ const AVCodec ff_aptx_decoder = {
     .decode                = aptx_decode_frame,
     .capabilities          = AV_CODEC_CAP_DR1,
     .caps_internal         = FF_CODEC_CAP_INIT_THREADSAFE,
+#if FF_API_OLD_CHANNEL_LAYOUT
     .channel_layouts       = (const uint64_t[]) { AV_CH_LAYOUT_STEREO, 0},
+#endif
+    .ch_layouts            = (const AVChannelLayout[]) { AV_CHANNEL_LAYOUT_STEREO, { 0 } },
     .sample_fmts           = (const enum AVSampleFormat[]) { AV_SAMPLE_FMT_S32P,
                                                              AV_SAMPLE_FMT_NONE },
 };
@@ -198,7 +201,10 @@ const AVCodec ff_aptx_hd_decoder = {
     .decode                = aptx_decode_frame,
     .capabilities          = AV_CODEC_CAP_DR1,
     .caps_internal         = FF_CODEC_CAP_INIT_THREADSAFE,
+#if FF_API_OLD_CHANNEL_LAYOUT
     .channel_layouts       = (const uint64_t[]) { AV_CH_LAYOUT_STEREO, 0},
+#endif
+    .ch_layouts            = (const AVChannelLayout[]) { AV_CHANNEL_LAYOUT_STEREO, { 0 } },
     .sample_fmts           = (const enum AVSampleFormat[]) { AV_SAMPLE_FMT_S32P,
                                                              AV_SAMPLE_FMT_NONE },
 };
