@@ -26,6 +26,90 @@
 #include "internal.h"
 #include "profiles.h"
 
+static int get_relative_dist(const AV1RawSequenceHeader *seq,
+                             unsigned int ref_hint,
+                             unsigned int order_hint)
+{
+    unsigned int diff, m;
+    if (!seq->enable_order_hint)
+        return 0;
+    diff = ref_hint - order_hint;
+    m = 1 << seq->order_hint_bits_minus_1;
+    diff = (diff & (m - 1)) - (diff & m);
+    return diff;
+}
+
+static void skip_mode_params(AV1DecContext *s)
+{
+    const AV1RawFrameHeader *header = s->raw_frame_header;
+    const AV1RawSequenceHeader *seq = s->raw_seq;
+    int skip_mode_frame_idx[2] = { -1, -1 };
+    int forward_idx, backward_idx;
+    int forward_hint, backward_hint;
+    int ref_hint, dist;
+
+    s->cur_frame.skip_mode_frame_idx[0] = 0;
+    s->cur_frame.skip_mode_frame_idx[1] = 0;
+
+    if (header->frame_type == AV1_FRAME_KEY ||
+        header->frame_type == AV1_FRAME_INTRA_ONLY ||
+        !header->reference_select || !seq->enable_order_hint) {
+        return;
+    }
+
+    forward_idx  = -1;
+    backward_idx = -1;
+    for (int i = 0; i < AV1_REFS_PER_FRAME; i++) {
+        ref_hint = header->ref_order_hint[header->ref_frame_idx[i]];
+        dist = get_relative_dist(seq, ref_hint, header->order_hint);
+        if (dist < 0) {
+            if (forward_idx < 0 ||
+                get_relative_dist(seq, ref_hint, forward_hint) > 0) {
+                forward_idx  = i;
+                forward_hint = ref_hint;
+            }
+        } else if (dist > 0) {
+            if (backward_idx < 0 ||
+                get_relative_dist(seq, ref_hint, backward_hint) < 0) {
+                backward_idx  = i;
+                backward_hint = ref_hint;
+            }
+        }
+    }
+
+    if (forward_idx < 0) {
+        return;
+    } else if (backward_idx >= 0) {
+        skip_mode_frame_idx[0] = forward_idx;
+        skip_mode_frame_idx[1] = backward_idx;
+    } else {
+        int second_forward_idx;
+        int second_forward_hint;
+
+        second_forward_idx = -1;
+        for (int i = 0; i < AV1_REFS_PER_FRAME; i++) {
+            ref_hint = header->ref_order_hint[header->ref_frame_idx[i]];
+            if (get_relative_dist(seq, ref_hint, forward_hint) < 0) {
+                if (second_forward_idx < 0 ||
+                    get_relative_dist(seq, ref_hint, second_forward_hint) > 0) {
+                    second_forward_idx  = i;
+                    second_forward_hint = ref_hint;
+                }
+            }
+        }
+
+        if (second_forward_idx < 0) {
+            return;
+        } else {
+            skip_mode_frame_idx[0] = forward_idx;
+            skip_mode_frame_idx[1] = second_forward_idx;
+        }
+    }
+
+    s->cur_frame.skip_mode_frame_idx[0] = AV1_REF_FRAME_LAST + FFMIN(skip_mode_frame_idx[0], skip_mode_frame_idx[1]);
+    s->cur_frame.skip_mode_frame_idx[1] = AV1_REF_FRAME_LAST + FFMAX(skip_mode_frame_idx[0], skip_mode_frame_idx[1]);
+}
+
 static uint32_t inverse_recenter(int r, uint32_t v)
 {
     if (v > 2 * r)
@@ -337,6 +421,9 @@ static int av1_frame_ref(AVCodecContext *avctx, AV1Frame *dst, const AV1Frame *s
 
     dst->spatial_id = src->spatial_id;
     dst->temporal_id = src->temporal_id;
+    memcpy(dst->skip_mode_frame_idx,
+           src->skip_mode_frame_idx,
+           2 * sizeof(uint8_t));
     memcpy(dst->gm_type,
            src->gm_type,
            AV1_NUM_REF_FRAMES * sizeof(uint8_t));
@@ -612,6 +699,7 @@ static int get_current_frame(AVCodecContext *avctx)
         return ret;
     }
 
+    skip_mode_params(s);
     global_motion_params(s);
 
     return ret;
