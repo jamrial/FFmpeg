@@ -26,6 +26,33 @@
 #include "internal.h"
 #include "profiles.h"
 
+static void get_coded_lossless(AV1DecContext *s)
+{
+    const AV1RawFrameHeader *header = s->raw_frame_header;
+
+    if (header->delta_q_y_dc ||
+        header->delta_q_u_ac || header->delta_q_u_dc ||
+        header->delta_q_v_ac || header->delta_q_v_dc)
+        return;
+
+    s->cur_frame.coded_lossless = 1;
+    for (int i = 0; i < AV1_MAX_SEGMENTS; i++) {
+        int qindex;
+        if (header->feature_enabled[i][AV1_SEG_LVL_ALT_Q]) {
+            qindex = (header->base_q_idx +
+                      header->feature_value[i][AV1_SEG_LVL_ALT_Q]);
+        } else {
+            qindex = header->base_q_idx;
+        }
+        qindex = av_clip_uintp2(qindex, 8);
+
+        if (qindex) {
+            s->cur_frame.coded_lossless = 0;
+            break;
+        }
+    }
+}
+
 static int get_relative_dist(const AV1RawSequenceHeader *seq,
                              unsigned int ref_hint,
                              unsigned int order_hint)
@@ -401,7 +428,7 @@ static void av1_frame_unref(AVCodecContext *avctx, AV1Frame *f)
     ff_thread_release_buffer(avctx, &f->tf);
     av_buffer_unref(&f->hwaccel_priv_buf);
     f->hwaccel_picture_private = NULL;
-    f->spatial_id = f->temporal_id = 0;
+    f->spatial_id = f->temporal_id = f->coded_lossless = 0;
 }
 
 static int av1_frame_ref(AVCodecContext *avctx, AV1Frame *dst, const AV1Frame *src)
@@ -421,6 +448,7 @@ static int av1_frame_ref(AVCodecContext *avctx, AV1Frame *dst, const AV1Frame *s
 
     dst->spatial_id = src->spatial_id;
     dst->temporal_id = src->temporal_id;
+    dst->coded_lossless = src->coded_lossless;
     memcpy(dst->skip_mode_frame_idx,
            src->skip_mode_frame_idx,
            2 * sizeof(uint8_t));
@@ -699,6 +727,7 @@ static int get_current_frame(AVCodecContext *avctx)
         return ret;
     }
 
+    get_coded_lossless(s);
     skip_mode_params(s);
     global_motion_params(s);
 
