@@ -381,6 +381,8 @@ typedef struct MatroskaDemuxContext {
     /* byte position of the segment inside the stream */
     int64_t segment_start;
 
+    AVPacket *pkt;
+
     /* the packet queue */
     PacketList *queue;
     PacketList *queue_end;
@@ -2943,6 +2945,10 @@ static int matroska_read_header(AVFormatContext *s)
     }
     ebml_free(ebml_syntax, &ebml);
 
+    matroska->pkt = av_packet_alloc();
+    if (!matroska->pkt)
+        return AVERROR(ENOMEM);
+
     /* The next thing is a segment. */
     pos = avio_tell(matroska->ctx->pb);
     res = ebml_parse(matroska, matroska_segments, matroska);
@@ -3004,7 +3010,7 @@ static int matroska_read_header(AVFormatContext *s)
                 st->disposition         |= AV_DISPOSITION_ATTACHED_PIC;
                 st->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
 
-                av_init_packet(pkt);
+                av_packet_unref(pkt);
                 pkt->buf          = attachments[j].bin.buf;
                 attachments[j].bin.buf = NULL;
                 pkt->data         = attachments[j].bin.data;
@@ -3236,7 +3242,7 @@ static int matroska_parse_rm_audio(MatroskaDemuxContext *matroska,
 
     while (track->audio.pkt_cnt) {
         int ret;
-        AVPacket pktl, *pkt = &pktl;
+        AVPacket *pkt = matroska->pkt;
 
         ret = av_new_packet(pkt, a);
         if (ret < 0) {
@@ -3373,7 +3379,7 @@ static int matroska_parse_webvtt(MatroskaDemuxContext *matroska,
                                  uint64_t duration,
                                  int64_t pos)
 {
-    AVPacket pktl, *pkt = &pktl;
+    AVPacket *pkt = matroska->pkt;
     uint8_t *id, *settings, *text, *buf;
     int id_len, settings_len, text_len;
     uint8_t *p, *q;
@@ -3490,7 +3496,7 @@ static int matroska_parse_frame(MatroskaDemuxContext *matroska,
 {
     uint8_t *pkt_data = data;
     int res = 0;
-    AVPacket pktl, *pkt = &pktl;
+    AVPacket *pkt = matroska->pkt;
 
     if (st->codecpar->codec_id == AV_CODEC_ID_WAVPACK) {
         res = matroska_parse_wavpack(track, &pkt_data, &pkt_size);
@@ -3520,7 +3526,7 @@ static int matroska_parse_frame(MatroskaDemuxContext *matroska,
     if (!pkt_size && !additional_size)
         goto no_output;
 
-    av_init_packet(pkt);
+    av_packet_unref(pkt);
     if (!buf)
         pkt->buf = av_buffer_create(pkt_data, pkt_size + AV_INPUT_BUFFER_PADDING_SIZE,
                                     NULL, NULL, 0);
@@ -3894,6 +3900,7 @@ static int matroska_read_close(AVFormatContext *s)
     int n;
 
     matroska_clear_queue(matroska);
+    av_packet_free(&matroska->pkt);
 
     for (n = 0; n < matroska->tracks.nb_elem; n++)
         if (tracks[n].type == MATROSKA_TRACK_TYPE_AUDIO)
