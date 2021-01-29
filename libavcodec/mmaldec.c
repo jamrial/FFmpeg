@@ -776,12 +776,17 @@ static int ffmmal_decode(AVCodecContext *avctx, void *data, int *got_frame,
     int ret = 0;
 
     if (avctx->extradata_size && !ctx->extradata_sent) {
-        AVPacket pkt = {0};
-        av_init_packet(&pkt);
-        pkt.data = avctx->extradata;
-        pkt.size = avctx->extradata_size;
+        AVPacket *pkt;
+
+        pkt = av_packet_alloc();
+        if (!pkt)
+            return AVERROR(ENOMEM);
+        pkt->data = avctx->extradata;
+        pkt->size = avctx->extradata_size;
         ctx->extradata_sent = 1;
-        if ((ret = ffmmal_add_packet(avctx, &pkt, 1)) < 0)
+        ret = ffmmal_add_packet(avctx, pkt, 1);
+        av_packet_free(&pkt);
+        if (ret < 0)
             return ret;
     }
 
