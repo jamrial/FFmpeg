@@ -2301,7 +2301,7 @@ static int show_sinks_sources_parse_arg(const char *arg, char **dev, AVDictionar
 
 int show_sources(void *optctx, const char *opt, const char *arg)
 {
-    AVInputFormat *fmt = NULL;
+    const AVInputFormat *fmt = NULL;
     char *dev = NULL;
     AVDictionary *opts = NULL;
     int ret = 0;
@@ -2339,7 +2339,7 @@ int show_sources(void *optctx, const char *opt, const char *arg)
 
 int show_sinks(void *optctx, const char *opt, const char *arg)
 {
-    AVOutputFormat *fmt = NULL;
+    const AVOutputFormat *fmt = NULL;
     char *dev = NULL;
     AVDictionary *opts = NULL;
     int ret = 0;
