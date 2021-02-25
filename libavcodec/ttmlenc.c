@@ -94,29 +94,6 @@ static int ttml_encode_frame(AVCodecContext *avctx, uint8_t *buf,
             return AVERROR(EINVAL);
         }
 
-#if FF_API_ASS_TIMING
-        if (!strncmp(ass, "Dialogue: ", 10)) {
-            int num;
-            dialog = ff_ass_split_dialog(s->ass_ctx, ass, 0, &num);
-
-            for (; dialog && num--; dialog++) {
-                int ret = ff_ass_split_override_codes(&ttml_callbacks, s,
-                                                      dialog->text);
-                int log_level = (ret != AVERROR_INVALIDDATA ||
-                                 avctx->err_recognition & AV_EF_EXPLODE) ?
-                                AV_LOG_ERROR : AV_LOG_WARNING;
-
-                if (ret < 0) {
-                    av_log(avctx, log_level,
-                           "Splitting received ASS dialog failed: %s\n",
-                           av_err2str(ret));
-
-                    if (log_level == AV_LOG_ERROR)
-                        return ret;
-                }
-            }
-        } else {
-#endif
             dialog = ff_ass_split_dialog2(s->ass_ctx, ass);
             if (!dialog)
                 return AVERROR(ENOMEM);
@@ -142,9 +119,6 @@ static int ttml_encode_frame(AVCodecContext *avctx, uint8_t *buf,
 
                 ff_ass_free_dialog(&dialog);
             }
-#if FF_API_ASS_TIMING
-        }
-#endif
     }
 
     if (!av_bprint_is_complete(&s->buffer))
