@@ -177,11 +177,6 @@ static inline void flush_put_bits_le(PutBitContext *s)
     s->bit_buf  = 0;
 }
 
-#if FF_API_AVPRIV_PUT_BITS
-void avpriv_align_put_bits(PutBitContext *s);
-void avpriv_copy_bits(PutBitContext *pb, const uint8_t *src, int length);
-#endif
-
 #ifdef BITSTREAM_WRITER_LE
 #define ff_put_string ff_put_string_unsupported_here
 #define ff_copy_bits ff_copy_bits_unsupported_here
