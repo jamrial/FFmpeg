@@ -110,7 +110,7 @@ FF_ENABLE_DEPRECATION_WARNINGS
     return 0;
 }
 
-AVCodec ff_alias_pix_encoder = {
+const AVCodec ff_alias_pix_encoder = {
     .name      = "alias_pix",
     .long_name = NULL_IF_CONFIG_SMALL("Alias/Wavefront PIX image"),
     .type      = AVMEDIA_TYPE_VIDEO,

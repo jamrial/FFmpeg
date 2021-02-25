@@ -269,7 +269,7 @@ FF_ENABLE_DEPRECATION_WARNINGS
     return 0;
 }
 
-AVCodec ff_flashsv_encoder = {
+const AVCodec ff_flashsv_encoder = {
     .name           = "flashsv",
     .long_name      = NULL_IF_CONFIG_SMALL("Flash Screen Video"),
     .type           = AVMEDIA_TYPE_VIDEO,

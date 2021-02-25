@@ -80,7 +80,7 @@ FF_ENABLE_DEPRECATION_WARNINGS
     return 0;
 }
 
-AVCodec ff_v410_encoder = {
+const AVCodec ff_v410_encoder = {
     .name         = "v410",
     .long_name    = NULL_IF_CONFIG_SMALL("Uncompressed 4:4:4 10-bit"),
     .type         = AVMEDIA_TYPE_VIDEO,
