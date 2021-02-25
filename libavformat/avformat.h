@@ -2082,7 +2082,7 @@ int av_find_best_stream(AVFormatContext *ic,
                         enum AVMediaType type,
                         int wanted_stream_nb,
                         int related_stream,
-                        AVCodec **decoder_ret,
+                        const AVCodec **decoder_ret,
                         int flags);
 
 /**
