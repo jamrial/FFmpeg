@@ -15,6 +15,11 @@ libavutil:     2017-10-21
 
 API changes, most recent first:
 
+2021-04-xx - xxxxxxxxxx - lavc 59.0.100 - codec.h
+  avcodec_find_encoder_by_name(), avcodec_find_encoder(),
+  avcodec_find_decoder_by_name() and avcodec_find_decoder()
+  now return a pointer to a const AVCodec.
+
 2021-04-xx - xxxxxxxxxx - lavf 59.0.100 - avformat.h
   Constified AVFormatContext.*_codec.
 
