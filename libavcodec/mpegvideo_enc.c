@@ -1611,12 +1611,6 @@ FF_DISABLE_DEPRECATION_WARNINGS
     av_frame_copy_props(s->avctx->coded_frame, s->current_picture.f);
 FF_ENABLE_DEPRECATION_WARNINGS
 #endif
-#if FF_API_ERROR_FRAME
-FF_DISABLE_DEPRECATION_WARNINGS
-    memcpy(s->current_picture.f->error, s->current_picture.encoding_error,
-           sizeof(s->current_picture.encoding_error));
-FF_ENABLE_DEPRECATION_WARNINGS
-#endif
 }
 
 static void update_noise_reduction(MpegEncContext *s)
