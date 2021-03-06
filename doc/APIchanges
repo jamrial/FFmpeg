@@ -15,6 +15,9 @@ libavutil:     2017-10-21
 
 API changes, most recent first:
 
+2021-04-xx - xxxxxxxxxx - lavc 59.0.100 - avcodec.h
+  Constified AVCodecParserContext.parser.
+
 2021-04-xx - xxxxxxxxxx - lavd 59.0.100 - avdevice.h
   The av_*_device_next API functions now accept and return
   pointers to const AVInputFormat resp. AVOutputFormat.
