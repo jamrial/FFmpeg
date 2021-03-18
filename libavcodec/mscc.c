@@ -160,7 +160,8 @@ static int decode_frame(AVCodecContext *avctx,
             for (j = 0; j < 256; j++)
                 s->pal[j] = 0xFF000000 | AV_RL32(pal + j * 4);
         } else if (pal) {
-            av_log(avctx, AV_LOG_ERROR, "Palette size %d is wrong\n", size);
+            av_log(avctx, AV_LOG_ERROR,
+                   "Palette size %"BUFFER_SPECIFIER" is wrong\n", size);
         }
         memcpy(frame->data[1], s->pal, AVPALETTE_SIZE);
     }
