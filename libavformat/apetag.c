@@ -63,9 +63,7 @@ static int ape_tag_read_field(AVFormatContext *s)
         uint8_t filename[1024];
         enum AVCodecID id;
         int ret;
-        AVStream *st = avformat_new_stream(s, NULL);
-        if (!st)
-            return AVERROR(ENOMEM);
+        AVStream *st = NULL;
 
         ret = avio_get_str(pb, size, filename, sizeof(filename));
         if (ret < 0)
@@ -76,20 +74,23 @@ static int ape_tag_read_field(AVFormatContext *s)
         }
         size -= ret;
 
-        av_dict_set(&st->metadata, key, filename, 0);
-
         if ((id = ff_guess_image2_codec(filename)) != AV_CODEC_ID_NONE) {
-            int ret = ff_add_attached_pic(s, st, s->pb, NULL, size);
+            ret = ff_add_attached_pic(s, NULL, s->pb, NULL, size);
             if (ret < 0) {
                 av_log(s, AV_LOG_ERROR, "Error reading cover art.\n");
                 return ret;
             }
+            st = s->streams[s->nb_streams - 1];
             st->codecpar->codec_id   = id;
         } else {
+            st = avformat_new_stream(s, NULL);
+            if (!st)
+                return AVERROR(ENOMEM);
             if ((ret = ff_get_extradata(s, st->codecpar, s->pb, size)) < 0)
                 return ret;
             st->codecpar->codec_type = AVMEDIA_TYPE_ATTACHMENT;
         }
+        av_dict_set(&st->metadata, key, filename, 0);
     } else {
         value = av_malloc(size+1);
         if (!value)
