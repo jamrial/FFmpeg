@@ -1038,8 +1038,8 @@ static void dump_attachment(AVStream *st, const char *filename)
     AVIOContext *out = NULL;
     AVDictionaryEntry *e;
 
-    if (!st->codecpar->extradata_size) {
-        av_log(NULL, AV_LOG_WARNING, "No extradata to dump in stream #%d:%d.\n",
+    if (!st->attachment->size) {
+        av_log(NULL, AV_LOG_WARNING, "No attachment to dump in stream #%d:%d.\n",
                nb_input_files - 1, st->index);
         return;
     }
@@ -1059,7 +1059,7 @@ static void dump_attachment(AVStream *st, const char *filename)
         exit_program(1);
     }
 
-    avio_write(out, st->codecpar->extradata, st->codecpar->extradata_size);
+    avio_write(out, st->attachment->data, st->attachment->size);
     avio_flush(out);
     avio_close(out);
 }
@@ -2406,7 +2406,6 @@ loop_end:
     /* handle attached files */
     for (i = 0; i < o->nb_attachments; i++) {
         AVIOContext *pb;
-        uint8_t *attachment;
         const char *p;
         int64_t len;
 
@@ -2420,20 +2419,18 @@ loop_end:
                    o->attachments[i]);
             exit_program(1);
         }
-        if (len > INT_MAX - AV_INPUT_BUFFER_PADDING_SIZE ||
-            !(attachment = av_malloc(len + AV_INPUT_BUFFER_PADDING_SIZE))) {
+        if (len > INT_MAX - AV_INPUT_BUFFER_PADDING_SIZE) {
             av_log(NULL, AV_LOG_FATAL, "Attachment %s too large.\n",
                    o->attachments[i]);
             exit_program(1);
         }
-        avio_read(pb, attachment, len);
-        memset(attachment + len, 0, AV_INPUT_BUFFER_PADDING_SIZE);
 
         ost = new_attachment_stream(o, oc, -1);
         ost->stream_copy               = 0;
         ost->attachment_filename       = o->attachments[i];
-        ost->st->codecpar->extradata      = attachment;
-        ost->st->codecpar->extradata_size = len;
+        err = av_get_packet(pb, ost->st->attachment, len);
+        if (err != len)
+            exit_program(1);
 
         p = strrchr(o->attachments[i], '/');
         av_dict_set(&ost->st->metadata, "filename", (p && *p) ? p + 1 : o->attachments[i], AV_DICT_DONT_OVERWRITE);

@@ -3215,6 +3215,11 @@ static int init_output_stream_streamcopy(OutputStream *ost)
         ost->st->avg_frame_rate = ist->st->avg_frame_rate;
         ost->st->r_frame_rate = ist->st->r_frame_rate;
         break;
+    case AVMEDIA_TYPE_ATTACHMENT:
+        ret = av_packet_ref(ost->st->attachment, ist->st->attachment);
+        if (ret < 0)
+            exit_program(1);
+        break;
     }
 
     ost->mux_timebase = ist->st->time_base;
