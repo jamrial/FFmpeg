@@ -2988,32 +2988,32 @@ static int matroska_read_header(AVFormatContext *s)
               attachments[j].bin.data && attachments[j].bin.size > 0)) {
             av_log(matroska->ctx, AV_LOG_ERROR, "incomplete attachment\n");
         } else {
-            AVStream *st = avformat_new_stream(s, NULL);
-            if (!st)
-                break;
-            av_dict_set(&st->metadata, "filename", attachments[j].filename, 0);
-            av_dict_set(&st->metadata, "mimetype", attachments[j].mime, 0);
-            if (attachments[j].description)
-                av_dict_set(&st->metadata, "title", attachments[j].description, 0);
-            st->codecpar->codec_id   = AV_CODEC_ID_NONE;
+            AVStream *st = NULL;
+            enum AVCodecID codec_id = AV_CODEC_ID_NONE;
 
             for (i = 0; mkv_image_mime_tags[i].id != AV_CODEC_ID_NONE; i++) {
                 if (av_strstart(attachments[j].mime, mkv_image_mime_tags[i].str, NULL)) {
-                    st->codecpar->codec_id = mkv_image_mime_tags[i].id;
+                    codec_id = mkv_image_mime_tags[i].id;
                     break;
                 }
             }
 
-            attachments[j].stream = st;
-
-            if (st->codecpar->codec_id != AV_CODEC_ID_NONE) {
-                res = ff_add_attached_pic(s, st, NULL, &attachments[j].bin.buf, 0);
+            if (codec_id != AV_CODEC_ID_NONE) {
+                res = ff_add_attached_pic(s, NULL, NULL, &attachments[j].bin.buf, 0);
                 if (res < 0)
                     goto fail;
+                st = s->streams[s->nb_streams - 1];
+                st->codecpar->codec_id   = codec_id;
             } else {
+                st = avformat_new_stream(s, NULL);
+                if (!st) {
+                    res = AVERROR(ENOMEM);
+                    goto fail;
+                }
                 st->codecpar->codec_type = AVMEDIA_TYPE_ATTACHMENT;
-                if (ff_alloc_extradata(st->codecpar, attachments[j].bin.size))
-                    break;
+                res = ff_alloc_extradata(st->codecpar, attachments[j].bin.size);
+                if (res < 0)
+                    goto fail;
                 memcpy(st->codecpar->extradata, attachments[j].bin.data,
                        attachments[j].bin.size);
 
@@ -3024,6 +3024,13 @@ static int matroska_read_header(AVFormatContext *s)
                     }
                 }
             }
+
+            av_dict_set(&st->metadata, "filename", attachments[j].filename, 0);
+            av_dict_set(&st->metadata, "mimetype", attachments[j].mime, 0);
+            if (attachments[j].description)
+                av_dict_set(&st->metadata, "title", attachments[j].description, 0);
+
+            attachments[j].stream = st;
         }
     }
 
