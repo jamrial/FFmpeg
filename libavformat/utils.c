@@ -501,10 +501,10 @@ int ff_add_attachment(AVFormatContext *s, AVStream *st0, AVIOContext *pb,
     }
 
     if (codec_type == AVMEDIA_TYPE_VIDEO) {
-    st->disposition         |= AV_DISPOSITION_ATTACHED_PIC;
+        st->disposition  |= AV_DISPOSITION_ATTACHED_PIC;
 
-    pkt->stream_index = st->index;
-    pkt->flags       |= AV_PKT_FLAG_KEY;
+        pkt->stream_index = st->index;
+        pkt->flags       |= AV_PKT_FLAG_KEY;
 
 #if FF_API_ATTACHMENT
 FF_DISABLE_DEPRECATION_WARNINGS

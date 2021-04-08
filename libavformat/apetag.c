@@ -75,15 +75,15 @@ static int ape_tag_read_field(AVFormatContext *s)
         size -= ret;
 
         id = ff_guess_image2_codec(filename);
-            ret = ff_add_attachment(s, NULL, s->pb, NULL, size,
-                                    id == AV_CODEC_ID_NONE ?
-                                    AVMEDIA_TYPE_ATTACHMENT : AVMEDIA_TYPE_VIDEO);
-            if (ret < 0) {
-                av_log(s, AV_LOG_ERROR, "Error reading attachment.\n");
-                return ret;
-            }
-            st = s->streams[s->nb_streams - 1];
-            st->codecpar->codec_id   = id;
+        ret = ff_add_attachment(s, NULL, s->pb, NULL, size,
+                                id == AV_CODEC_ID_NONE ?
+                                AVMEDIA_TYPE_ATTACHMENT : AVMEDIA_TYPE_VIDEO);
+        if (ret < 0) {
+            av_log(s, AV_LOG_ERROR, "Error reading attachment.\n");
+            return ret;
+        }
+        st = s->streams[s->nb_streams - 1];
+        st->codecpar->codec_id   = id;
         av_dict_set(&st->metadata, key, filename, 0);
     } else {
         value = av_malloc(size+1);
