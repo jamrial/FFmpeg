@@ -457,7 +457,7 @@ int avformat_queue_attached_pictures(AVFormatContext *s)
     for (i = 0; i < s->nb_streams; i++)
         if (s->streams[i]->disposition & AV_DISPOSITION_ATTACHED_PIC &&
             s->streams[i]->discard < AVDISCARD_ALL) {
-            if (s->streams[i]->attached_pic.size <= 0) {
+            if (s->streams[i]->attachment->size <= 0) {
                 av_log(s, AV_LOG_WARNING,
                     "Attached picture on stream %d has invalid size, "
                     "ignoring\n", i);
@@ -466,7 +466,7 @@ int avformat_queue_attached_pictures(AVFormatContext *s)
 
             ret = avpriv_packet_list_put(&s->internal->raw_packet_buffer,
                                      &s->internal->raw_packet_buffer_end,
-                                     &s->streams[i]->attached_pic,
+                                     s->streams[i]->attachment,
                                      av_packet_ref, 0);
             if (ret < 0)
                 return ret;
@@ -474,16 +474,19 @@ int avformat_queue_attached_pictures(AVFormatContext *s)
     return 0;
 }
 
-int ff_add_attached_pic(AVFormatContext *s, AVStream *st0, AVIOContext *pb,
-                        AVBufferRef **buf, int size)
+int ff_add_attachment(AVFormatContext *s, AVStream *st0, AVIOContext *pb,
+                      AVBufferRef **buf, int size, enum AVMediaType codec_type)
 {
     AVStream *st = st0;
     AVPacket *pkt;
     int ret;
 
+    av_assert0(codec_type == AVMEDIA_TYPE_ATTACHMENT ||
+               codec_type == AVMEDIA_TYPE_VIDEO);
+
     if (!st && !(st = avformat_new_stream(s, NULL)))
         return AVERROR(ENOMEM);
-    pkt = &st->attached_pic;
+    pkt = st->attachment;
     if (buf) {
         av_assert1(*buf);
         av_packet_unref(pkt);
@@ -496,11 +499,28 @@ int ff_add_attached_pic(AVFormatContext *s, AVStream *st0, AVIOContext *pb,
         if (ret < 0)
             goto fail;
     }
+
+    if (codec_type == AVMEDIA_TYPE_VIDEO) {
     st->disposition         |= AV_DISPOSITION_ATTACHED_PIC;
-    st->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
 
     pkt->stream_index = st->index;
     pkt->flags       |= AV_PKT_FLAG_KEY;
+
+#if FF_API_ATTACHMENT
+FF_DISABLE_DEPRECATION_WARNINGS
+        av_packet_unref(&st->attached_pic);
+        ret = av_packet_ref(&st->attached_pic, pkt);
+        if (ret < 0)
+            goto fail;
+FF_ENABLE_DEPRECATION_WARNINGS
+    } else {
+        ret = ff_alloc_extradata(st->codecpar, pkt->size);
+        if (ret < 0)
+            goto fail;
+        memcpy(st->codecpar->extradata, pkt->data, pkt->size);
+#endif
+    }
+    st->codecpar->codec_type = codec_type;
 
     return 0;
 fail:
@@ -4434,8 +4454,14 @@ static void free_stream(AVStream **pst)
     if (st->parser)
         av_parser_close(st->parser);
 
+#if FF_API_ATTACHMENT
+FF_DISABLE_DEPRECATION_WARNINGS
     if (st->attached_pic.data)
         av_packet_unref(&st->attached_pic);
+FF_ENABLE_DEPRECATION_WARNINGS
+#endif
+
+    av_packet_free(&st->attachment);
 
     if (st->internal) {
         avcodec_free_context(&st->internal->avctx);
@@ -4592,6 +4618,10 @@ FF_ENABLE_DEPRECATION_WARNINGS
 
     st->codecpar = avcodec_parameters_alloc();
     if (!st->codecpar)
+        goto fail;
+
+    st->attachment = av_packet_alloc();
+    if (!st->attachment)
         goto fail;
 
     st->internal->avctx = avcodec_alloc_context3(NULL);

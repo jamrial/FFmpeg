@@ -74,22 +74,16 @@ static int ape_tag_read_field(AVFormatContext *s)
         }
         size -= ret;
 
-        if ((id = ff_guess_image2_codec(filename)) != AV_CODEC_ID_NONE) {
-            ret = ff_add_attached_pic(s, NULL, s->pb, NULL, size);
+        id = ff_guess_image2_codec(filename);
+            ret = ff_add_attachment(s, NULL, s->pb, NULL, size,
+                                    id == AV_CODEC_ID_NONE ?
+                                    AVMEDIA_TYPE_ATTACHMENT : AVMEDIA_TYPE_VIDEO);
             if (ret < 0) {
-                av_log(s, AV_LOG_ERROR, "Error reading cover art.\n");
+                av_log(s, AV_LOG_ERROR, "Error reading attachment.\n");
                 return ret;
             }
             st = s->streams[s->nb_streams - 1];
             st->codecpar->codec_id   = id;
-        } else {
-            st = avformat_new_stream(s, NULL);
-            if (!st)
-                return AVERROR(ENOMEM);
-            if ((ret = ff_get_extradata(s, st->codecpar, s->pb, size)) < 0)
-                return ret;
-            st->codecpar->codec_type = AVMEDIA_TYPE_ATTACHMENT;
-        }
         av_dict_set(&st->metadata, key, filename, 0);
     } else {
         value = av_malloc(size+1);

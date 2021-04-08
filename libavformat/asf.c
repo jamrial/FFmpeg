@@ -230,7 +230,7 @@ static int asf_read_picture(AVFormatContext *s, int len)
         return AVERROR(ENOMEM);
     len -= avio_get_str16le(s->pb, len - picsize, desc, desc_len);
 
-    ret = ff_add_attached_pic(s, NULL, s->pb, NULL, picsize);
+    ret = ff_add_attachment(s, NULL, s->pb, NULL, picsize, AVMEDIA_TYPE_VIDEO);
     if (ret < 0)
         goto fail;
     st = s->streams[s->nb_streams - 1];

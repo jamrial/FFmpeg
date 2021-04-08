@@ -199,7 +199,7 @@ static int mov_read_covr(MOVContext *c, AVIOContext *pb, int type, int len)
     sc = av_mallocz(sizeof(*sc));
     if (!sc)
         return AVERROR(ENOMEM);
-    ret = ff_add_attached_pic(c->fc, NULL, pb, NULL, len);
+    ret = ff_add_attachment(c->fc, NULL, pb, NULL, len, AVMEDIA_TYPE_VIDEO);
     if (ret < 0) {
         av_free(sc);
         return ret;
@@ -207,8 +207,8 @@ static int mov_read_covr(MOVContext *c, AVIOContext *pb, int type, int len)
     st = c->fc->streams[c->fc->nb_streams - 1];
     st->priv_data = sc;
 
-    if (st->attached_pic.size >= 8 && id != AV_CODEC_ID_BMP) {
-        if (AV_RB64(st->attached_pic.data) == 0x89504e470d0a1a0a) {
+    if (st->attachment->size >= 8 && id != AV_CODEC_ID_BMP) {
+        if (AV_RB64(st->attachment->data) == 0x89504e470d0a1a0a) {
             id = AV_CODEC_ID_PNG;
         } else {
             id = AV_CODEC_ID_MJPEG;
@@ -7227,7 +7227,7 @@ static void mov_read_chapters(AVFormatContext *s)
                     goto finish;
                 }
 
-                if (ff_add_attached_pic(s, st, sc->pb, NULL, sample->size) < 0)
+                if (ff_add_attachment(s, st, sc->pb, NULL, sample->size, AVMEDIA_TYPE_VIDEO) < 0)
                     goto finish;
             }
         } else {

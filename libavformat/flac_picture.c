@@ -160,7 +160,7 @@ int ff_flac_parse_picture(AVFormatContext *s, uint8_t *buf, int buf_size, int tr
     if (AV_RB64(data->data) == PNGSIG)
         id = AV_CODEC_ID_PNG;
 
-    ret = ff_add_attached_pic(s, NULL, NULL, &data, 0);
+    ret = ff_add_attachment(s, NULL, NULL, &data, 0, AVMEDIA_TYPE_VIDEO);
     if (ret < 0)
         RETURN_ERROR(ret);
 

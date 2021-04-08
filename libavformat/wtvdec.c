@@ -446,7 +446,7 @@ static void get_attachment(AVFormatContext *s, AVIOContext *pb, int length)
     if (!filesize)
         goto done;
 
-    if (ff_add_attached_pic(s, NULL, pb, NULL, filesize) < 0)
+    if (ff_add_attachment(s, NULL, pb, NULL, filesize, AVMEDIA_TYPE_VIDEO) < 0)
         goto done;
     st = s->streams[s->nb_streams - 1];
     av_dict_set(&st->metadata, "title", description, 0);

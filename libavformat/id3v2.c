@@ -1148,13 +1148,13 @@ int ff_id3v2_parse_apic(AVFormatContext *s, ID3v2ExtraMeta *extra_meta)
             continue;
         apic = &cur->data.apic;
 
-        ret = ff_add_attached_pic(s, NULL, NULL, &apic->buf, 0);
+        ret = ff_add_attachment(s, NULL, NULL, &apic->buf, 0, AVMEDIA_TYPE_VIDEO);
         if (ret < 0)
             return ret;
         st  = s->streams[s->nb_streams - 1];
         st->codecpar->codec_id   = apic->id;
 
-        if (AV_RB64(st->attached_pic.data) == PNGSIG)
+        if (AV_RB64(st->attachment->data) == PNGSIG)
             st->codecpar->codec_id = AV_CODEC_ID_PNG;
 
         if (apic->description[0])

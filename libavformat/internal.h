@@ -670,20 +670,22 @@ int ff_framehash_write_header(AVFormatContext *s);
 int ff_read_packet(AVFormatContext *s, AVPacket *pkt);
 
 /**
- * Add an attached pic to an AVStream.
+ * Add an attachment to an AVStream.
  *
- * @param st   if set, the stream to add the attached pic to;
+ * @param st   if set, the stream to add the attachment to;
  *             if unset, a new stream will be added to s.
  * @param pb   AVIOContext to read data from if buf is unset.
  * @param buf  if set, it contains the data and size information to be used
- *             for the attached pic; if unset, data is read from pb.
+ *             for the attachment; if unset, data is read from pb.
  * @param size the size of the data to read if buf is unset.
+ * @param codec_type the type of the attachment. Must be attachment or video.
+ *                   if video, it will be treated as an attached pic.
  *
  * @return 0 on success, < 0 on error. On error, this function removes
  *         the stream it has added (if any).
  */
-int ff_add_attached_pic(AVFormatContext *s, AVStream *st, AVIOContext *pb,
-                        AVBufferRef **buf, int size);
+int ff_add_attachment(AVFormatContext *s, AVStream *st, AVIOContext *pb,
+                      AVBufferRef **buf, int size, enum AVMediaType codec_type);
 
 /**
  * Interleave an AVPacket per dts so it can be muxed.

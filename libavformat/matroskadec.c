@@ -2998,32 +2998,22 @@ static int matroska_read_header(AVFormatContext *s)
                 }
             }
 
-            if (codec_id != AV_CODEC_ID_NONE) {
-                res = ff_add_attached_pic(s, NULL, NULL, &attachments[j].bin.buf, 0);
-                if (res < 0)
-                    goto fail;
-                st = s->streams[s->nb_streams - 1];
-                st->codecpar->codec_id   = codec_id;
-            } else {
-                st = avformat_new_stream(s, NULL);
-                if (!st) {
-                    res = AVERROR(ENOMEM);
-                    goto fail;
-                }
-                st->codecpar->codec_type = AVMEDIA_TYPE_ATTACHMENT;
-                res = ff_alloc_extradata(st->codecpar, attachments[j].bin.size);
-                if (res < 0)
-                    goto fail;
-                memcpy(st->codecpar->extradata, attachments[j].bin.data,
-                       attachments[j].bin.size);
+            res = ff_add_attachment(s, NULL, NULL, &attachments[j].bin.buf, 0,
+                                    codec_id == AV_CODEC_ID_NONE ?
+                                    AVMEDIA_TYPE_ATTACHMENT : AVMEDIA_TYPE_VIDEO);
+            if (res < 0)
+                goto fail;
+            st = s->streams[s->nb_streams - 1];
 
+            if (codec_id == AV_CODEC_ID_NONE) {
                 for (i = 0; mkv_mime_tags[i].id != AV_CODEC_ID_NONE; i++) {
                     if (av_strstart(attachments[j].mime, mkv_mime_tags[i].str, NULL)) {
-                        st->codecpar->codec_id = mkv_mime_tags[i].id;
+                        codec_id = mkv_mime_tags[i].id;
                         break;
                     }
                 }
             }
+            st->codecpar->codec_id = codec_id;
 
             av_dict_set(&st->metadata, "filename", attachments[j].filename, 0);
             av_dict_set(&st->metadata, "mimetype", attachments[j].mime, 0);

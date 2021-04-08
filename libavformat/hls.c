@@ -1068,15 +1068,15 @@ static int id3_has_changed_values(struct playlist *pls, AVDictionary *metadata,
     }
 
     /* check if apic appeared */
-    if (apic && (pls->ctx->nb_streams != 2 || !pls->ctx->streams[1]->attached_pic.data))
+    if (apic && (pls->ctx->nb_streams != 2 || !pls->ctx->streams[1]->attachment))
         return 1;
 
     if (apic) {
-        int size = pls->ctx->streams[1]->attached_pic.size;
+        int size = pls->ctx->streams[1]->attachment->size;
         if (size != apic->buf->size - AV_INPUT_BUFFER_PADDING_SIZE)
             return 1;
 
-        if (memcmp(apic->buf->data, pls->ctx->streams[1]->attached_pic.data, size) != 0)
+        if (memcmp(apic->buf->data, pls->ctx->streams[1]->attachment->data, size) != 0)
             return 1;
     }
 

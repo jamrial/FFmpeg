@@ -838,7 +838,7 @@ typedef struct AVIndexEntry {
  * APIC frame in ID3v2). The first (usually only) packet associated with it
  * will be returned among the first few packets read from the file unless
  * seeking takes place. It can also be accessed at any time in
- * AVStream.attached_pic.
+ * AVStream.attachment.
  */
 #define AV_DISPOSITION_ATTACHED_PIC      0x0400
 /**
@@ -947,14 +947,19 @@ typedef struct AVStream {
      */
     AVRational avg_frame_rate;
 
+#if FF_API_ATTACHMENT
     /**
      * For streams with AV_DISPOSITION_ATTACHED_PIC disposition, this packet
      * will contain the attached picture.
      *
      * decoding: set by libavformat, must not be modified by the caller.
      * encoding: unused
+     *
+     * @deprecated Use attachment instead.
      */
+    attribute_deprecated
     AVPacket attached_pic;
+#endif
 
     /**
      * An array of side data that applies to the whole stream (i.e. the
@@ -1039,6 +1044,18 @@ typedef struct AVStream {
      */
     AVCodecParameters *codecpar;
 
+    /**
+     * Packet containing the stream attachment. Used on streams with codec parameter
+     * codec_type AVMEDIA_TYPE_ATTACHMENT, or codec_type AVMEDIA_TYPE_VIDEO and
+     * AV_DISPOSITION_ATTACHED_PIC disposition.
+     *
+     * - demuxing: Allocated and filled by libavformat on stream creation. Must
+     *             not be modified by the caller. Freed by libavformat in
+     *             avformat_free_context()
+     * - muxing: Unused
+     */
+    AVPacket *attachment;
+
     /*****************************************************************
      * All fields below this line are not part of the public API. They
      * may not be used outside of libavformat and can be changed and
@@ -1048,11 +1065,6 @@ typedef struct AVStream {
      * add new fields to AVStreamInternal.
      *****************************************************************
      */
-
-#if LIBAVFORMAT_VERSION_MAJOR < 59
-    // kept for ABI compatibility only, do not access in any way
-    void *unused;
-#endif
 
     int pts_wrap_bits; /**< number of bits in pts (used for wrapping control) */
 
