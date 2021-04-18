@@ -51,9 +51,6 @@
  * at once through the bump. This improves the git bisect-ability of the change.
  */
 
-#ifndef FF_API_OLD_ENCDEC
-#define FF_API_OLD_ENCDEC          (LIBAVCODEC_VERSION_MAJOR < 59)
-#endif
 #ifndef FF_API_THREAD_SAFE_CALLBACKS
 #define FF_API_THREAD_SAFE_CALLBACKS (LIBAVCODEC_VERSION_MAJOR < 60)
 #endif
