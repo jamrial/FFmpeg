@@ -51,9 +51,6 @@
  * at once through the bump. This improves the git bisect-ability of the change.
  */
 
-#ifndef FF_API_OPENH264_CABAC
-#define FF_API_OPENH264_CABAC      (LIBAVCODEC_VERSION_MAJOR < 59)
-#endif
 #ifndef FF_API_UNUSED_CODEC_CAPS
 #define FF_API_UNUSED_CODEC_CAPS   (LIBAVCODEC_VERSION_MAJOR < 59)
 #endif
