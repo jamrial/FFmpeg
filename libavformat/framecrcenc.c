@@ -119,7 +119,7 @@ static int framecrc_write_packet(struct AVFormatContext *s, AVPacket *pkt)
             default:
                 side_data_crc = av_adler32_update(0, data, sd->size);
             }
-            av_strlcatf(buf, sizeof(buf), ", %8"BUFFER_SPECIFIER", 0x%08"PRIx32,
+            av_strlcatf(buf, sizeof(buf), ", %8"SIZE_SPECIFIER", 0x%08"PRIx32,
                         pkt->side_data[i].size, side_data_crc);
         }
     }

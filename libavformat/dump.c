@@ -492,7 +492,7 @@ static void dump_sidedata(void *ctx, const AVStream *st, const char *indent)
             break;
         default:
             av_log(ctx, AV_LOG_INFO, "unknown side data type %d "
-                   "(%"BUFFER_SPECIFIER" bytes)", sd->type, sd->size);
+                   "(%"SIZE_SPECIFIER" bytes)", sd->type, sd->size);
             break;
         }
 
