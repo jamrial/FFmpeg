@@ -839,13 +839,7 @@ typedef struct AVStream {
      * encoding: set by the user, replaced by libavformat if left unset
      */
     int id;
-#if FF_API_LAVF_AVCTX
-    /**
-     * @deprecated use the codecpar struct instead
-     */
-    attribute_deprecated
-    AVCodecContext *codec;
-#endif
+
     void *priv_data;
 
     /**
