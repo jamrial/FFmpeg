@@ -197,6 +197,18 @@ static int alloc_picture(H264Context *h, H264Picture *pic)
     if (ret < 0)
         goto fail;
 
+    if (h->apply_film_grain) {
+        pic->tf_grain.f = pic->f_grain;
+        pic->f_grain->format = pic->f->format;
+        pic->f_grain->width = pic->f->width;
+        pic->f_grain->height = pic->f->height;
+        ret = ff_thread_get_buffer(h->avctx, &pic->tf_grain, 0);
+        if (ret < 0)
+            goto fail;
+        pic->needs_fg = 1;
+    }
+
+
     if (h->avctx->hwaccel) {
         const AVHWAccel *hwaccel = h->avctx->hwaccel;
         av_assert0(!pic->hwaccel_picture_private);
@@ -377,6 +389,7 @@ int ff_h264_update_thread_context(AVCodecContext *dst,
     h->picture_structure    = h1->picture_structure;
     h->mb_aff_frame         = h1->mb_aff_frame;
     h->droppable            = h1->droppable;
+    h->apply_film_grain     = h1->apply_film_grain;
 
     for (i = 0; i < H264_MAX_PICTURE_COUNT; i++) {
         ret = ff_h264_replace_picture(h, &h->DPB[i], &h1->DPB[i]);
@@ -516,6 +529,9 @@ static int h264_frame_start(H264Context *h)
     pic->f->crop_right  = h->crop_right;
     pic->f->crop_top    = h->crop_top;
     pic->f->crop_bottom = h->crop_bottom;
+
+    h->apply_film_grain = h->sei.film_grain_characteristics.present && !h->avctx->hwaccel &&
+        !(h->avctx->export_side_data & AV_CODEC_EXPORT_DATA_FILM_GRAIN);
 
     if ((ret = alloc_picture(h, pic)) < 0)
         return ret;
@@ -1328,8 +1344,7 @@ static int h264_export_frame_props(H264Context *h)
     }
     h->sei.unregistered.nb_buf_ref = 0;
 
-    if (h->sei.film_grain_characteristics.present &&
-        (h->avctx->export_side_data & AV_CODEC_EXPORT_DATA_FILM_GRAIN)) {
+    if (h->sei.film_grain_characteristics.present) {
         H264SEIFilmGrainCharacteristics *fgc = &h->sei.film_grain_characteristics;
         AVFilmGrainParams *fgp = av_film_grain_params_create_side_data(out);
         if (!fgp)

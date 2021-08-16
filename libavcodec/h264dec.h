@@ -43,6 +43,7 @@
 #include "h264dsp.h"
 #include "h264pred.h"
 #include "h264qpel.h"
+#include "h274.h"
 #include "internal.h"
 #include "mpegutils.h"
 #include "parser.h"
@@ -166,6 +167,7 @@ typedef struct H264Picture {
     int recovered;          ///< picture at IDR or recovery point + recovery count
     int invalid_gap;
     int sei_recovery_frame_cnt;
+    int needs_fg;           ///< whether picture needs film grain synthesis (see `f_grain`)
 
     AVBufferRef *pps_buf;
     const PPS   *pps;
@@ -353,6 +355,7 @@ typedef struct H264Context {
     H264DSPContext h264dsp;
     H264ChromaContext h264chroma;
     H264QpelContext h264qpel;
+    H274FilmGrainDatabase h274db;
 
     H264Picture DPB[H264_MAX_PICTURE_COUNT];
     H264Picture *cur_pic_ptr;
@@ -383,6 +386,10 @@ typedef struct H264Context {
      * during normal MB decoding and execute it serially at the end.
      */
     int postpone_filter;
+
+    /* Set to 1 when SEI contains film grain information but the context does
+     * not have AV_CODEC_EXPORT_DATA_FILM_GRAIN */
+    int apply_film_grain;
 
     /*
      * Set to 1 when the current picture is IDR, 0 otherwise.
