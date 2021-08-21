@@ -219,6 +219,7 @@ TESTPROGS = adler32                                                     \
             bprint                                                      \
             cast5                                                       \
             camellia                                                    \
+            channel_layout                                              \
             color_utils                                                 \
             cpu                                                         \
             crc                                                         \
