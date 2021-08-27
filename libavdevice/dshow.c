@@ -1018,7 +1018,8 @@ dshow_add_device(AVFormatContext *avctx,
         par->format      = sample_fmt_bits_per_sample(fx->wBitsPerSample);
         par->codec_id    = waveform_codec_id(par->format);
         par->sample_rate = fx->nSamplesPerSec;
-        par->channels    = fx->nChannels;
+        par->ch_layout.order = AV_CHANNEL_ORDER_UNSPEC;
+        par->ch_layout.nb_channels = fx->nChannels;
     }
 
     avpriv_set_pts_info(st, 64, 1, 10000000);
