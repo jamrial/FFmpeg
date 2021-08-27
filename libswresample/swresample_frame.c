@@ -29,7 +29,19 @@ int swr_config_frame(SwrContext *s, const AVFrame *out, const AVFrame *in)
     swr_close(s);
 
     if (in) {
-        if (av_opt_set_int(s, "icl", in->channel_layout, 0) < 0)
+        AVChannelLayout in_ch_layout = { 0 };
+#if FF_API_OLD_CHANNEL_LAYOUT
+FF_DISABLE_DEPRECATION_WARNINGS
+        // if the old/new fields are set inconsistently, prefer the old ones
+        if ((in->channel_layout && (in->ch_layout.order != AV_CHANNEL_ORDER_NATIVE ||
+                                    in->ch_layout.u.mask != in->channel_layout))) {
+            av_channel_layout_from_mask(&in_ch_layout, in->channel_layout);
+FF_ENABLE_DEPRECATION_WARNINGS
+        } else
+#endif
+        if (av_channel_layout_copy(&in_ch_layout, &in->ch_layout) < 0)
+            goto fail;
+        if (av_opt_set_chlayout(s, "ichl", &in_ch_layout, 0) < 0)
             goto fail;
         if (av_opt_set_int(s, "isf", in->format, 0) < 0)
             goto fail;
@@ -38,7 +50,19 @@ int swr_config_frame(SwrContext *s, const AVFrame *out, const AVFrame *in)
     }
 
     if (out) {
-        if (av_opt_set_int(s, "ocl", out->channel_layout, 0) < 0)
+        AVChannelLayout out_ch_layout = { 0 };
+#if FF_API_OLD_CHANNEL_LAYOUT
+FF_DISABLE_DEPRECATION_WARNINGS
+        // if the old/new fields are set inconsistently, prefer the old ones
+        if ((out->channel_layout && (out->ch_layout.order != AV_CHANNEL_ORDER_NATIVE ||
+                                     out->ch_layout.u.mask != out->channel_layout))) {
+            av_channel_layout_from_mask(&out_ch_layout, out->channel_layout);
+FF_ENABLE_DEPRECATION_WARNINGS
+        } else
+#endif
+        if (av_channel_layout_copy(&out_ch_layout, &out->ch_layout) < 0)
+            goto fail;
+        if (av_opt_set_chlayout(s, "ochl", &out_ch_layout, 0) < 0)
             goto fail;
         if (av_opt_set_int(s, "osf", out->format,  0) < 0)
             goto fail;
@@ -58,7 +82,19 @@ static int config_changed(SwrContext *s,
     int ret = 0;
 
     if (in) {
-        if (s->in_ch_layout   != in->channel_layout ||
+        AVChannelLayout in_ch_layout = { 0 };
+#if FF_API_OLD_CHANNEL_LAYOUT
+FF_DISABLE_DEPRECATION_WARNINGS
+        // if the old/new fields are set inconsistently, prefer the old ones
+        if ((in->channel_layout && (in->ch_layout.order != AV_CHANNEL_ORDER_NATIVE ||
+                                    in->ch_layout.u.mask != in->channel_layout))) {
+            av_channel_layout_from_mask(&in_ch_layout, in->channel_layout);
+FF_ENABLE_DEPRECATION_WARNINGS
+        } else
+#endif
+        if ((ret = av_channel_layout_copy(&in_ch_layout, &in->ch_layout)) < 0)
+            return ret;
+        if (av_channel_layout_compare(&s->in_ch_layout, &in_ch_layout) ||
             s->in_sample_rate != in->sample_rate ||
             s->in_sample_fmt  != in->format) {
             ret |= AVERROR_INPUT_CHANGED;
@@ -66,7 +102,19 @@ static int config_changed(SwrContext *s,
     }
 
     if (out) {
-        if (s->out_ch_layout   != out->channel_layout ||
+        AVChannelLayout out_ch_layout = { 0 };
+#if FF_API_OLD_CHANNEL_LAYOUT
+FF_DISABLE_DEPRECATION_WARNINGS
+        // if the old/new fields are set inconsistently, prefer the old ones
+        if ((out->channel_layout && (out->ch_layout.order != AV_CHANNEL_ORDER_NATIVE ||
+                                     out->ch_layout.u.mask != out->channel_layout))) {
+            av_channel_layout_from_mask(&out_ch_layout, out->channel_layout);
+FF_ENABLE_DEPRECATION_WARNINGS
+        } else
+#endif
+        if ((ret = av_channel_layout_copy(&out_ch_layout, &out->ch_layout)) < 0)
+            return ret;
+        if (av_channel_layout_compare(&s->out_ch_layout, &out_ch_layout) ||
             s->out_sample_rate != out->sample_rate ||
             s->out_sample_fmt  != out->format) {
             ret |= AVERROR_OUTPUT_CHANGED;
@@ -116,7 +164,14 @@ static inline int available_samples(AVFrame *out)
     if (av_sample_fmt_is_planar(out->format)) {
         return samples;
     } else {
-        int channels = av_get_channel_layout_nb_channels(out->channel_layout);
+        int channels;
+#if FF_API_OLD_CHANNEL_LAYOUT
+FF_DISABLE_DEPRECATION_WARNINGS
+        channels = av_get_channel_layout_nb_channels(out->channel_layout);
+FF_ENABLE_DEPRECATION_WARNINGS
+        if (!channels)
+#endif
+        channels = out->ch_layout.nb_channels;
         return samples / channels;
     }
 }
