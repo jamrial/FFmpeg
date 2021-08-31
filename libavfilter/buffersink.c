@@ -74,7 +74,7 @@ static void cleanup_redundant_layouts(AVFilterContext *ctx)
         if (buf->channel_counts[i] < 64)
             counts |= (uint64_t)1 << buf->channel_counts[i];
     for (i = lc = 0; i < nb_layouts; i++) {
-        n = av_get_channel_layout_nb_channels(buf->channel_layouts[i]);
+        n = av_popcount64(buf->channel_layouts[i]);
         if (n < 64 && (counts & ((uint64_t)1 << n)))
             av_log(ctx, AV_LOG_WARNING,
                    "Removing channel layout 0x%"PRIx64", redundant with %d channels\n",
@@ -218,10 +218,27 @@ MAKE_AVFILTERLINK_ACCESSOR(int              , h                  )
 MAKE_AVFILTERLINK_ACCESSOR(AVRational       , sample_aspect_ratio)
 
 MAKE_AVFILTERLINK_ACCESSOR(int              , channels           )
+#if FF_API_OLD_CHANNEL_LAYOUT
+FF_DISABLE_DEPRECATION_WARNINGS
 MAKE_AVFILTERLINK_ACCESSOR(uint64_t         , channel_layout     )
+FF_ENABLE_DEPRECATION_WARNINGS
+#endif
 MAKE_AVFILTERLINK_ACCESSOR(int              , sample_rate        )
 
 MAKE_AVFILTERLINK_ACCESSOR(AVBufferRef *    , hw_frames_ctx      )
+
+int av_buffersink_get_ch_layout(const AVFilterContext *ctx, AVChannelLayout *out)
+{
+    AVChannelLayout ch_layout = { 0 };
+    int ret;
+
+    av_assert0(ctx->filter->activate == activate);
+    ret = av_channel_layout_copy(&ch_layout, &ctx->inputs[0]->ch_layout);
+    if (ret < 0)
+        return ret;
+    *out = ch_layout;
+    return 0;
+}
 
 #define CHECK_LIST_SIZE(field) \
         if (buf->field ## _size % sizeof(*buf->field)) { \
@@ -256,6 +273,7 @@ static int asink_query_formats(AVFilterContext *ctx)
 {
     BufferSinkContext *buf = ctx->priv;
     AVFilterFormats *formats = NULL;
+    AVChannelLayout layout = { 0 };
     AVFilterChannelLayouts *layouts = NULL;
     unsigned i;
     int ret;
@@ -277,11 +295,14 @@ static int asink_query_formats(AVFilterContext *ctx)
         buf->all_channel_counts) {
         cleanup_redundant_layouts(ctx);
         for (i = 0; i < NB_ITEMS(buf->channel_layouts); i++)
-            if ((ret = ff_add_channel_layout(&layouts, buf->channel_layouts[i])) < 0)
+            if ((ret = av_channel_layout_from_mask(&layout, buf->channel_layouts[i])) < 0 ||
+                (ret = ff_add_channel_layout(&layouts, &layout) < 0))
                 return ret;
-        for (i = 0; i < NB_ITEMS(buf->channel_counts); i++)
-            if ((ret = ff_add_channel_layout(&layouts, FF_COUNT2LAYOUT(buf->channel_counts[i]))) < 0)
+        for (i = 0; i < NB_ITEMS(buf->channel_counts); i++) {
+            layout = FF_COUNT2LAYOUT(buf->channel_counts[i]);
+            if ((ret = ff_add_channel_layout(&layouts, &layout)) < 0)
                 return ret;
+        }
         if (buf->all_channel_counts) {
             if (layouts)
                 av_log(ctx, AV_LOG_WARNING,

@@ -92,8 +92,8 @@ typedef struct AudioSurroundContext {
     float lowcut;
     float highcut;
 
-    uint64_t out_channel_layout;
-    uint64_t in_channel_layout;
+    AVChannelLayout out_channel_layout;
+    AVChannelLayout in_channel_layout;
     int nb_in_channels;
     int nb_out_channels;
 
@@ -171,7 +171,7 @@ static int query_formats(AVFilterContext *ctx)
         return ret;
 
     layouts = NULL;
-    ret = ff_add_channel_layout(&layouts, s->out_channel_layout);
+    ret = ff_add_channel_layout(&layouts, &s->out_channel_layout);
     if (ret)
         return ret;
 
@@ -180,7 +180,7 @@ static int query_formats(AVFilterContext *ctx)
         return ret;
 
     layouts = NULL;
-    ret = ff_add_channel_layout(&layouts, s->in_channel_layout);
+    ret = ff_add_channel_layout(&layouts, &s->in_channel_layout);
     if (ret)
         return ret;
 
@@ -212,31 +212,31 @@ static int config_input(AVFilterLink *inlink)
         return AVERROR(ENOMEM);
     for (ch = 0;  ch < s->nb_in_channels; ch++)
         s->input_levels[ch] = s->level_in;
-    ch = av_get_channel_layout_channel_index(inlink->channel_layout, AV_CH_FRONT_CENTER);
+    ch = av_channel_layout_index_from_channel(&inlink->ch_layout, AV_CHAN_FRONT_CENTER);
     if (ch >= 0)
         s->input_levels[ch] *= s->fc_in;
-    ch = av_get_channel_layout_channel_index(inlink->channel_layout, AV_CH_FRONT_LEFT);
+    ch = av_channel_layout_index_from_channel(&inlink->ch_layout, AV_CHAN_FRONT_LEFT);
     if (ch >= 0)
         s->input_levels[ch] *= s->fl_in;
-    ch = av_get_channel_layout_channel_index(inlink->channel_layout, AV_CH_FRONT_RIGHT);
+    ch = av_channel_layout_index_from_channel(&inlink->ch_layout, AV_CHAN_FRONT_RIGHT);
     if (ch >= 0)
         s->input_levels[ch] *= s->fr_in;
-    ch = av_get_channel_layout_channel_index(inlink->channel_layout, AV_CH_SIDE_LEFT);
+    ch = av_channel_layout_index_from_channel(&inlink->ch_layout, AV_CHAN_SIDE_LEFT);
     if (ch >= 0)
         s->input_levels[ch] *= s->sl_in;
-    ch = av_get_channel_layout_channel_index(inlink->channel_layout, AV_CH_SIDE_RIGHT);
+    ch = av_channel_layout_index_from_channel(&inlink->ch_layout, AV_CHAN_SIDE_RIGHT);
     if (ch >= 0)
         s->input_levels[ch] *= s->sr_in;
-    ch = av_get_channel_layout_channel_index(inlink->channel_layout, AV_CH_BACK_LEFT);
+    ch = av_channel_layout_index_from_channel(&inlink->ch_layout, AV_CHAN_BACK_LEFT);
     if (ch >= 0)
         s->input_levels[ch] *= s->bl_in;
-    ch = av_get_channel_layout_channel_index(inlink->channel_layout, AV_CH_BACK_RIGHT);
+    ch = av_channel_layout_index_from_channel(&inlink->ch_layout, AV_CHAN_BACK_RIGHT);
     if (ch >= 0)
         s->input_levels[ch] *= s->br_in;
-    ch = av_get_channel_layout_channel_index(inlink->channel_layout, AV_CH_BACK_CENTER);
+    ch = av_channel_layout_index_from_channel(&inlink->ch_layout, AV_CHAN_BACK_CENTER);
     if (ch >= 0)
         s->input_levels[ch] *= s->bc_in;
-    ch = av_get_channel_layout_channel_index(inlink->channel_layout, AV_CH_LOW_FREQUENCY);
+    ch = av_channel_layout_index_from_channel(&inlink->ch_layout, AV_CHAN_LOW_FREQUENCY);
     if (ch >= 0)
         s->input_levels[ch] *= s->lfe_in;
 
@@ -275,31 +275,31 @@ static int config_output(AVFilterLink *outlink)
         return AVERROR(ENOMEM);
     for (ch = 0;  ch < s->nb_out_channels; ch++)
         s->output_levels[ch] = s->level_out;
-    ch = av_get_channel_layout_channel_index(outlink->channel_layout, AV_CH_FRONT_CENTER);
+    ch = av_channel_layout_index_from_channel(&outlink->ch_layout, AV_CHAN_FRONT_CENTER);
     if (ch >= 0)
         s->output_levels[ch] *= s->fc_out;
-    ch = av_get_channel_layout_channel_index(outlink->channel_layout, AV_CH_FRONT_LEFT);
+    ch = av_channel_layout_index_from_channel(&outlink->ch_layout, AV_CHAN_FRONT_LEFT);
     if (ch >= 0)
         s->output_levels[ch] *= s->fl_out;
-    ch = av_get_channel_layout_channel_index(outlink->channel_layout, AV_CH_FRONT_RIGHT);
+    ch = av_channel_layout_index_from_channel(&outlink->ch_layout, AV_CHAN_FRONT_RIGHT);
     if (ch >= 0)
         s->output_levels[ch] *= s->fr_out;
-    ch = av_get_channel_layout_channel_index(outlink->channel_layout, AV_CH_SIDE_LEFT);
+    ch = av_channel_layout_index_from_channel(&outlink->ch_layout, AV_CHAN_SIDE_LEFT);
     if (ch >= 0)
         s->output_levels[ch] *= s->sl_out;
-    ch = av_get_channel_layout_channel_index(outlink->channel_layout, AV_CH_SIDE_RIGHT);
+    ch = av_channel_layout_index_from_channel(&outlink->ch_layout, AV_CHAN_SIDE_RIGHT);
     if (ch >= 0)
         s->output_levels[ch] *= s->sr_out;
-    ch = av_get_channel_layout_channel_index(outlink->channel_layout, AV_CH_BACK_LEFT);
+    ch = av_channel_layout_index_from_channel(&outlink->ch_layout, AV_CHAN_BACK_LEFT);
     if (ch >= 0)
         s->output_levels[ch] *= s->bl_out;
-    ch = av_get_channel_layout_channel_index(outlink->channel_layout, AV_CH_BACK_RIGHT);
+    ch = av_channel_layout_index_from_channel(&outlink->ch_layout, AV_CHAN_BACK_RIGHT);
     if (ch >= 0)
         s->output_levels[ch] *= s->br_out;
-    ch = av_get_channel_layout_channel_index(outlink->channel_layout, AV_CH_BACK_CENTER);
+    ch = av_channel_layout_index_from_channel(&outlink->ch_layout, AV_CHAN_BACK_CENTER);
     if (ch >= 0)
         s->output_levels[ch] *= s->bc_out;
-    ch = av_get_channel_layout_channel_index(outlink->channel_layout, AV_CH_LOW_FREQUENCY);
+    ch = av_channel_layout_index_from_channel(&outlink->ch_layout, AV_CHAN_LOW_FREQUENCY);
     if (ch >= 0)
         s->output_levels[ch] *= s->lfe_out;
 
@@ -1373,15 +1373,16 @@ static av_cold int init(AVFilterContext *ctx)
 {
     AudioSurroundContext *s = ctx->priv;
     float overlap;
-    int i;
+    int64_t in_channel_layout, out_channel_layout;
+    int i, ret;
 
-    if (!(s->out_channel_layout = av_get_channel_layout(s->out_channel_layout_str))) {
+    if ((ret = av_channel_layout_from_string(&s->out_channel_layout, s->out_channel_layout_str)) < 0) {
         av_log(ctx, AV_LOG_ERROR, "Error parsing output channel layout '%s'.\n",
                s->out_channel_layout_str);
-        return AVERROR(EINVAL);
+        return ret;
     }
 
-    if (!(s->in_channel_layout = av_get_channel_layout(s->in_channel_layout_str))) {
+    if ((ret = av_channel_layout_from_string(&s->in_channel_layout, s->in_channel_layout_str)) < 0) {
         av_log(ctx, AV_LOG_ERROR, "Error parsing input channel layout '%s'.\n",
                s->in_channel_layout_str);
         return AVERROR(EINVAL);
@@ -1393,10 +1394,15 @@ static av_cold int init(AVFilterContext *ctx)
         return AVERROR(EINVAL);
     }
 
-    switch (s->in_channel_layout) {
+    in_channel_layout  = s->in_channel_layout.order == AV_CHANNEL_ORDER_NATIVE ?
+                         s->in_channel_layout.u.mask : 0;
+    out_channel_layout = s->out_channel_layout.order == AV_CHANNEL_ORDER_NATIVE ?
+                         s->out_channel_layout.u.mask : 0;
+
+    switch (in_channel_layout) {
     case AV_CH_LAYOUT_STEREO:
         s->filter = filter_stereo;
-        switch (s->out_channel_layout) {
+        switch (out_channel_layout) {
         case AV_CH_LAYOUT_MONO:
             s->upmix_stereo = upmix_1_0;
             break;
@@ -1442,7 +1448,7 @@ static av_cold int init(AVFilterContext *ctx)
         break;
     case AV_CH_LAYOUT_2POINT1:
         s->filter = filter_2_1;
-        switch (s->out_channel_layout) {
+        switch (out_channel_layout) {
         case AV_CH_LAYOUT_5POINT1_BACK:
             s->upmix_2_1 = upmix_5_1_back_2_1;
             break;
@@ -1452,7 +1458,7 @@ static av_cold int init(AVFilterContext *ctx)
         break;
     case AV_CH_LAYOUT_SURROUND:
         s->filter = filter_surround;
-        switch (s->out_channel_layout) {
+        switch (out_channel_layout) {
         case AV_CH_LAYOUT_3POINT1:
             s->upmix_3_0 = upmix_3_1_surround;
             break;
@@ -1465,7 +1471,7 @@ static av_cold int init(AVFilterContext *ctx)
         break;
     case AV_CH_LAYOUT_5POINT0:
         s->filter = filter_5_0_side;
-        switch (s->out_channel_layout) {
+        switch (out_channel_layout) {
         case AV_CH_LAYOUT_7POINT1:
             s->upmix_5_0 = upmix_7_1_5_0_side;
             break;
@@ -1475,7 +1481,7 @@ static av_cold int init(AVFilterContext *ctx)
         break;
     case AV_CH_LAYOUT_5POINT1:
         s->filter = filter_5_1_side;
-        switch (s->out_channel_layout) {
+        switch (out_channel_layout) {
         case AV_CH_LAYOUT_7POINT1:
             s->upmix_5_1 = upmix_7_1_5_1;
             break;
@@ -1485,7 +1491,7 @@ static av_cold int init(AVFilterContext *ctx)
         break;
     case AV_CH_LAYOUT_5POINT1_BACK:
         s->filter = filter_5_1_back;
-        switch (s->out_channel_layout) {
+        switch (out_channel_layout) {
         case AV_CH_LAYOUT_7POINT1:
             s->upmix_5_1 = upmix_7_1_5_1;
             break;

@@ -112,14 +112,18 @@ int main(void)
         "-1c",
         "60c",
         "65c",
+#if FF_API_OLD_CHANNEL_LAYOUT
         "2C",
         "60C",
         "65C",
+#endif
         "5.1",
         "stereo",
+#if FF_API_OLD_CHANNEL_LAYOUT
         "1+1+1+1",
         "1c+1c+1c+1c",
         "2c+1c",
+#endif
         "0x3",
     };
 
@@ -129,12 +133,12 @@ int main(void)
     }
 
     for ( i = 0; i<FF_ARRAY_ELEMS(teststrings); i++) {
-        int64_t layout = -1;
+        AVChannelLayout layout = { 0 };
         int count = -1;
         int ret;
         ret = ff_parse_channel_layout(&layout, &count, teststrings[i], NULL);
 
-        printf ("%d = ff_parse_channel_layout(%016"PRIX64", %2d, %s);\n", ret ? -1 : 0, layout, count, teststrings[i]);
+        printf ("%d = ff_parse_channel_layout(%016"PRIX64", %2d, %s);\n", ret ? -1 : 0, layout.order == AV_CHANNEL_ORDER_NATIVE ? layout.u.mask : 0, count, teststrings[i]);
     }
 
     return 0;

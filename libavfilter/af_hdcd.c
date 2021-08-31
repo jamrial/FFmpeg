@@ -1627,10 +1627,10 @@ static int query_formats(AVFilterContext *ctx)
     };
     int ret;
 
-    ret = ff_add_channel_layout(&layouts, AV_CH_LAYOUT_MONO);
+    ret = ff_add_channel_layout(&layouts, &(AVChannelLayout)AV_CHANNEL_LAYOUT_MONO);
     if (ret < 0)
         return ret;
-    ret = ff_add_channel_layout(&layouts, AV_CH_LAYOUT_STEREO);
+    ret = ff_add_channel_layout(&layouts, &(AVChannelLayout)AV_CHANNEL_LAYOUT_STEREO);
     if (ret < 0)
         return ret;
 

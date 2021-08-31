@@ -37,8 +37,7 @@
 
 typedef struct ANullContext {
     const AVClass *class;
-    char   *channel_layout_str;
-    uint64_t channel_layout;
+    AVChannelLayout ch_layout;
     char   *sample_rate_str;
     int     sample_rate;
     int64_t duration;
@@ -50,8 +49,8 @@ typedef struct ANullContext {
 #define FLAGS AV_OPT_FLAG_AUDIO_PARAM|AV_OPT_FLAG_FILTERING_PARAM
 
 static const AVOption anullsrc_options[]= {
-    { "channel_layout", "set channel_layout", OFFSET(channel_layout_str), AV_OPT_TYPE_STRING, {.str = "stereo"}, 0, 0, FLAGS },
-    { "cl",             "set channel_layout", OFFSET(channel_layout_str), AV_OPT_TYPE_STRING, {.str = "stereo"}, 0, 0, FLAGS },
+    { "channel_layout", "set channel_layout", OFFSET(ch_layout), AV_OPT_TYPE_CHLAYOUT, {.str = "stereo"}, 0, 0, FLAGS },
+    { "cl",             "set channel_layout", OFFSET(ch_layout), AV_OPT_TYPE_CHLAYOUT, {.str = "stereo"}, 0, 0, FLAGS },
     { "sample_rate",    "set sample rate",    OFFSET(sample_rate_str)   , AV_OPT_TYPE_STRING, {.str = "44100"}, 0, 0, FLAGS },
     { "r",              "set sample rate",    OFFSET(sample_rate_str)   , AV_OPT_TYPE_STRING, {.str = "44100"}, 0, 0, FLAGS },
     { "nb_samples",     "set the number of samples per requested frame", OFFSET(nb_samples), AV_OPT_TYPE_INT, {.i64 = 1024}, 1, UINT16_MAX, FLAGS },
@@ -72,17 +71,13 @@ static av_cold int init(AVFilterContext *ctx)
                                      null->sample_rate_str, ctx)) < 0)
         return ret;
 
-    if ((ret = ff_parse_channel_layout(&null->channel_layout, NULL,
-                                        null->channel_layout_str, ctx)) < 0)
-        return ret;
-
     return 0;
 }
 
 static int query_formats(AVFilterContext *ctx)
 {
     ANullContext *null = ctx->priv;
-    int64_t chlayouts[] = { null->channel_layout, -1 };
+    const AVChannelLayout chlayouts[] = { null->ch_layout, { 0 } };
     int sample_rates[] = { null->sample_rate, -1 };
     int ret;
 

@@ -503,7 +503,13 @@ static int config_output(AVFilterLink *outlink)
 
     s->delay_frame->format         = outlink->format;
     s->delay_frame->nb_samples     = s->delay_samples;
+#if FF_API_OLD_CHANNEL_LAYOUT
+FF_DISABLE_DEPRECATION_WARNINGS
     s->delay_frame->channel_layout = outlink->channel_layout;
+FF_ENABLE_DEPRECATION_WARNINGS
+#endif
+    if ((err = av_channel_layout_copy(&s->delay_frame->ch_layout, &outlink->ch_layout)) < 0)
+        return err;
 
     err = av_frame_get_buffer(s->delay_frame, 0);
     if (err)

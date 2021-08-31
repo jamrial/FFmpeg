@@ -204,6 +204,7 @@ void avfilter_link_free(AVFilterLink **link)
 
     ff_framequeue_free(&(*link)->fifo);
     ff_frame_pool_uninit((FFFramePool**)&(*link)->frame_pool);
+    av_channel_layout_uninit(&(*link)->ch_layout);
 
     av_freep(link);
 }
@@ -405,7 +406,7 @@ void ff_tlog_link(void *ctx, AVFilterLink *link, int end)
                 end ? "\n" : "");
     } else {
         char buf[128];
-        av_get_channel_layout_string(buf, sizeof(buf), -1, link->channel_layout);
+        av_channel_layout_describe(&link->ch_layout, buf, sizeof(buf));
 
         ff_tlog(ctx,
                 "link[%p r:%d cl:%s fmt:%s %s->%s]%s",
@@ -1040,7 +1041,17 @@ int ff_filter_frame(AVFilterLink *link, AVFrame *frame)
             av_log(link->dst, AV_LOG_ERROR, "Channel count change is not supported\n");
             goto error;
         }
-        if (frame->channel_layout != link->channel_layout) {
+#if FF_API_OLD_CHANNEL_LAYOUT
+FF_DISABLE_DEPRECATION_WARNINGS
+        if (frame->channel_layout && frame->channel_layout != link->channel_layout) {
+            av_log(link->dst, AV_LOG_ERROR, "Channel layout change is not supported\n");
+            goto error;
+        }
+FF_ENABLE_DEPRECATION_WARNINGS
+        if (av_channel_layout_check(&frame->ch_layout) && av_channel_layout_compare(&frame->ch_layout, &link->ch_layout)) {
+#else
+        if (av_channel_layout_compare(&frame->ch_layout, &link->ch_layout)) {
+#endif
             av_log(link->dst, AV_LOG_ERROR, "Channel layout change is not supported\n");
             goto error;
         }

@@ -85,13 +85,13 @@ typedef struct HeadphoneContext {
     uint64_t mapping[64];
 } HeadphoneContext;
 
-static int parse_channel_name(const char *arg, uint64_t *rchannel)
+static int parse_channel_name(const char *arg, int *rchannel)
 {
-    uint64_t layout = av_get_channel_layout(arg);
+    int channel = av_channel_from_string(arg);
 
-    if (av_get_channel_layout_nb_channels(layout) != 1)
+    if (channel < 0)
         return AVERROR(EINVAL);
-    *rchannel = layout;
+    *rchannel = channel;
     return 0;
 }
 
@@ -103,14 +103,14 @@ static void parse_map(AVFilterContext *ctx)
 
     p = s->map;
     while ((arg = av_strtok(p, "|", &tokenizer))) {
-        uint64_t out_channel;
+        int out_channel;
 
         p = NULL;
         if (parse_channel_name(arg, &out_channel)) {
             av_log(ctx, AV_LOG_WARNING, "Failed to parse \'%s\' as channel name.\n", arg);
             continue;
         }
-        if (used_channels & out_channel) {
+        if (used_channels & (1ULL << out_channel)) {
             av_log(ctx, AV_LOG_WARNING, "Ignoring duplicate channel '%s'.\n", arg);
             continue;
         }
@@ -451,7 +451,7 @@ static int convert_coeffs(AVFilterContext *ctx, AVFilterLink *inlink)
         ptr = (float *)frame->extended_data[0];
 
         if (s->hrir_fmt == HRIR_STEREO) {
-            int idx = av_get_channel_layout_channel_index(inlink->channel_layout,
+            int idx = av_channel_layout_index_from_channel(&inlink->ch_layout,
                                                           s->mapping[i]);
             if (idx < 0)
                 continue;
@@ -481,7 +481,7 @@ static int convert_coeffs(AVFilterContext *ctx, AVFilterLink *inlink)
             int I, N = ctx->inputs[1]->channels;
 
             for (k = 0; k < N / 2; k++) {
-                int idx = av_get_channel_layout_channel_index(inlink->channel_layout,
+                int idx = av_channel_layout_index_from_channel(&inlink->ch_layout,
                                                               s->mapping[k]);
                 if (idx < 0)
                     continue;
@@ -602,7 +602,7 @@ static int query_formats(AVFilterContext *ctx)
     if (ret)
         return ret;
 
-    ret = ff_add_channel_layout(&stereo_layout, AV_CH_LAYOUT_STEREO);
+    ret = ff_add_channel_layout(&stereo_layout, &(AVChannelLayout)AV_CHANNEL_LAYOUT_STEREO);
     if (ret)
         return ret;
     ret = ff_channel_layouts_ref(stereo_layout, &ctx->outputs[0]->incfg.channel_layouts);
@@ -637,8 +637,8 @@ static int config_input(AVFilterLink *inlink)
         return AVERROR(EINVAL);
     }
 
-    s->lfe_channel = av_get_channel_layout_channel_index(inlink->channel_layout,
-                                                         AV_CH_LOW_FREQUENCY);
+    s->lfe_channel = av_channel_layout_index_from_channel(&inlink->ch_layout,
+                                                          AV_CHAN_LOW_FREQUENCY);
     return 0;
 }
 

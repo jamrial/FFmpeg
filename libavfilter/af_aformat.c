@@ -104,9 +104,35 @@ static av_cold int init(AVFilterContext *ctx)
                   ff_add_format, av_get_sample_fmt, AV_SAMPLE_FMT_NONE, "sample format");
     PARSE_FORMATS(s->sample_rates_str, int, s->sample_rates, ff_add_format,
                   get_sample_rate, 0, "sample rate");
-    PARSE_FORMATS(s->channel_layouts_str, uint64_t, s->channel_layouts,
-                  ff_add_channel_layout, av_get_channel_layout, 0,
-                  "channel layout");
+    {
+        char *next, *cur = s->channel_layouts_str, sep;
+        int ret;
+
+        if (s->channel_layouts_str && strchr(s->channel_layouts_str, ',')) {
+            av_log(ctx, AV_LOG_WARNING, "This syntax is deprecated, use '|' to "
+                   "separate channel layouts.\n");
+            sep = ',';
+        } else
+            sep = '|';
+
+        while (cur) {
+            AVChannelLayout fmt = { 0 };
+            next = strchr(cur, sep);
+            if (next)
+                *next++ = 0;
+
+            ret = av_channel_layout_from_string(&fmt, cur);
+            if (ret < 0) {
+                av_log(ctx, AV_LOG_ERROR, "Error parsing channel layout: %s.\n", cur);
+                return ret;
+            }
+            if ((ret = ff_add_channel_layout(&s->channel_layouts, &fmt)) < 0) {
+                return ret;
+            }
+
+            cur = next;
+        }
+    }
 
     return 0;
 }
