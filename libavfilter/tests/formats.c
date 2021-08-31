@@ -129,12 +129,12 @@ int main(void)
     }
 
     for ( i = 0; i<FF_ARRAY_ELEMS(teststrings); i++) {
-        int64_t layout = -1;
+        AVChannelLayout layout = { 0 };
         int count = -1;
         int ret;
         ret = ff_parse_channel_layout(&layout, &count, teststrings[i], NULL);
 
-        printf ("%d = ff_parse_channel_layout(%016"PRIX64", %2d, %s);\n", ret ? -1 : 0, layout, count, teststrings[i]);
+        printf ("%d = ff_parse_channel_layout(%016"PRIX64", %2d, %s);\n", ret ? -1 : 0, layout.order == AV_CHANNEL_ORDER_NATIVE ? layout.u.mask : 0, count, teststrings[i]);
     }
 
     return 0;

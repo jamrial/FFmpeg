@@ -745,7 +745,7 @@ static int query_formats(AVFilterContext *ctx)
         if ((ret = ff_channel_layouts_ref(layouts, &ctx->outputs[0]->incfg.channel_layouts)) < 0)
             return ret;
 
-        ret = ff_add_channel_layout(&mono, AV_CH_LAYOUT_MONO);
+        ret = ff_add_channel_layout(&mono, &(AVChannelLayout)AV_CHANNEL_LAYOUT_MONO);
         if (ret)
             return ret;
         for (int i = 1; i < ctx->nb_inputs; i++) {
@@ -764,11 +764,18 @@ static int config_output(AVFilterLink *outlink)
 {
     AVFilterContext *ctx = outlink->src;
     AudioFIRContext *s = ctx->priv;
+    int ret;
 
     s->one2many = ctx->inputs[1 + s->selir]->channels == 1;
     outlink->sample_rate = ctx->inputs[0]->sample_rate;
     outlink->time_base   = ctx->inputs[0]->time_base;
+#if FF_API_OLD_CHANNEL_LAYOUT
+FF_DISABLE_DEPRECATION_WARNINGS
     outlink->channel_layout = ctx->inputs[0]->channel_layout;
+FF_ENABLE_DEPRECATION_WARNINGS
+#endif
+    if ((ret = av_channel_layout_copy(&outlink->ch_layout, &ctx->inputs[0]->ch_layout)) < 0)
+        return ret;
     outlink->channels = ctx->inputs[0]->channels;
 
     s->nb_channels = outlink->channels;

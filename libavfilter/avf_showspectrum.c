@@ -738,8 +738,7 @@ static int draw_legend(AVFilterContext *ctx, int samples)
     uint8_t *dst;
     char chlayout_str[128];
 
-    av_get_channel_layout_string(chlayout_str, sizeof(chlayout_str), inlink->channels,
-                                 inlink->channel_layout);
+    av_channel_layout_describe(&inlink->ch_layout, chlayout_str, sizeof(chlayout_str));
 
     text = av_asprintf("%d Hz | %s", inlink->sample_rate, chlayout_str);
     if (!text)
