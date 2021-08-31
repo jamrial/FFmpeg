@@ -112,7 +112,7 @@ static int config_input(AVFilterLink *inlink)
     const char *last_expr = "1";
     int buf_size;
 
-    s->channels = inlink->channels;
+    s->channels = inlink->ch_layout.nb_channels;
     s->pts  = AV_NOPTS_VALUE;
     ret = av_tx_init(&s->fft, &s->tx_fn, AV_TX_FLOAT_FFT, 0, s->fft_size, &scale, 0);
     if (ret < 0)
@@ -125,19 +125,19 @@ static int config_input(AVFilterLink *inlink)
     s->window_size = s->fft_size;
     buf_size = FFALIGN(s->window_size, av_cpu_max_align());
 
-    s->fft_in = av_calloc(inlink->channels, sizeof(*s->fft_in));
+    s->fft_in = av_calloc(inlink->ch_layout.nb_channels, sizeof(*s->fft_in));
     if (!s->fft_in)
         return AVERROR(ENOMEM);
 
-    s->fft_out = av_calloc(inlink->channels, sizeof(*s->fft_out));
+    s->fft_out = av_calloc(inlink->ch_layout.nb_channels, sizeof(*s->fft_out));
     if (!s->fft_out)
         return AVERROR(ENOMEM);
 
-    s->fft_temp = av_calloc(inlink->channels, sizeof(*s->fft_temp));
+    s->fft_temp = av_calloc(inlink->ch_layout.nb_channels, sizeof(*s->fft_temp));
     if (!s->fft_temp)
         return AVERROR(ENOMEM);
 
-    for (ch = 0; ch < inlink->channels; ch++) {
+    for (ch = 0; ch < inlink->ch_layout.nb_channels; ch++) {
         s->fft_in[ch] = av_calloc(buf_size, sizeof(**s->fft_in));
         if (!s->fft_in[ch])
             return AVERROR(ENOMEM);
@@ -151,11 +151,11 @@ static int config_input(AVFilterLink *inlink)
             return AVERROR(ENOMEM);
     }
 
-    s->real = av_calloc(inlink->channels, sizeof(*s->real));
+    s->real = av_calloc(inlink->ch_layout.nb_channels, sizeof(*s->real));
     if (!s->real)
         return AVERROR(ENOMEM);
 
-    s->imag = av_calloc(inlink->channels, sizeof(*s->imag));
+    s->imag = av_calloc(inlink->ch_layout.nb_channels, sizeof(*s->imag));
     if (!s->imag)
         return AVERROR(ENOMEM);
 
@@ -163,7 +163,7 @@ static int config_input(AVFilterLink *inlink)
     if (!args)
         return AVERROR(ENOMEM);
 
-    for (ch = 0; ch < inlink->channels; ch++) {
+    for (ch = 0; ch < inlink->ch_layout.nb_channels; ch++) {
         char *arg = av_strtok(ch == 0 ? args : NULL, "|", &saveptr);
 
         ret = av_expr_parse(&s->real[ch], arg ? arg : last_expr, var_names,
@@ -183,7 +183,7 @@ static int config_input(AVFilterLink *inlink)
 
     saveptr = NULL;
     last_expr = "1";
-    for (ch = 0; ch < inlink->channels; ch++) {
+    for (ch = 0; ch < inlink->ch_layout.nb_channels; ch++) {
         char *arg = av_strtok(ch == 0 ? args : NULL, "|", &saveptr);
 
         ret = av_expr_parse(&s->imag[ch], arg ? arg : last_expr, var_names,
@@ -196,7 +196,7 @@ static int config_input(AVFilterLink *inlink)
 
     av_freep(&args);
 
-    s->fifo = av_audio_fifo_alloc(inlink->format, inlink->channels, s->window_size);
+    s->fifo = av_audio_fifo_alloc(inlink->format, inlink->ch_layout.nb_channels, s->window_size);
     if (!s->fifo)
         return AVERROR(ENOMEM);
 
@@ -243,7 +243,7 @@ static int filter_frame(AVFilterLink *inlink)
     if (ret < 0)
         goto fail;
 
-    for (ch = 0; ch < inlink->channels; ch++) {
+    for (ch = 0; ch < inlink->ch_layout.nb_channels; ch++) {
         const float *src = (float *)in->extended_data[ch];
         AVComplexFloat *fft_in = s->fft_in[ch];
 
@@ -261,16 +261,16 @@ static int filter_frame(AVFilterLink *inlink)
     values[VAR_PTS]         = s->pts;
     values[VAR_SAMPLE_RATE] = inlink->sample_rate;
     values[VAR_NBBINS]      = window_size / 2;
-    values[VAR_CHANNELS]    = inlink->channels;
+    values[VAR_CHANNELS]    = inlink->ch_layout.nb_channels;
 
-    for (ch = 0; ch < inlink->channels; ch++) {
+    for (ch = 0; ch < inlink->ch_layout.nb_channels; ch++) {
         AVComplexFloat *fft_in = s->fft_in[ch];
         AVComplexFloat *fft_out = s->fft_out[ch];
 
         s->tx_fn(s->fft, fft_out, fft_in, sizeof(float));
     }
 
-    for (ch = 0; ch < inlink->channels; ch++) {
+    for (ch = 0; ch < inlink->ch_layout.nb_channels; ch++) {
         AVComplexFloat *fft_out = s->fft_out[ch];
         AVComplexFloat *fft_temp = s->fft_temp[ch];
         float *buf = (float *)s->buffer->extended_data[ch];
@@ -319,7 +319,7 @@ static int filter_frame(AVFilterLink *inlink)
     out->pts = s->pts;
     s->pts += av_rescale_q(s->hop_size, (AVRational){1, outlink->sample_rate}, outlink->time_base);
 
-    for (ch = 0; ch < inlink->channels; ch++) {
+    for (ch = 0; ch < inlink->ch_layout.nb_channels; ch++) {
         float *dst = (float *)out->extended_data[ch];
         float *buf = (float *)s->buffer->extended_data[ch];
 

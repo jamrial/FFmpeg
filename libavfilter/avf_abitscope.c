@@ -96,7 +96,7 @@ static int config_input(AVFilterLink *inlink)
     char *colors, *saveptr = NULL;
 
     s->nb_samples = FFMAX(1, av_rescale(inlink->sample_rate, s->frame_rate.den, s->frame_rate.num));
-    s->nb_channels = inlink->channels;
+    s->nb_channels = inlink->ch_layout.nb_channels;
     s->depth = inlink->format == AV_SAMPLE_FMT_S16P ? 16 : 32;
 
     s->fg = av_malloc_array(s->nb_channels, 4 * sizeof(*s->fg));
@@ -168,9 +168,9 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *insamples)
 
     switch (insamples->format) {
     case AV_SAMPLE_FMT_S16P:
-        for (ch = 0; ch < inlink->channels; ch++) {
+        for (ch = 0; ch < inlink->ch_layout.nb_channels; ch++) {
             uint16_t *in = (uint16_t *)insamples->extended_data[ch];
-            int w = outpicref->width / inlink->channels;
+            int w = outpicref->width / inlink->ch_layout.nb_channels;
             int h = outpicref->height / 16;
             uint32_t color = AV_RN32(&s->fg[4 * ch]);
 
@@ -191,9 +191,9 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *insamples)
         }
         break;
     case AV_SAMPLE_FMT_S32P:
-        for (ch = 0; ch < inlink->channels; ch++) {
+        for (ch = 0; ch < inlink->ch_layout.nb_channels; ch++) {
             uint32_t *in = (uint32_t *)insamples->extended_data[ch];
-            int w = outpicref->width / inlink->channels;
+            int w = outpicref->width / inlink->ch_layout.nb_channels;
             int h = outpicref->height / 32;
             uint32_t color = AV_RN32(&s->fg[4 * ch]);
 

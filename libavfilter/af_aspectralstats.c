@@ -84,7 +84,7 @@ static int config_output(AVFilterLink *outlink)
     float overlap, scale;
     int ret;
 
-    s->nb_channels = outlink->channels;
+    s->nb_channels = outlink->ch_layout.nb_channels;
     s->fifo = av_audio_fifo_alloc(outlink->format, s->nb_channels, s->win_size);
     if (!s->fifo)
         return AVERROR(ENOMEM);
@@ -474,7 +474,7 @@ static int filter_frame(AVFilterLink *inlink)
 
     metadata = &out->metadata;
     ff_filter_execute(ctx, filter_channel, in, NULL,
-                      FFMIN(inlink->channels, ff_filter_get_nb_threads(ctx)));
+                      FFMIN(inlink->ch_layout.nb_channels, ff_filter_get_nb_threads(ctx)));
 
     set_metadata(s, metadata);
 
