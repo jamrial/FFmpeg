@@ -282,7 +282,7 @@ static int config_output(AVFilterLink *outlink)
         s->scale_norm[i] = s->weight_sum / FFABS(s->weights[i]);
     calculate_scales(s, 0);
 
-    av_get_channel_layout_string(buf, sizeof(buf), -1, outlink->channel_layout);
+    av_channel_layout_describe(&outlink->ch_layout, buf, sizeof(buf));
 
     av_log(ctx, AV_LOG_VERBOSE,
            "inputs:%d fmt:%s srate:%d cl:%s\n", s->nb_inputs,

@@ -36,7 +36,7 @@
 typedef struct ChannelSplitContext {
     const AVClass *class;
 
-    uint64_t channel_layout;
+    AVChannelLayout channel_layout;
     char    *channel_layout_str;
     char    *channels_str;
 
@@ -57,11 +57,11 @@ AVFILTER_DEFINE_CLASS(channelsplit);
 static av_cold int init(AVFilterContext *ctx)
 {
     ChannelSplitContext *s = ctx->priv;
-    uint64_t channel_layout;
+    AVChannelLayout channel_layout = { 0 };
     int nb_channels;
     int all = 0, ret = 0, i;
 
-    if (!(s->channel_layout = av_get_channel_layout(s->channel_layout_str))) {
+    if ((ret = av_channel_layout_from_string(&s->channel_layout, s->channel_layout_str)) < 0) {
         av_log(ctx, AV_LOG_ERROR, "Error parsing channel layout '%s'.\n",
                s->channel_layout_str);
         ret = AVERROR(EINVAL);
@@ -70,27 +70,32 @@ static av_cold int init(AVFilterContext *ctx)
 
 
     if (!strcmp(s->channels_str, "all")) {
-        nb_channels = av_get_channel_layout_nb_channels(s->channel_layout);
+        nb_channels = s->channel_layout.nb_channels;
         channel_layout = s->channel_layout;
         all = 1;
     } else {
-        if ((ret = av_get_extended_channel_layout(s->channels_str, &channel_layout, &nb_channels)) < 0)
+        if ((ret = av_channel_layout_from_string(&channel_layout, s->channels_str)) < 0)
             return ret;
     }
 
     for (i = 0; i < nb_channels; i++) {
-        uint64_t channel = av_channel_layout_extract_channel(channel_layout, i);
-        AVFilterPad pad  = { 0 };
+        int channel = av_channel_layout_channel_from_index(&channel_layout, i);
+        char buf[64];
+        AVFilterPad pad = { .flags = AVFILTERPAD_FLAG_FREE_NAME };
 
+        av_channel_name(buf, sizeof(buf), channel);
         pad.type = AVMEDIA_TYPE_AUDIO;
-        pad.name = av_get_channel_name(channel);
+        pad.name = av_strdup(buf);
+        if (!pad.name)
+            return AVERROR(ENOMEM);
 
         if (all) {
             s->map[i] = i;
         } else {
-            if ((ret = av_get_channel_layout_channel_index(s->channel_layout, channel)) < 0) {
+            if ((ret = av_channel_layout_index_from_channel(&s->channel_layout, channel)) < 0) {
                 av_log(ctx, AV_LOG_ERROR, "Channel name '%s' not present in channel layout '%s'.\n",
-                       av_get_channel_name(channel), s->channel_layout_str);
+                       pad.name, s->channel_layout_str);
+                av_freep(&pad.name);
                 return ret;
             }
 
@@ -115,15 +120,18 @@ static int query_formats(AVFilterContext *ctx)
         (ret = ff_set_common_all_samplerates(ctx)) < 0)
         return ret;
 
-    if ((ret = ff_add_channel_layout(&in_layouts, s->channel_layout)) < 0 ||
+    if ((ret = ff_add_channel_layout(&in_layouts, &s->channel_layout)) < 0 ||
         (ret = ff_channel_layouts_ref(in_layouts, &ctx->inputs[0]->outcfg.channel_layouts)) < 0)
         return ret;
 
     for (i = 0; i < ctx->nb_outputs; i++) {
+        AVChannelLayout channel_layout = { 0 };
         AVFilterChannelLayouts *out_layouts = NULL;
-        uint64_t channel = av_channel_layout_extract_channel(s->channel_layout, s->map[i]);
+        int channel = av_channel_layout_channel_from_index(&s->channel_layout, s->map[i]);
 
-        if ((ret = ff_add_channel_layout(&out_layouts, channel)) < 0 ||
+        if ((channel < 0) ||
+            (ret = av_channel_layout_from_mask(&channel_layout, 1ULL << channel)) < 0 ||
+            (ret = ff_add_channel_layout(&out_layouts, &channel_layout)) < 0 ||
             (ret = ff_channel_layouts_ref(out_layouts, &ctx->outputs[i]->incfg.channel_layouts)) < 0)
             return ret;
     }
@@ -139,6 +147,7 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *buf)
 
     for (i = 0; i < ctx->nb_outputs; i++) {
         AVFrame *buf_out = av_frame_clone(buf);
+        int channel = av_channel_layout_channel_from_index(&buf->ch_layout, s->map[i]);
 
         if (!buf_out) {
             ret = AVERROR(ENOMEM);
@@ -146,8 +155,15 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *buf)
         }
 
         buf_out->data[0] = buf_out->extended_data[0] = buf_out->extended_data[s->map[i]];
+        ret = av_channel_layout_from_mask(&buf_out->ch_layout, 1ULL << channel);
+        if (ret < 0)
+            break;
+#if FF_API_OLD_CHANNEL_LAYOUT
+FF_DISABLE_DEPRECATION_WARNINGS
         buf_out->channel_layout =
             av_channel_layout_extract_channel(buf->channel_layout, s->map[i]);
+FF_ENABLE_DEPRECATION_WARNINGS
+#endif
         buf_out->channels = 1;
 
         ret = ff_filter_frame(ctx->outputs[i], buf_out);

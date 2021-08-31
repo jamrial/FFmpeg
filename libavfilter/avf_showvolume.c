@@ -322,6 +322,7 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *insamples)
     ShowVolumeContext *s = ctx->priv;
     const int step = s->step;
     int c, j, k, max_draw;
+    char channel_name[64];
     AVFrame *out;
 
     if (!s->out || s->out->width  != outlink->w ||
@@ -375,8 +376,8 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *insamples)
             }
 
             if (s->h >= 8 && s->draw_text) {
-                const char *channel_name = av_get_channel_name(av_channel_layout_extract_channel(insamples->channel_layout, c));
-                if (!channel_name)
+                int ret = av_channel_name(channel_name, sizeof(channel_name), av_channel_layout_channel_from_index(&insamples->ch_layout, c));
+                if (ret < 0)
                     continue;
                 drawtext(s->out, c * (s->h + s->b) + (s->h - 10) / 2, outlink->h - 35, channel_name, 1);
             }
@@ -411,8 +412,8 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *insamples)
             }
 
             if (s->h >= 8 && s->draw_text) {
-                const char *channel_name = av_get_channel_name(av_channel_layout_extract_channel(insamples->channel_layout, c));
-                if (!channel_name)
+                int ret = av_channel_name(channel_name, sizeof(channel_name), av_channel_layout_channel_from_index(&insamples->ch_layout, c));
+                if (ret < 0)
                     continue;
                 drawtext(s->out, 2, c * (s->h + s->b) + (s->h - 8) / 2, channel_name, 0);
             }

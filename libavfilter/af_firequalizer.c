@@ -608,13 +608,14 @@ static int generate_kernel(AVFilterContext *ctx, const char *gain, const char *g
         av_log(ctx, AV_LOG_WARNING, "dumping failed.\n");
 
     vars[VAR_CHS] = inlink->channels;
-    vars[VAR_CHLAYOUT] = inlink->channel_layout;
+    vars[VAR_CHLAYOUT] = inlink->ch_layout.order == AV_CHANNEL_ORDER_NATIVE ?
+                         inlink->ch_layout.u.mask : 0;
     vars[VAR_SR] = inlink->sample_rate;
     for (ch = 0; ch < inlink->channels; ch++) {
         float *rdft_buf = s->kernel_tmp_buf + ch * s->rdft_len;
         double result;
         vars[VAR_CH] = ch;
-        vars[VAR_CHID] = av_channel_layout_extract_channel(inlink->channel_layout, ch);
+        vars[VAR_CHID] = av_channel_layout_channel_from_index(&inlink->ch_layout, ch);
         vars[VAR_F] = 0.0;
         if (xlog)
             vars[VAR_F] = log2(0.05 * vars[VAR_F]);

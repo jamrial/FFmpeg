@@ -187,25 +187,15 @@ static int preload_sofa(AVFilterContext *ctx, char *filename, int *samplingrate)
 
 static int parse_channel_name(AVFilterContext *ctx, char **arg, int *rchannel)
 {
-    int len, i, channel_id = 0;
-    int64_t layout, layout0;
+    int len, channel_id = 0;
     char buf[8] = {0};
 
     /* try to parse a channel name, e.g. "FL" */
     if (av_sscanf(*arg, "%7[A-Z]%n", buf, &len)) {
-        layout0 = layout = av_get_channel_layout(buf);
-        /* channel_id <- first set bit in layout */
-        for (i = 32; i > 0; i >>= 1) {
-            if (layout >= 1LL << i) {
-                channel_id += i;
-                layout >>= i;
-            }
-        }
-        /* reject layouts that are not a single channel */
-        if (channel_id >= 64 || layout0 != 1LL << channel_id) {
-            av_log(ctx, AV_LOG_WARNING, "Failed to parse \'%s\' as channel name.\n", buf);
-            return AVERROR(EINVAL);
-        }
+        channel_id = av_channel_from_string(buf);
+        if (channel_id < 0)
+            return channel_id;
+
         *rchannel = channel_id;
         *arg += len;
         return 0;
@@ -221,7 +211,7 @@ static int parse_channel_name(AVFilterContext *ctx, char **arg, int *rchannel)
     return AVERROR(EINVAL);
 }
 
-static void parse_speaker_pos(AVFilterContext *ctx, int64_t in_channel_layout)
+static void parse_speaker_pos(AVFilterContext *ctx)
 {
     SOFAlizerContext *s = ctx->priv;
     char *arg, *tokenizer, *p, *args = av_strdup(s->speakers_pos);
@@ -256,7 +246,7 @@ static int get_speaker_pos(AVFilterContext *ctx,
                            float *speaker_azim, float *speaker_elev)
 {
     struct SOFAlizerContext *s = ctx->priv;
-    uint64_t channels_layout = ctx->inputs[0]->channel_layout;
+    AVChannelLayout *channel_layout = &ctx->inputs[0]->ch_layout;
     float azim[64] = { 0 };
     float elev[64] = { 0 };
     int m, ch, n_conv = ctx->inputs[0]->channels; /* get no. input channels */
@@ -267,45 +257,45 @@ static int get_speaker_pos(AVFilterContext *ctx,
     s->lfe_channel = -1;
 
     if (s->speakers_pos)
-        parse_speaker_pos(ctx, channels_layout);
+        parse_speaker_pos(ctx);
 
     /* set speaker positions according to input channel configuration: */
     for (m = 0, ch = 0; ch < n_conv && m < 64; m++) {
-        uint64_t mask = channels_layout & (1ULL << m);
+        int chan = av_channel_layout_channel_from_index(channel_layout, m);
 
-        switch (mask) {
-        case AV_CH_FRONT_LEFT:            azim[ch] =  30;      break;
-        case AV_CH_FRONT_RIGHT:           azim[ch] = 330;      break;
-        case AV_CH_FRONT_CENTER:          azim[ch] =   0;      break;
-        case AV_CH_LOW_FREQUENCY:
-        case AV_CH_LOW_FREQUENCY_2:       s->lfe_channel = ch; break;
-        case AV_CH_BACK_LEFT:             azim[ch] = 150;      break;
-        case AV_CH_BACK_RIGHT:            azim[ch] = 210;      break;
-        case AV_CH_BACK_CENTER:           azim[ch] = 180;      break;
-        case AV_CH_SIDE_LEFT:             azim[ch] =  90;      break;
-        case AV_CH_SIDE_RIGHT:            azim[ch] = 270;      break;
-        case AV_CH_FRONT_LEFT_OF_CENTER:  azim[ch] =  15;      break;
-        case AV_CH_FRONT_RIGHT_OF_CENTER: azim[ch] = 345;      break;
-        case AV_CH_TOP_CENTER:            azim[ch] =   0;
+        switch (chan) {
+        case AV_CHAN_FRONT_LEFT:          azim[ch] =  30;      break;
+        case AV_CHAN_FRONT_RIGHT:         azim[ch] = 330;      break;
+        case AV_CHAN_FRONT_CENTER:        azim[ch] =   0;      break;
+        case AV_CHAN_LOW_FREQUENCY:
+        case AV_CHAN_LOW_FREQUENCY_2:     s->lfe_channel = ch; break;
+        case AV_CHAN_BACK_LEFT:           azim[ch] = 150;      break;
+        case AV_CHAN_BACK_RIGHT:          azim[ch] = 210;      break;
+        case AV_CHAN_BACK_CENTER:         azim[ch] = 180;      break;
+        case AV_CHAN_SIDE_LEFT:           azim[ch] =  90;      break;
+        case AV_CHAN_SIDE_RIGHT:          azim[ch] = 270;      break;
+        case AV_CHAN_FRONT_LEFT_OF_CENTER:  azim[ch] =  15;    break;
+        case AV_CHAN_FRONT_RIGHT_OF_CENTER: azim[ch] = 345;    break;
+        case AV_CHAN_TOP_CENTER:          azim[ch] =   0;
                                           elev[ch] =  90;      break;
-        case AV_CH_TOP_FRONT_LEFT:        azim[ch] =  30;
+        case AV_CHAN_TOP_FRONT_LEFT:      azim[ch] =  30;
                                           elev[ch] =  45;      break;
-        case AV_CH_TOP_FRONT_CENTER:      azim[ch] =   0;
+        case AV_CHAN_TOP_FRONT_CENTER:    azim[ch] =   0;
                                           elev[ch] =  45;      break;
-        case AV_CH_TOP_FRONT_RIGHT:       azim[ch] = 330;
+        case AV_CHAN_TOP_FRONT_RIGHT:     azim[ch] = 330;
                                           elev[ch] =  45;      break;
-        case AV_CH_TOP_BACK_LEFT:         azim[ch] = 150;
+        case AV_CHAN_TOP_BACK_LEFT:       azim[ch] = 150;
                                           elev[ch] =  45;      break;
-        case AV_CH_TOP_BACK_RIGHT:        azim[ch] = 210;
+        case AV_CHAN_TOP_BACK_RIGHT:      azim[ch] = 210;
                                           elev[ch] =  45;      break;
-        case AV_CH_TOP_BACK_CENTER:       azim[ch] = 180;
+        case AV_CHAN_TOP_BACK_CENTER:     azim[ch] = 180;
                                           elev[ch] =  45;      break;
-        case AV_CH_WIDE_LEFT:             azim[ch] =  90;      break;
-        case AV_CH_WIDE_RIGHT:            azim[ch] = 270;      break;
-        case AV_CH_SURROUND_DIRECT_LEFT:  azim[ch] =  90;      break;
-        case AV_CH_SURROUND_DIRECT_RIGHT: azim[ch] = 270;      break;
-        case AV_CH_STEREO_LEFT:           azim[ch] =  90;      break;
-        case AV_CH_STEREO_RIGHT:          azim[ch] = 270;      break;
+        case AV_CHAN_WIDE_LEFT:           azim[ch] =  90;      break;
+        case AV_CHAN_WIDE_RIGHT:          azim[ch] = 270;      break;
+        case AV_CHAN_SURROUND_DIRECT_LEFT:  azim[ch] =  90;    break;
+        case AV_CHAN_SURROUND_DIRECT_RIGHT: azim[ch] = 270;    break;
+        case AV_CHAN_STEREO_LEFT:         azim[ch] =  90;      break;
+        case AV_CHAN_STEREO_RIGHT:        azim[ch] = 270;      break;
         case 0:                                                break;
         default:
             return AVERROR(EINVAL);
@@ -316,7 +306,7 @@ static int get_speaker_pos(AVFilterContext *ctx,
             elev[ch] = s->vspkrpos[m].elev;
         }
 
-        if (mask)
+        if (chan)
             ch++;
     }
 
@@ -668,7 +658,7 @@ static int query_formats(AVFilterContext *ctx)
         return ret;
 
     layouts = NULL;
-    ret = ff_add_channel_layout(&layouts, AV_CH_LAYOUT_STEREO);
+    ret = ff_add_channel_layout(&layouts, &(AVChannelLayout)AV_CHANNEL_LAYOUT_STEREO);
     if (ret)
         return ret;
 
