@@ -301,17 +301,17 @@ static int config_input(AVFilterLink *inlink)
 
     uninit(ctx);
 
-    s->channels = inlink->channels;
+    s->channels = inlink->ch_layout.nb_channels;
     s->frame_len = frame_size(inlink->sample_rate, s->frame_len_msec);
     av_log(ctx, AV_LOG_DEBUG, "frame len %d\n", s->frame_len);
 
-    s->prev_amplification_factor = av_malloc_array(inlink->channels, sizeof(*s->prev_amplification_factor));
-    s->dc_correction_value = av_calloc(inlink->channels, sizeof(*s->dc_correction_value));
-    s->compress_threshold = av_calloc(inlink->channels, sizeof(*s->compress_threshold));
-    s->gain_history_original = av_calloc(inlink->channels, sizeof(*s->gain_history_original));
-    s->gain_history_minimum = av_calloc(inlink->channels, sizeof(*s->gain_history_minimum));
-    s->gain_history_smoothed = av_calloc(inlink->channels, sizeof(*s->gain_history_smoothed));
-    s->threshold_history = av_calloc(inlink->channels, sizeof(*s->threshold_history));
+    s->prev_amplification_factor = av_malloc_array(inlink->ch_layout.nb_channels, sizeof(*s->prev_amplification_factor));
+    s->dc_correction_value = av_calloc(inlink->ch_layout.nb_channels, sizeof(*s->dc_correction_value));
+    s->compress_threshold = av_calloc(inlink->ch_layout.nb_channels, sizeof(*s->compress_threshold));
+    s->gain_history_original = av_calloc(inlink->ch_layout.nb_channels, sizeof(*s->gain_history_original));
+    s->gain_history_minimum = av_calloc(inlink->ch_layout.nb_channels, sizeof(*s->gain_history_minimum));
+    s->gain_history_smoothed = av_calloc(inlink->ch_layout.nb_channels, sizeof(*s->gain_history_smoothed));
+    s->threshold_history = av_calloc(inlink->ch_layout.nb_channels, sizeof(*s->threshold_history));
     s->weights = av_malloc_array(MAX_FILTER_SIZE, sizeof(*s->weights));
     s->is_enabled = cqueue_create(s->filter_size, MAX_FILTER_SIZE);
     if (!s->prev_amplification_factor || !s->dc_correction_value ||
@@ -321,7 +321,7 @@ static int config_input(AVFilterLink *inlink)
         !s->is_enabled || !s->weights)
         return AVERROR(ENOMEM);
 
-    for (c = 0; c < inlink->channels; c++) {
+    for (c = 0; c < inlink->ch_layout.nb_channels; c++) {
         s->prev_amplification_factor[c] = 1.0;
 
         s->gain_history_original[c] = cqueue_create(s->filter_size, MAX_FILTER_SIZE);
@@ -364,7 +364,7 @@ static double find_peak_magnitude(AVFrame *frame, int channel)
     int c, i;
 
     if (channel == -1) {
-        for (c = 0; c < frame->channels; c++) {
+        for (c = 0; c < frame->ch_layout.nb_channels; c++) {
             double *data_ptr = (double *)frame->extended_data[c];
 
             for (i = 0; i < frame->nb_samples; i++)
@@ -386,7 +386,7 @@ static double compute_frame_rms(AVFrame *frame, int channel)
     int c, i;
 
     if (channel == -1) {
-        for (c = 0; c < frame->channels; c++) {
+        for (c = 0; c < frame->ch_layout.nb_channels; c++) {
             const double *data_ptr = (double *)frame->extended_data[c];
 
             for (i = 0; i < frame->nb_samples; i++) {
@@ -394,7 +394,7 @@ static double compute_frame_rms(AVFrame *frame, int channel)
             }
         }
 
-        rms_value /= frame->nb_samples * frame->channels;
+        rms_value /= frame->nb_samples * frame->ch_layout.nb_channels;
     } else {
         const double *data_ptr = (double *)frame->extended_data[channel];
         for (i = 0; i < frame->nb_samples; i++) {

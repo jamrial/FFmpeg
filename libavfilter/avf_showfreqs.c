@@ -177,7 +177,7 @@ static int config_output(AVFilterLink *outlink)
     av_freep(&s->fft_input);
     av_freep(&s->fft_data);
     av_freep(&s->avg_data);
-    s->nb_channels = inlink->channels;
+    s->nb_channels = inlink->ch_layout.nb_channels;
 
     s->fft_input = av_calloc(s->nb_channels, sizeof(*s->fft_input));
     if (!s->fft_input)
@@ -219,7 +219,7 @@ static int config_output(AVFilterLink *outlink)
     outlink->w = s->w;
     outlink->h = s->h;
 
-    s->fifo = av_audio_fifo_alloc(inlink->format, inlink->channels, s->win_size);
+    s->fifo = av_audio_fifo_alloc(inlink->format, inlink->ch_layout.nb_channels, s->win_size);
     if (!s->fifo)
         return AVERROR(ENOMEM);
     return 0;

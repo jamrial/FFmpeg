@@ -121,7 +121,7 @@ static int config_input(AVFilterLink *inlink)
     AudioHistogramContext *s = ctx->priv;
 
     s->nb_samples = FFMAX(1, av_rescale(inlink->sample_rate, s->frame_rate.den, s->frame_rate.num));
-    s->dchannels = s->dmode == SINGLE ? 1 : inlink->channels;
+    s->dchannels = s->dmode == SINGLE ? 1 : inlink->ch_layout.nb_channels;
     s->shistogram = av_calloc(s->w, s->dchannels * sizeof(*s->shistogram));
     if (!s->shistogram)
         return AVERROR(ENOMEM);
@@ -201,7 +201,7 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *in)
 
     switch (s->ascale) {
     case ALINEAR:
-        for (c = 0; c < inlink->channels; c++) {
+        for (c = 0; c < inlink->ch_layout.nb_channels; c++) {
             const float *src = (const float *)in->extended_data[c];
             uint64_t *achistogram = &s->achistogram[(s->dmode == SINGLE ? 0: c) * w];
 
@@ -224,7 +224,7 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *in)
         }
         break;
     case ALOG:
-        for (c = 0; c < inlink->channels; c++) {
+        for (c = 0; c < inlink->ch_layout.nb_channels; c++) {
             const float *src = (const float *)in->extended_data[c];
             uint64_t *achistogram = &s->achistogram[(s->dmode == SINGLE ? 0: c) * w];
 

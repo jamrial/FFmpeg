@@ -616,12 +616,12 @@ static int config_input(AVFilterLink *inlink)
     double wscale, sar, sum, sdiv;
     int i, j, k, m, n, ret;
 
-    s->dnch = av_calloc(inlink->channels, sizeof(*s->dnch));
+    s->dnch = av_calloc(inlink->ch_layout.nb_channels, sizeof(*s->dnch));
     if (!s->dnch)
         return AVERROR(ENOMEM);
 
     s->pts = AV_NOPTS_VALUE;
-    s->channels = inlink->channels;
+    s->channels = inlink->ch_layout.nb_channels;
     s->sample_rate = inlink->sample_rate;
     s->sample_advance = s->sample_rate / 80;
     s->window_length = 3 * s->sample_advance;
@@ -680,7 +680,7 @@ static int config_input(AVFilterLink *inlink)
     if (!s->band_alpha || !s->band_beta)
         return AVERROR(ENOMEM);
 
-    for (int ch = 0; ch < inlink->channels; ch++) {
+    for (int ch = 0; ch < inlink->ch_layout.nb_channels; ch++) {
         DeNoiseChannel *dnch = &s->dnch[ch];
         float scale;
 
@@ -761,7 +761,7 @@ static int config_input(AVFilterLink *inlink)
             return AVERROR(ENOMEM);
     }
 
-    for (int ch = 0; ch < inlink->channels; ch++) {
+    for (int ch = 0; ch < inlink->ch_layout.nb_channels; ch++) {
         DeNoiseChannel *dnch = &s->dnch[ch];
         double *prior_band_excit = dnch->prior_band_excit;
         double *prior = dnch->prior;
@@ -857,7 +857,7 @@ static int config_input(AVFilterLink *inlink)
     }
     s->noise_band_count = s->noise_band_edge[16];
 
-    s->fifo = av_audio_fifo_alloc(inlink->format, inlink->channels, s->fft_length);
+    s->fifo = av_audio_fifo_alloc(inlink->format, inlink->ch_layout.nb_channels, s->fft_length);
     if (!s->fifo)
         return AVERROR(ENOMEM);
 
@@ -1095,8 +1095,8 @@ static int filter_channel(AVFilterContext *ctx, void *arg, int jobnr, int nb_job
     AudioFFTDeNoiseContext *s = ctx->priv;
     ThreadData *td = arg;
     AVFrame *in = td->in;
-    const int start = (in->channels * jobnr) / nb_jobs;
-    const int end = (in->channels * (jobnr+1)) / nb_jobs;
+    const int start = (in->ch_layout.nb_channels * jobnr) / nb_jobs;
+    const int end = (in->ch_layout.nb_channels * (jobnr+1)) / nb_jobs;
 
     for (int ch = start; ch < end; ch++) {
         DeNoiseChannel *dnch = &s->dnch[ch];
@@ -1179,7 +1179,7 @@ static int output_frame(AVFilterLink *inlink)
         goto end;
 
     if (s->track_noise) {
-        for (int ch = 0; ch < inlink->channels; ch++) {
+        for (int ch = 0; ch < inlink->ch_layout.nb_channels; ch++) {
             DeNoiseChannel *dnch = &s->dnch[ch];
             double levels[15];
 
@@ -1192,7 +1192,7 @@ static int output_frame(AVFilterLink *inlink)
     }
 
     if (s->sample_noise_start) {
-        for (int ch = 0; ch < inlink->channels; ch++) {
+        for (int ch = 0; ch < inlink->ch_layout.nb_channels; ch++) {
             DeNoiseChannel *dnch = &s->dnch[ch];
 
             init_sample_noise(dnch);
@@ -1202,7 +1202,7 @@ static int output_frame(AVFilterLink *inlink)
     }
 
     if (s->sample_noise) {
-        for (int ch = 0; ch < inlink->channels; ch++) {
+        for (int ch = 0; ch < inlink->ch_layout.nb_channels; ch++) {
             DeNoiseChannel *dnch = &s->dnch[ch];
 
             sample_noise_block(s, dnch, in, ch);
@@ -1210,7 +1210,7 @@ static int output_frame(AVFilterLink *inlink)
     }
 
     if (s->sample_noise_end) {
-        for (int ch = 0; ch < inlink->channels; ch++) {
+        for (int ch = 0; ch < inlink->ch_layout.nb_channels; ch++) {
             DeNoiseChannel *dnch = &s->dnch[ch];
             double sample_noise[15];
 
@@ -1225,7 +1225,7 @@ static int output_frame(AVFilterLink *inlink)
     s->block_count++;
     td.in = in;
     ff_filter_execute(ctx, filter_channel, &td, NULL,
-                      FFMIN(outlink->channels, ff_filter_get_nb_threads(ctx)));
+                      FFMIN(outlink->ch_layout.nb_channels, ff_filter_get_nb_threads(ctx)));
 
     out = ff_get_audio_buffer(outlink, s->sample_advance);
     if (!out) {
@@ -1233,7 +1233,7 @@ static int output_frame(AVFilterLink *inlink)
         goto end;
     }
 
-    for (int ch = 0; ch < inlink->channels; ch++) {
+    for (int ch = 0; ch < inlink->ch_layout.nb_channels; ch++) {
         DeNoiseChannel *dnch = &s->dnch[ch];
         double *src = dnch->out_samples;
         float *orig = (float *)in->extended_data[ch];

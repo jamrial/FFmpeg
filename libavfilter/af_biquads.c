@@ -125,7 +125,7 @@ typedef struct BiquadsContext {
     double frequency;
     double width;
     double mix;
-    uint64_t channels;
+    AVChannelLayout ch_layout;
     int normalize;
     int order;
 
@@ -716,11 +716,11 @@ static int config_filter(AVFilterLink *outlink, int reset)
         s->b2 *= factor;
     }
 
-    s->cache = av_realloc_f(s->cache, sizeof(ChanCache), inlink->channels);
+    s->cache = av_realloc_f(s->cache, sizeof(ChanCache), inlink->ch_layout.nb_channels);
     if (!s->cache)
         return AVERROR(ENOMEM);
     if (reset)
-        memset(s->cache, 0, sizeof(ChanCache) * inlink->channels);
+        memset(s->cache, 0, sizeof(ChanCache) * inlink->ch_layout.nb_channels);
 
     switch (s->transform_type) {
     case DI:
@@ -838,12 +838,14 @@ static int filter_channel(AVFilterContext *ctx, void *arg, int jobnr, int nb_job
     AVFrame *buf = td->in;
     AVFrame *out_buf = td->out;
     BiquadsContext *s = ctx->priv;
-    const int start = (buf->channels * jobnr) / nb_jobs;
-    const int end = (buf->channels * (jobnr+1)) / nb_jobs;
+    const int start = (buf->ch_layout.nb_channels * jobnr) / nb_jobs;
+    const int end = (buf->ch_layout.nb_channels * (jobnr+1)) / nb_jobs;
     int ch;
 
     for (ch = start; ch < end; ch++) {
-        if (!((av_channel_layout_extract_channel(inlink->channel_layout, ch) & s->channels))) {
+        if (!(av_channel_layout_channel_from_index(&inlink->ch_layout, ch) >= 0 &&
+              av_channel_layout_channel_from_index(&s->ch_layout, ch) >= 0)) {
+
             if (buf != out_buf)
                 memcpy(out_buf->extended_data[ch], buf->extended_data[ch],
                        buf->nb_samples * s->block_align);
@@ -884,9 +886,9 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *buf)
     td.in = buf;
     td.out = out_buf;
     ff_filter_execute(ctx, filter_channel, &td, NULL,
-                      FFMIN(outlink->channels, ff_filter_get_nb_threads(ctx)));
+                      FFMIN(outlink->ch_layout.nb_channels, ff_filter_get_nb_threads(ctx)));
 
-    for (ch = 0; ch < outlink->channels; ch++) {
+    for (ch = 0; ch < outlink->ch_layout.nb_channels; ch++) {
         if (s->cache[ch].clippings > 0)
             av_log(ctx, AV_LOG_WARNING, "Channel %d clipping %d times. Please reduce gain.\n",
                    ch, s->cache[ch].clippings);
@@ -982,8 +984,8 @@ static const AVOption equalizer_options[] = {
     {"g",    "set gain", OFFSET(gain), AV_OPT_TYPE_DOUBLE, {.dbl=0}, -900, 900, FLAGS},
     {"mix", "set mix", OFFSET(mix), AV_OPT_TYPE_DOUBLE, {.dbl=1}, 0, 1, FLAGS},
     {"m",   "set mix", OFFSET(mix), AV_OPT_TYPE_DOUBLE, {.dbl=1}, 0, 1, FLAGS},
-    {"channels", "set channels to filter", OFFSET(channels), AV_OPT_TYPE_CHANNEL_LAYOUT, {.i64=-1}, INT64_MIN, INT64_MAX, FLAGS},
-    {"c",        "set channels to filter", OFFSET(channels), AV_OPT_TYPE_CHANNEL_LAYOUT, {.i64=-1}, INT64_MIN, INT64_MAX, FLAGS},
+    {"channels", "set channels to filter", OFFSET(ch_layout), AV_OPT_TYPE_CHLAYOUT, {.str="0xFFFFFFFF"}, INT64_MIN, INT64_MAX, FLAGS},
+    {"c",        "set channels to filter", OFFSET(ch_layout), AV_OPT_TYPE_CHLAYOUT, {.str="0xFFFFFFFF"}, INT64_MIN, INT64_MAX, FLAGS},
     {"normalize", "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
     {"n",         "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
     {"transform", "set transform type", OFFSET(transform_type), AV_OPT_TYPE_INT, {.i64=0}, 0, NB_TTYPE-1, AF, "transform_type"},
@@ -1024,8 +1026,8 @@ static const AVOption bass_lowshelf_options[] = {
     {"p",     "set number of poles", OFFSET(poles), AV_OPT_TYPE_INT, {.i64=2}, 1, 2, AF},
     {"mix", "set mix", OFFSET(mix), AV_OPT_TYPE_DOUBLE, {.dbl=1}, 0, 1, FLAGS},
     {"m",   "set mix", OFFSET(mix), AV_OPT_TYPE_DOUBLE, {.dbl=1}, 0, 1, FLAGS},
-    {"channels", "set channels to filter", OFFSET(channels), AV_OPT_TYPE_CHANNEL_LAYOUT, {.i64=-1}, INT64_MIN, INT64_MAX, FLAGS},
-    {"c",        "set channels to filter", OFFSET(channels), AV_OPT_TYPE_CHANNEL_LAYOUT, {.i64=-1}, INT64_MIN, INT64_MAX, FLAGS},
+    {"channels", "set channels to filter", OFFSET(ch_layout), AV_OPT_TYPE_CHLAYOUT, {.str="0xFFFFFFFF"}, INT64_MIN, INT64_MAX, FLAGS},
+    {"c",        "set channels to filter", OFFSET(ch_layout), AV_OPT_TYPE_CHLAYOUT, {.str="0xFFFFFFFF"}, INT64_MIN, INT64_MAX, FLAGS},
     {"normalize", "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
     {"n",         "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
     {"transform", "set transform type", OFFSET(transform_type), AV_OPT_TYPE_INT, {.i64=0}, 0, NB_TTYPE-1, AF, "transform_type"},
@@ -1073,8 +1075,8 @@ static const AVOption treble_highshelf_options[] = {
     {"p",     "set number of poles", OFFSET(poles), AV_OPT_TYPE_INT, {.i64=2}, 1, 2, AF},
     {"mix", "set mix", OFFSET(mix), AV_OPT_TYPE_DOUBLE, {.dbl=1}, 0, 1, FLAGS},
     {"m",   "set mix", OFFSET(mix), AV_OPT_TYPE_DOUBLE, {.dbl=1}, 0, 1, FLAGS},
-    {"channels", "set channels to filter", OFFSET(channels), AV_OPT_TYPE_CHANNEL_LAYOUT, {.i64=-1}, INT64_MIN, INT64_MAX, FLAGS},
-    {"c",        "set channels to filter", OFFSET(channels), AV_OPT_TYPE_CHANNEL_LAYOUT, {.i64=-1}, INT64_MIN, INT64_MAX, FLAGS},
+    {"channels", "set channels to filter", OFFSET(ch_layout), AV_OPT_TYPE_CHLAYOUT, {.str="0xFFFFFFFF"}, INT64_MIN, INT64_MAX, FLAGS},
+    {"c",        "set channels to filter", OFFSET(ch_layout), AV_OPT_TYPE_CHLAYOUT, {.str="0xFFFFFFFF"}, INT64_MIN, INT64_MAX, FLAGS},
     {"normalize", "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
     {"n",         "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
     {"transform", "set transform type", OFFSET(transform_type), AV_OPT_TYPE_INT, {.i64=0}, 0, NB_TTYPE-1, AF, "transform_type"},
@@ -1121,8 +1123,8 @@ static const AVOption bandpass_options[] = {
     {"csg",   "use constant skirt gain", OFFSET(csg), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
     {"mix", "set mix", OFFSET(mix), AV_OPT_TYPE_DOUBLE, {.dbl=1}, 0, 1, FLAGS},
     {"m",   "set mix", OFFSET(mix), AV_OPT_TYPE_DOUBLE, {.dbl=1}, 0, 1, FLAGS},
-    {"channels", "set channels to filter", OFFSET(channels), AV_OPT_TYPE_CHANNEL_LAYOUT, {.i64=-1}, INT64_MIN, INT64_MAX, FLAGS},
-    {"c",        "set channels to filter", OFFSET(channels), AV_OPT_TYPE_CHANNEL_LAYOUT, {.i64=-1}, INT64_MIN, INT64_MAX, FLAGS},
+    {"channels", "set channels to filter", OFFSET(ch_layout), AV_OPT_TYPE_CHLAYOUT, {.str="0xFFFFFFFF"}, INT64_MIN, INT64_MAX, FLAGS},
+    {"c",        "set channels to filter", OFFSET(ch_layout), AV_OPT_TYPE_CHLAYOUT, {.str="0xFFFFFFFF"}, INT64_MIN, INT64_MAX, FLAGS},
     {"normalize", "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
     {"n",         "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
     {"transform", "set transform type", OFFSET(transform_type), AV_OPT_TYPE_INT, {.i64=0}, 0, NB_TTYPE-1, AF, "transform_type"},
@@ -1159,8 +1161,8 @@ static const AVOption bandreject_options[] = {
     {"w",     "set band-width", OFFSET(width), AV_OPT_TYPE_DOUBLE, {.dbl=0.5}, 0, 99999, FLAGS},
     {"mix", "set mix", OFFSET(mix), AV_OPT_TYPE_DOUBLE, {.dbl=1}, 0, 1, FLAGS},
     {"m",   "set mix", OFFSET(mix), AV_OPT_TYPE_DOUBLE, {.dbl=1}, 0, 1, FLAGS},
-    {"channels", "set channels to filter", OFFSET(channels), AV_OPT_TYPE_CHANNEL_LAYOUT, {.i64=-1}, INT64_MIN, INT64_MAX, FLAGS},
-    {"c",        "set channels to filter", OFFSET(channels), AV_OPT_TYPE_CHANNEL_LAYOUT, {.i64=-1}, INT64_MIN, INT64_MAX, FLAGS},
+    {"channels", "set channels to filter", OFFSET(ch_layout), AV_OPT_TYPE_CHLAYOUT, {.str="0xFFFFFFFF"}, INT64_MIN, INT64_MAX, FLAGS},
+    {"c",        "set channels to filter", OFFSET(ch_layout), AV_OPT_TYPE_CHLAYOUT, {.str="0xFFFFFFFF"}, INT64_MIN, INT64_MAX, FLAGS},
     {"normalize", "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
     {"n",         "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
     {"transform", "set transform type", OFFSET(transform_type), AV_OPT_TYPE_INT, {.i64=0}, 0, NB_TTYPE-1, AF, "transform_type"},
@@ -1199,8 +1201,8 @@ static const AVOption lowpass_options[] = {
     {"p",     "set number of poles", OFFSET(poles), AV_OPT_TYPE_INT, {.i64=2}, 1, 2, AF},
     {"mix", "set mix", OFFSET(mix), AV_OPT_TYPE_DOUBLE, {.dbl=1}, 0, 1, FLAGS},
     {"m",   "set mix", OFFSET(mix), AV_OPT_TYPE_DOUBLE, {.dbl=1}, 0, 1, FLAGS},
-    {"channels", "set channels to filter", OFFSET(channels), AV_OPT_TYPE_CHANNEL_LAYOUT, {.i64=-1}, INT64_MIN, INT64_MAX, FLAGS},
-    {"c",        "set channels to filter", OFFSET(channels), AV_OPT_TYPE_CHANNEL_LAYOUT, {.i64=-1}, INT64_MIN, INT64_MAX, FLAGS},
+    {"channels", "set channels to filter", OFFSET(ch_layout), AV_OPT_TYPE_CHLAYOUT, {.str="0xFFFFFFFF"}, INT64_MIN, INT64_MAX, FLAGS},
+    {"c",        "set channels to filter", OFFSET(ch_layout), AV_OPT_TYPE_CHLAYOUT, {.str="0xFFFFFFFF"}, INT64_MIN, INT64_MAX, FLAGS},
     {"normalize", "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
     {"n",         "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
     {"transform", "set transform type", OFFSET(transform_type), AV_OPT_TYPE_INT, {.i64=0}, 0, NB_TTYPE-1, AF, "transform_type"},
@@ -1239,8 +1241,8 @@ static const AVOption highpass_options[] = {
     {"p",     "set number of poles", OFFSET(poles), AV_OPT_TYPE_INT, {.i64=2}, 1, 2, AF},
     {"mix", "set mix", OFFSET(mix), AV_OPT_TYPE_DOUBLE, {.dbl=1}, 0, 1, FLAGS},
     {"m",   "set mix", OFFSET(mix), AV_OPT_TYPE_DOUBLE, {.dbl=1}, 0, 1, FLAGS},
-    {"channels", "set channels to filter", OFFSET(channels), AV_OPT_TYPE_CHANNEL_LAYOUT, {.i64=-1}, INT64_MIN, INT64_MAX, FLAGS},
-    {"c",        "set channels to filter", OFFSET(channels), AV_OPT_TYPE_CHANNEL_LAYOUT, {.i64=-1}, INT64_MIN, INT64_MAX, FLAGS},
+    {"channels", "set channels to filter", OFFSET(ch_layout), AV_OPT_TYPE_CHLAYOUT, {.str="0xFFFFFFFF"}, INT64_MIN, INT64_MAX, FLAGS},
+    {"c",        "set channels to filter", OFFSET(ch_layout), AV_OPT_TYPE_CHLAYOUT, {.str="0xFFFFFFFF"}, INT64_MIN, INT64_MAX, FLAGS},
     {"normalize", "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
     {"n",         "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
     {"transform", "set transform type", OFFSET(transform_type), AV_OPT_TYPE_INT, {.i64=0}, 0, NB_TTYPE-1, AF, "transform_type"},
@@ -1277,8 +1279,8 @@ static const AVOption allpass_options[] = {
     {"w",     "set filter-width", OFFSET(width), AV_OPT_TYPE_DOUBLE, {.dbl=707.1}, 0, 99999, FLAGS},
     {"mix", "set mix", OFFSET(mix), AV_OPT_TYPE_DOUBLE, {.dbl=1}, 0, 1, FLAGS},
     {"m",   "set mix", OFFSET(mix), AV_OPT_TYPE_DOUBLE, {.dbl=1}, 0, 1, FLAGS},
-    {"channels", "set channels to filter", OFFSET(channels), AV_OPT_TYPE_CHANNEL_LAYOUT, {.i64=-1}, INT64_MIN, INT64_MAX, FLAGS},
-    {"c",        "set channels to filter", OFFSET(channels), AV_OPT_TYPE_CHANNEL_LAYOUT, {.i64=-1}, INT64_MIN, INT64_MAX, FLAGS},
+    {"channels", "set channels to filter", OFFSET(ch_layout), AV_OPT_TYPE_CHLAYOUT, {.str="0xFFFFFFFF"}, INT64_MIN, INT64_MAX, FLAGS},
+    {"c",        "set channels to filter", OFFSET(ch_layout), AV_OPT_TYPE_CHLAYOUT, {.str="0xFFFFFFFF"}, INT64_MIN, INT64_MAX, FLAGS},
     {"normalize", "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
     {"n",         "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
     {"order", "set filter order", OFFSET(order), AV_OPT_TYPE_INT, {.i64=2}, 1, 2, FLAGS},
@@ -1312,8 +1314,8 @@ static const AVOption biquad_options[] = {
     {"b2", NULL, OFFSET(ob2), AV_OPT_TYPE_DOUBLE, {.dbl=0}, INT32_MIN, INT32_MAX, FLAGS},
     {"mix", "set mix", OFFSET(mix), AV_OPT_TYPE_DOUBLE, {.dbl=1}, 0, 1, FLAGS},
     {"m",   "set mix", OFFSET(mix), AV_OPT_TYPE_DOUBLE, {.dbl=1}, 0, 1, FLAGS},
-    {"channels", "set channels to filter", OFFSET(channels), AV_OPT_TYPE_CHANNEL_LAYOUT, {.i64=-1}, INT64_MIN, INT64_MAX, FLAGS},
-    {"c",        "set channels to filter", OFFSET(channels), AV_OPT_TYPE_CHANNEL_LAYOUT, {.i64=-1}, INT64_MIN, INT64_MAX, FLAGS},
+    {"channels", "set channels to filter", OFFSET(ch_layout), AV_OPT_TYPE_CHLAYOUT, {.str="0xFFFFFFFF"}, INT64_MIN, INT64_MAX, FLAGS},
+    {"c",        "set channels to filter", OFFSET(ch_layout), AV_OPT_TYPE_CHLAYOUT, {.str="0xFFFFFFFF"}, INT64_MIN, INT64_MAX, FLAGS},
     {"normalize", "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
     {"n",         "normalize coefficients", OFFSET(normalize), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, FLAGS},
     {"transform", "set transform type", OFFSET(transform_type), AV_OPT_TYPE_INT, {.i64=0}, 0, NB_TTYPE-1, AF, "transform_type"},

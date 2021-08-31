@@ -85,13 +85,13 @@ typedef struct HeadphoneContext {
     uint64_t mapping[64];
 } HeadphoneContext;
 
-static int parse_channel_name(const char *arg, uint64_t *rchannel)
+static int parse_channel_name(const char *arg, int *rchannel)
 {
-    uint64_t layout = av_get_channel_layout(arg);
+    int channel = av_channel_from_string(arg);
 
-    if (av_get_channel_layout_nb_channels(layout) != 1)
+    if (channel < 0)
         return AVERROR(EINVAL);
-    *rchannel = layout;
+    *rchannel = channel;
     return 0;
 }
 
@@ -103,14 +103,14 @@ static void parse_map(AVFilterContext *ctx)
 
     p = s->map;
     while ((arg = av_strtok(p, "|", &tokenizer))) {
-        uint64_t out_channel;
+        int out_channel;
 
         p = NULL;
         if (parse_channel_name(arg, &out_channel)) {
             av_log(ctx, AV_LOG_WARNING, "Failed to parse \'%s\' as channel name.\n", arg);
             continue;
         }
-        if (used_channels & out_channel) {
+        if (used_channels & (1ULL << out_channel)) {
             av_log(ctx, AV_LOG_WARNING, "Ignoring duplicate channel '%s'.\n", arg);
             continue;
         }
@@ -152,7 +152,7 @@ static int headphone_convolute(AVFilterContext *ctx, void *arg, int jobnr, int n
     const int air_len = s->air_len;
     const float *src = (const float *)in->data[0];
     float *dst = (float *)out->data[0];
-    const int in_channels = in->channels;
+    const int in_channels = in->ch_layout.nb_channels;
     const int buffer_length = s->buffer_length;
     const uint32_t modulo = (uint32_t)buffer_length - 1;
     float *buffer[64];
@@ -221,7 +221,7 @@ static int headphone_fast_convolute(AVFilterContext *ctx, void *arg, int jobnr, 
     const int ir_len = s->ir_len;
     const float *src = (const float *)in->data[0];
     float *dst = (float *)out->data[0];
-    const int in_channels = in->channels;
+    const int in_channels = in->ch_layout.nb_channels;
     const int buffer_length = s->buffer_length;
     const uint32_t modulo = (uint32_t)buffer_length - 1;
     AVComplexFloat *fft_out = s->out_fft[jobnr];
@@ -360,7 +360,7 @@ static int convert_coeffs(AVFilterContext *ctx, AVFilterLink *inlink)
 {
     struct HeadphoneContext *s = ctx->priv;
     const int ir_len = s->ir_len;
-    int nb_input_channels = ctx->inputs[0]->channels;
+    int nb_input_channels = ctx->inputs[0]->ch_layout.nb_channels;
     float gain_lin = expf((s->gain - 3 * nb_input_channels) / 20 * M_LN10);
     AVFrame *frame;
     int ret = 0;
@@ -451,7 +451,7 @@ static int convert_coeffs(AVFilterContext *ctx, AVFilterLink *inlink)
         ptr = (float *)frame->extended_data[0];
 
         if (s->hrir_fmt == HRIR_STEREO) {
-            int idx = av_get_channel_layout_channel_index(inlink->channel_layout,
+            int idx = av_channel_layout_index_from_channel(&inlink->ch_layout,
                                                           s->mapping[i]);
             if (idx < 0)
                 continue;
@@ -478,10 +478,10 @@ static int convert_coeffs(AVFilterContext *ctx, AVFilterLink *inlink)
                 s->tx_fn[0](s->fft[0], fft_out_r, fft_in_r, sizeof(float));
             }
         } else {
-            int I, N = ctx->inputs[1]->channels;
+            int I, N = ctx->inputs[1]->ch_layout.nb_channels;
 
             for (k = 0; k < N / 2; k++) {
-                int idx = av_get_channel_layout_channel_index(inlink->channel_layout,
+                int idx = av_channel_layout_index_from_channel(&inlink->ch_layout,
                                                               s->mapping[k]);
                 if (idx < 0)
                     continue;
@@ -602,7 +602,7 @@ static int query_formats(AVFilterContext *ctx)
     if (ret)
         return ret;
 
-    ret = ff_add_channel_layout(&stereo_layout, AV_CH_LAYOUT_STEREO);
+    ret = ff_add_channel_layout(&stereo_layout, &(AVChannelLayout)AV_CHANNEL_LAYOUT_STEREO);
     if (ret)
         return ret;
     ret = ff_channel_layouts_ref(stereo_layout, &ctx->outputs[0]->incfg.channel_layouts);
@@ -632,13 +632,13 @@ static int config_input(AVFilterLink *inlink)
     AVFilterContext *ctx = inlink->dst;
     HeadphoneContext *s = ctx->priv;
 
-    if (s->nb_irs < inlink->channels) {
-        av_log(ctx, AV_LOG_ERROR, "Number of HRIRs must be >= %d.\n", inlink->channels);
+    if (s->nb_irs < inlink->ch_layout.nb_channels) {
+        av_log(ctx, AV_LOG_ERROR, "Number of HRIRs must be >= %d.\n", inlink->ch_layout.nb_channels);
         return AVERROR(EINVAL);
     }
 
-    s->lfe_channel = av_get_channel_layout_channel_index(inlink->channel_layout,
-                                                         AV_CH_LOW_FREQUENCY);
+    s->lfe_channel = av_channel_layout_index_from_channel(&inlink->ch_layout,
+                                                          AV_CHAN_LOW_FREQUENCY);
     return 0;
 }
 
@@ -694,13 +694,13 @@ static int config_output(AVFilterLink *outlink)
     if (s->hrir_fmt == HRIR_MULTI) {
         AVFilterLink *hrir_link = ctx->inputs[1];
 
-        if (hrir_link->channels < inlink->channels * 2) {
-            av_log(ctx, AV_LOG_ERROR, "Number of channels in HRIR stream must be >= %d.\n", inlink->channels * 2);
+        if (hrir_link->ch_layout.nb_channels < inlink->ch_layout.nb_channels * 2) {
+            av_log(ctx, AV_LOG_ERROR, "Number of channels in HRIR stream must be >= %d.\n", inlink->ch_layout.nb_channels * 2);
             return AVERROR(EINVAL);
         }
     }
 
-    s->gain_lfe = expf((s->gain - 3 * inlink->channels + s->lfe_gain) / 20 * M_LN10);
+    s->gain_lfe = expf((s->gain - 3 * inlink->ch_layout.nb_channels + s->lfe_gain) / 20 * M_LN10);
 
     return 0;
 }

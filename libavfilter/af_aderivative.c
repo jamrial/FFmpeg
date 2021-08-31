@@ -120,7 +120,7 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *in)
     }
 
     s->filter((void **)out->extended_data, (void **)s->prev->extended_data, (const void **)in->extended_data,
-              in->nb_samples, in->channels);
+              in->nb_samples, in->ch_layout.nb_channels);
 
     av_frame_free(&in);
     return ff_filter_frame(outlink, out);

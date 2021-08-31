@@ -189,7 +189,7 @@ static int config_output(AVFilterLink *outlink)
     if (ret < 0)
         return ret;
 
-    s->fifo = av_audio_fifo_alloc(outlink->format, outlink->channels, s->N);
+    s->fifo = av_audio_fifo_alloc(outlink->format, outlink->ch_layout.nb_channels, s->N);
     if (!s->fifo)
         return AVERROR(ENOMEM);
 
@@ -292,7 +292,7 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *in)
         if (ret < 0)
             break;
 
-        ff_filter_execute(ctx, filter_channel, out, NULL, inlink->channels);
+        ff_filter_execute(ctx, filter_channel, out, NULL, inlink->ch_layout.nb_channels);
 
         av_audio_fifo_drain(s->fifo, s->H);
 

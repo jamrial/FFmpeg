@@ -1325,7 +1325,8 @@ static int query_formats(AVFilterContext *ctx)
         AV_PIX_FMT_YUV420P, AV_PIX_FMT_YUV422P,
         AV_PIX_FMT_YUV444P, AV_PIX_FMT_RGB24, AV_PIX_FMT_NONE
     };
-    static const int64_t channel_layouts[] = { AV_CH_LAYOUT_STEREO, AV_CH_LAYOUT_STEREO_DOWNMIX, -1 };
+    static const AVChannelLayout channel_layouts[] = { AV_CHANNEL_LAYOUT_STEREO,
+                                                       AV_CHANNEL_LAYOUT_STEREO_DOWNMIX, { 0 } };
     int ret;
 
     /* set input audio formats */
