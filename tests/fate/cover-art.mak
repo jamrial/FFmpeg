@@ -55,7 +55,7 @@ FATE_COVER_ART_REMUX-$(call ALLYES, FILE_PROTOCOL MOV_DEMUXER OGG_DEMUXER   \
                                     FLAC_MUXER FLAC_DEMUXER FLAC_DECODER    \
                                     FRAMECRC_MUXER PIPE_PROTOCOL)           \
                        += fate-cover-art-flac-remux
-fate-cover-art-flac-remux: CMD = transcode mov $(TARGET_SAMPLES)/lossless-audio/inside.m4a flac "-map 0 -map 1:v -map 1:v -af channelmap=channel_layout=FL+FC,aresample -c:a flac -multi_dim_quant 1 -c:v:0 copy -metadata:s:v:0 comment=Illustration -metadata:s:v:0 title=OpenMusic  -filter:v:1 scale -c:v:1 png -metadata:s:v:1 title=landscape -c:v:2 copy -filter:v:3 scale -metadata:s:v:2 title=portrait -c:v:3 bmp  -metadata:s:v:3 comment=Conductor -c:v:4 copy -t 0.4" "-map 0 -map 0:a -c:a:0 copy -c:v copy" "" "-show_entries format_tags:stream_tags:stream_disposition=attached_pic:stream=index,codec_name" "-f ogg -i $(TARGET_SAMPLES)/cover_art/ogg_vorbiscomment_cover.opus"
+fate-cover-art-flac-remux: CMD = transcode mov $(TARGET_SAMPLES)/lossless-audio/inside.m4a flac "-map 0 -map 1:v -map 1:v -af channelmap=channel_layout=FL|FC,aresample -c:a flac -multi_dim_quant 1 -c:v:0 copy -metadata:s:v:0 comment=Illustration -metadata:s:v:0 title=OpenMusic  -filter:v:1 scale -c:v:1 png -metadata:s:v:1 title=landscape -c:v:2 copy -filter:v:3 scale -metadata:s:v:2 title=portrait -c:v:3 bmp  -metadata:s:v:3 comment=Conductor -c:v:4 copy -t 0.4" "-map 0 -map 0:a -c:a:0 copy -c:v copy" "" "-show_entries format_tags:stream_tags:stream_disposition=attached_pic:stream=index,codec_name" "-f ogg -i $(TARGET_SAMPLES)/cover_art/ogg_vorbiscomment_cover.opus"
 
 FCA_TEMP-$(call ALLYES, RAWVIDEO_MUXER FILE_PROTOCOL) = $(FATE_COVER_ART-yes)
 FATE_COVER_ART = $(FCA_TEMP-yes)
