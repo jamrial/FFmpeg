@@ -26,7 +26,7 @@ $(FATE_LAVF_CONTAINER): $(AREF) $(VREF)
 
 fate-lavf-asf: CMD = lavf_container "" "-c:a mp2 -ar 44100" "-r 25"
 fate-lavf-avi fate-lavf-nut: CMD = lavf_container "" "-c:a mp2 -ar 44100 -threads 1"
-fate-lavf-dv:  CMD = lavf_container "-ar 48000 -channel_layout stereo" "-r 25 -s pal"
+fate-lavf-dv:  CMD = lavf_container "-ar 48000 -ch_layout stereo" "-r 25 -s pal"
 fate-lavf-dv_pal:  CMD = lavf_container_timecode_nodrop "-ar 48000 -r 25 -s pal -ac 2 -f dv"
 fate-lavf-dv_ntsc:  CMD = lavf_container_timecode_drop "-ar 48000 -pix_fmt yuv411p -s ntsc -ac 2 -f dv"
 fate-lavf-flv fate-lavf-swf: CMD = lavf_container "" "-an"
