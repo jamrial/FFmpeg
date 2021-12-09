@@ -687,15 +687,15 @@ int av_channel_layout_index_from_channel(const AVChannelLayout *channel_layout,
 int av_channel_layout_index_from_string(const AVChannelLayout *channel_layout,
                                         const char *name)
 {
-    int ret;
+    enum AVChannel ch;
 
     if (channel_layout->order == AV_CHANNEL_ORDER_UNSPEC)
         return AVERROR(EINVAL);
 
-    ret = av_channel_from_string(name);
-    if (ret < 0)
-        return ret;
-    return av_channel_layout_index_from_channel(channel_layout, ret);
+    ch = av_channel_from_string(name);
+    if (ch == AV_CHAN_NONE)
+        return AVERROR(EINVAL);
+    return av_channel_layout_index_from_channel(channel_layout, ch);
 }
 
 int av_channel_layout_check(const AVChannelLayout *channel_layout)
