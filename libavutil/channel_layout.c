@@ -375,7 +375,9 @@ int av_channel_layout_from_mask(AVChannelLayout *channel_layout,
 int av_channel_layout_from_string(AVChannelLayout *channel_layout,
                                   const char *str)
 {
-    int i, channels;
+    int i;
+    int channels = 0, native = 1;
+    enum AVChannel highest_channel = AV_CHAN_NONE;
     const char *dup = str;
     char *end;
     uint64_t mask = 0;
@@ -397,13 +399,57 @@ int av_channel_layout_from_string(AVChannelLayout *channel_layout,
             dup++; // skip separator
         for (i = 0; i < FF_ARRAY_ELEMS(channel_names); i++) {
             if (channel_names[i].name && !strcmp(chname, channel_names[i].name)) {
+                if (i < highest_channel)
+                    native = 0; // Not a native layout, use a custom one
+                highest_channel = i;
                 mask |= 1ULL << i;
+                break;
             }
         }
+
+        channels++;
         av_free(chname);
+        if (i >= FF_ARRAY_ELEMS(channel_names)) {
+            native = 0; // Unknown channel name
+            channels = 0;
+            mask = 0;
+            break;
+        }
     }
-    if (mask) {
+    if (mask && native) {
         av_channel_layout_from_mask(channel_layout, mask);
+        return 0;
+    }
+
+    /* custom layout of channel names */
+    if (mask && !native) {
+        int idx = 0;
+
+        channel_layout->u.map = av_calloc(channels, sizeof(*channel_layout->u.map));
+        if (!channel_layout->u.map)
+            return AVERROR(ENOMEM);
+
+        channel_layout->order = AV_CHANNEL_ORDER_CUSTOM;
+        channel_layout->nb_channels = channels;
+
+        dup = str;
+        while (*dup) {
+            char *chname = av_get_token(&dup, "|");
+            if (!chname) {
+                av_freep(&channel_layout->u.map);
+                return AVERROR(ENOMEM);
+            }
+            if (*dup)
+                dup++; // skip separator
+            for (i = 0; i < FF_ARRAY_ELEMS(channel_names); i++) {
+                if (channel_names[i].name && !strcmp(chname, channel_names[i].name)) {
+                    channel_layout->u.map[idx++].id = i;
+                    break;
+                }
+            }
+            av_free(chname);
+        }
+
         return 0;
     }
 

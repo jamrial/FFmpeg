@@ -20,9 +20,10 @@ With "0x3f":                                     5.1
 With "6c":                                       5.1
 With "6":                                 6 channels
 With "6 channels":                        6 channels
-With "FL|FR|FC|BL|BR|LFE":                       5.1
+With "FL|FR|FC|BL|BR|LFE":        FL|FR|FC|BL|BR|LFE
+With "FL|FR|FC|LFE|BL|BR":                       5.1
 With "5.1":                                      5.1
-With "FL|FR|FC|SL|SR|LFE":                 5.1(side)
+With "FL|FR|FC|LFE|SL|SR":                 5.1(side)
 With "5.1(side)":                          5.1(side)
 
 ==Native layouts==

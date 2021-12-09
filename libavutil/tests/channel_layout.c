@@ -96,10 +96,12 @@ int main(void)
     printf("With \"6 channels\": %33s\n", buf);
     CHANNEL_LAYOUT_FROM_STRING(surround, "FL|FR|FC|BL|BR|LFE");
     printf("With \"FL|FR|FC|BL|BR|LFE\": %25s\n", buf);
+    CHANNEL_LAYOUT_FROM_STRING(surround, "FL|FR|FC|LFE|BL|BR");
+    printf("With \"FL|FR|FC|LFE|BL|BR\": %25s\n", buf);
     CHANNEL_LAYOUT_FROM_STRING(surround, "5.1");
     printf("With \"5.1\": %40s\n", buf);
-    CHANNEL_LAYOUT_FROM_STRING(surround, "FL|FR|FC|SL|SR|LFE");
-    printf("With \"FL|FR|FC|SL|SR|LFE\": %25s\n", buf);
+    CHANNEL_LAYOUT_FROM_STRING(surround, "FL|FR|FC|LFE|SL|SR");
+    printf("With \"FL|FR|FC|LFE|SL|SR\": %25s\n", buf);
     CHANNEL_LAYOUT_FROM_STRING(surround, "5.1(side)");
     printf("With \"5.1(side)\": %34s\n", buf);
 
