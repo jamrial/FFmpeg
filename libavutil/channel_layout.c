@@ -707,7 +707,13 @@ int av_channel_layout_check(const AVChannelLayout *channel_layout)
     case AV_CHANNEL_ORDER_NATIVE:
         return av_popcount64(channel_layout->u.mask) == channel_layout->nb_channels;
     case AV_CHANNEL_ORDER_CUSTOM:
-        return !!channel_layout->u.map;
+        if (!channel_layout->u.map)
+            return 0;
+        for (int i = 0; i < channel_layout->nb_channels; i++) {
+            if (channel_layout->u.map[i].id == AV_CHAN_NONE)
+                return 0;
+        }
+        return 0;
     case AV_CHANNEL_ORDER_UNSPEC:
         return 1;
     default:
