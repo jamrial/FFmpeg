@@ -658,6 +658,9 @@ int av_channel_layout_index_from_channel(const AVChannelLayout *channel_layout,
 {
     int i;
 
+    if (channel == AV_CHAN_NONE)
+        return AVERROR(EINVAL);
+
     switch (channel_layout->order) {
     case AV_CHANNEL_ORDER_CUSTOM:
         for (i = 0; i < channel_layout->nb_channels; i++)
