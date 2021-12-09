@@ -541,7 +541,7 @@ static int try_describe_ambisonic(AVBPrint *bp, const AVChannelLayout *channel_l
 
             extra.order       = AV_CHANNEL_ORDER_CUSTOM;
             extra.nb_channels = channel_layout->nb_channels - highest_ambi - 1;
-            extra.u.map       = av_mallocz_array(extra.nb_channels, sizeof(*extra.u.map));
+            extra.u.map       = av_calloc(extra.nb_channels, sizeof(*extra.u.map));
             if (!extra.u.map)
                 return AVERROR(ENOMEM);
 

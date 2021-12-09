@@ -177,7 +177,7 @@ int main(void)
 
     custom.order = AV_CHANNEL_ORDER_CUSTOM;
     custom.nb_channels = 6;
-    custom.u.map = av_mallocz_array(6, sizeof(*custom.u.map));
+    custom.u.map = av_calloc(6, sizeof(*custom.u.map));
     if (!custom.u.map)
         return 1;
     custom.u.map[0].id = AV_CHAN_AMBISONIC_BASE;
