@@ -636,7 +636,6 @@ enum AVChannel
 av_channel_layout_channel_from_string(const AVChannelLayout *channel_layout,
                                       const char *name)
 {
-    enum AVChannel;
     int channel, ret;
 
     switch (channel_layout->order) {
