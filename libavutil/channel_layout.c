@@ -646,7 +646,7 @@ av_channel_layout_channel_from_string(const AVChannelLayout *channel_layout,
             return channel;
         ret = av_channel_layout_index_from_channel(channel_layout, channel);
         if (ret < 0)
-            return ret;
+            return AV_CHAN_NONE;
         return channel;
     }
 
