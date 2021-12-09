@@ -2072,6 +2072,9 @@ static int mlp_encode_frame(AVCodecContext *avctx, AVPacket *avpkt,
     int restart_frame, ret;
     uint8_t *data;
 
+    if (!frame && !ctx->last_frames--)
+        return 0;
+
     if ((ret = ff_alloc_packet(avctx, avpkt, 87500 * channels)) < 0)
         return ret;
 
