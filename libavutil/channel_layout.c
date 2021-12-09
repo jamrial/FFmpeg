@@ -642,7 +642,7 @@ av_channel_layout_channel_from_string(const AVChannelLayout *channel_layout,
     case AV_CHANNEL_ORDER_CUSTOM:
     case AV_CHANNEL_ORDER_NATIVE:
         channel = av_channel_from_string(name);
-        if (channel < 0)
+        if (channel == AV_CHAN_NONE)
             return channel;
         ret = av_channel_layout_index_from_channel(channel_layout, channel);
         if (ret < 0)
