@@ -202,12 +202,12 @@ static enum AVChannel thd_channel_layout_extract_channel(uint64_t channel_layout
     int i;
 
     if (av_popcount64(channel_layout) <= index)
-        return 0;
+        return AV_CHAN_NONE;
 
     for (i = 0; i < FF_ARRAY_ELEMS(thd_channel_order); i++)
         if (channel_layout & (1 << thd_channel_order[i]) && !index--)
             return thd_channel_order[i];
-    return 0;
+    return AV_CHAN_NONE;
 }
 
 static VLC huff_vlc[3];
