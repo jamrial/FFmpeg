@@ -715,6 +715,7 @@ int av_channel_layout_check(const AVChannelLayout *channel_layout)
         }
         return 0;
     case AV_CHANNEL_ORDER_UNSPEC:
+    case AV_CHANNEL_ORDER_AMBISONIC:
         return 1;
     default:
         return 0;
