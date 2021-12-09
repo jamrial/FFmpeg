@@ -85,6 +85,8 @@ int main(void)
     printf("With \"ambisonic 0\": %32d\n", av_channel_from_string("ambisonic 0"));
     printf("With \"ambisonic 1023\": %29d\n", av_channel_from_string("ambisonic 1023"));
 
+    printf("\n==Native layouts==\n");
+
     printf("\nTesting av_channel_layout_from_string\n");
     CHANNEL_LAYOUT_FROM_STRING(surround, "0x3f");
     printf("With \"0x3f\": %39s\n", buf);
@@ -94,8 +96,6 @@ int main(void)
     printf("With \"6\": %42s\n", buf);
     CHANNEL_LAYOUT_FROM_STRING(surround, "6 channels");
     printf("With \"6 channels\": %33s\n", buf);
-    CHANNEL_LAYOUT_FROM_STRING(surround, "FL|FR|FC|BL|BR|LFE");
-    printf("With \"FL|FR|FC|BL|BR|LFE\": %25s\n", buf);
     CHANNEL_LAYOUT_FROM_STRING(surround, "FL|FR|FC|LFE|BL|BR");
     printf("With \"FL|FR|FC|LFE|BL|BR\": %25s\n", buf);
     CHANNEL_LAYOUT_FROM_STRING(surround, "5.1");
@@ -104,8 +104,6 @@ int main(void)
     printf("With \"FL|FR|FC|LFE|SL|SR\": %25s\n", buf);
     CHANNEL_LAYOUT_FROM_STRING(surround, "5.1(side)");
     printf("With \"5.1(side)\": %34s\n", buf);
-
-    printf("\n==Native layouts==\n");
 
     printf("\nTesting av_channel_layout_from_mask\n");
     CHANNEL_LAYOUT_FROM_MASK(surround, AV_CH_LAYOUT_5POINT1);
@@ -176,6 +174,11 @@ int main(void)
     printf("On 5.1(side) layout with \"BC\": %21d\n", ret);
 
     printf("\n==Custom layouts==\n");
+
+    printf("\nTesting av_channel_layout_from_string\n");
+    CHANNEL_LAYOUT_FROM_STRING(custom, "FL|FR|FC|BL|BR|LFE");
+    printf("With \"FL|FR|FC|BL|BR|LFE\": %25s\n", buf);
+    av_channel_layout_uninit(&custom);
 
     custom.order = AV_CHANNEL_ORDER_CUSTOM;
     custom.nb_channels = 6;

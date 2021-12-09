@@ -15,18 +15,17 @@ With "FR":                                         1
 With "ambisonic 0":                             1024
 With "ambisonic 1023":                          2047
 
+==Native layouts==
+
 Testing av_channel_layout_from_string
 With "0x3f":                                     5.1
 With "6c":                                       5.1
 With "6":                                 6 channels
 With "6 channels":                        6 channels
-With "FL|FR|FC|BL|BR|LFE":        FL|FR|FC|BL|BR|LFE
 With "FL|FR|FC|LFE|BL|BR":                       5.1
 With "5.1":                                      5.1
 With "FL|FR|FC|LFE|SL|SR":                 5.1(side)
 With "5.1(side)":                          5.1(side)
-
-==Native layouts==
 
 Testing av_channel_layout_from_mask
 With AV_CH_LAYOUT_5POINT1:                 5.1(side)
@@ -68,6 +67,9 @@ On 5.1(side) layout with "SR":                     5
 On 5.1(side) layout with "BC":                    -1
 
 ==Custom layouts==
+
+Testing av_channel_layout_from_string
+With "FL|FR|FC|BL|BR|LFE":        FL|FR|FC|BL|BR|LFE
 
 Testing av_channel_layout_describe
 On "ambisonic 1|FR|FL" layout:     ambisonic 1|FR|FL
