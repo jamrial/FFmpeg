@@ -99,6 +99,6 @@ On "FR|FL|Ch63" layout with 3:                    -1
 
 ==Ambisonic layouts==
 
-Testing av_channel_layout_describe
-On "ambisonic 1" layout:                 ambisonic 1
-On "ambisonic 2|stereo" layout:   ambisonic 2|stereo
+Testing av_channel_layout_from_string
+With "ambisonic 1":                      ambisonic 1
+With "ambisonic 2|stereo":        ambisonic 2|stereo

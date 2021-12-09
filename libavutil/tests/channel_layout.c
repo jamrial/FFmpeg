@@ -242,15 +242,11 @@ int main(void)
 
     printf("\n==Ambisonic layouts==\n");
 
-    custom.order = AV_CHANNEL_ORDER_AMBISONIC;
-    custom.nb_channels = 4;
-    printf("\nTesting av_channel_layout_describe\n");
-    av_channel_layout_describe(&custom, buf, sizeof(buf));
-    printf("On \"ambisonic 1\" layout: %27s\n", buf);
-    custom.nb_channels = 11;
-    custom.u.mask = AV_CH_LAYOUT_STEREO;
-    av_channel_layout_describe(&custom, buf, sizeof(buf));
-    printf("On \"ambisonic 2|stereo\" layout: %20s\n", buf);
+    printf("\nTesting av_channel_layout_from_string\n");
+    CHANNEL_LAYOUT_FROM_STRING(custom, "ambisonic 1");
+    printf("With \"ambisonic 1\": %32s\n", buf);
+    CHANNEL_LAYOUT_FROM_STRING(custom, "ambisonic 2|stereo");
+    printf("With \"ambisonic 2|stereo\": %25s\n", buf);
 
     av_channel_layout_uninit(&surround);
     av_channel_layout_uninit(&custom);
