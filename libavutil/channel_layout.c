@@ -802,13 +802,9 @@ int av_channel_layout_compare(const AVChannelLayout *chl, const AVChannelLayout 
     else if (chl->order == AV_CHANNEL_ORDER_UNSPEC)
         return 0;
 
-    /* both ambisonic with same channel count -> equal */
-    if (chl->order == AV_CHANNEL_ORDER_AMBISONIC &&
-        chl1->order == chl->order)
-        return 0;
-
     /* can compare masks directly */
-    if (chl->order == AV_CHANNEL_ORDER_NATIVE &&
+    if ((chl->order == AV_CHANNEL_ORDER_NATIVE ||
+         chl->order == AV_CHANNEL_ORDER_AMBISONIC) &&
         chl->order == chl1->order)
         return chl->u.mask != chl1->u.mask;
 
