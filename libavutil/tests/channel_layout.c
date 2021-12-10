@@ -178,28 +178,19 @@ int main(void)
     printf("\nTesting av_channel_layout_from_string\n");
     CHANNEL_LAYOUT_FROM_STRING(custom, "FL|FR|FC|BL|BR|LFE");
     printf("With \"FL|FR|FC|BL|BR|LFE\": %25s\n", buf);
+    CHANNEL_LAYOUT_FROM_STRING(custom, "ambisonic 1|FR|FL");
+    printf("With \"ambisonic 1|FR|FL\": %26s\n", buf);
     av_channel_layout_uninit(&custom);
 
     custom.order = AV_CHANNEL_ORDER_CUSTOM;
-    custom.nb_channels = 6;
-    custom.u.map = av_calloc(6, sizeof(*custom.u.map));
+    custom.nb_channels = 3;
+    custom.u.map = av_calloc(3, sizeof(*custom.u.map));
     if (!custom.u.map)
         return 1;
-    custom.u.map[0].id = AV_CHAN_AMBISONIC_BASE;
-    custom.u.map[1].id = AV_CHAN_AMBISONIC_BASE + 1;
-    custom.u.map[2].id = AV_CHAN_AMBISONIC_BASE + 2;
-    custom.u.map[3].id = AV_CHAN_AMBISONIC_BASE + 3;
-    custom.u.map[4].id = AV_CHAN_FRONT_RIGHT;
-    custom.u.map[5].id = AV_CHAN_FRONT_LEFT;
-    buf[0] = 0;
-    printf("\nTesting av_channel_layout_describe\n");
-    av_channel_layout_describe(&custom, buf, sizeof(buf));
-    printf("On \"ambisonic 1|FR|FL\" layout: %21s\n", buf);
-
-    custom.nb_channels = 3;
     custom.u.map[0].id = AV_CHAN_FRONT_RIGHT;
     custom.u.map[1].id = AV_CHAN_FRONT_LEFT;
     custom.u.map[2].id = 63;
+    printf("\nTesting av_channel_layout_describe\n");
     av_channel_layout_describe(&custom, buf, sizeof(buf));
     printf("On \"FR|FL|Ch63\" layout: %28s\n", buf);
 

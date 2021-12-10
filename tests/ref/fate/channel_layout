@@ -70,9 +70,9 @@ On 5.1(side) layout with "BC":                    -1
 
 Testing av_channel_layout_from_string
 With "FL|FR|FC|BL|BR|LFE":        FL|FR|FC|BL|BR|LFE
+With "ambisonic 1|FR|FL":          ambisonic 1|FR|FL
 
 Testing av_channel_layout_describe
-On "ambisonic 1|FR|FL" layout:     ambisonic 1|FR|FL
 On "FR|FL|Ch63" layout:                      FR|FL|?
 
 Testing av_channel_layout_index_from_string
