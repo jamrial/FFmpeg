@@ -778,8 +778,10 @@ int av_channel_layout_check(const AVChannelLayout *channel_layout)
                 return 0;
         }
         return 0;
-    case AV_CHANNEL_ORDER_UNSPEC:
     case AV_CHANNEL_ORDER_AMBISONIC:
+        /* If non-diegetic channels are present, ensure they are taken into account */
+        return av_popcount64(channel_layout->u.mask) < channel_layout->nb_channels;
+    case AV_CHANNEL_ORDER_UNSPEC:
         return 1;
     default:
         return 0;
