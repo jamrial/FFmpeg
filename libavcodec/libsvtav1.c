@@ -60,6 +60,7 @@ typedef struct SvtContext {
     EOS_STATUS eos_flag;
 
     // User options.
+    AVDictionary *svtav1_opts;
     int hierarchical_level;
     int la_depth;
     int enc_mode;
@@ -151,6 +152,32 @@ static int config_enc_params(EbSvtAv1EncConfiguration *param,
 {
     SvtContext *svt_enc = avctx->priv_data;
     const AVPixFmtDescriptor *desc;
+    av_unused AVDictionaryEntry *en = NULL;
+
+    // Update param from options
+    param->hierarchical_levels      = svt_enc->hierarchical_level;
+    param->enc_mode                 = svt_enc->enc_mode;
+    param->tier                     = svt_enc->tier;
+    param->rate_control_mode        = svt_enc->rc_mode;
+    param->scene_change_detection   = svt_enc->scd;
+    param->qp                       = svt_enc->qp;
+
+    if (svt_enc->la_depth >= 0)
+        param->look_ahead_distance  = svt_enc->la_depth;
+
+    param->tile_columns = svt_enc->tile_columns;
+    param->tile_rows    = svt_enc->tile_rows;
+
+#if SVT_AV1_CHECK_VERSION(0, 9, 1)
+    while ((en = av_dict_get(svt_enc->svtav1_opts, "", en, AV_DICT_IGNORE_SUFFIX))) {
+        EbErrorType ret = svt_av1_enc_parse_parameter(param, en->key, en->value);
+        if (ret != EB_ErrorNone) {
+            av_log(avctx, AV_LOG_WARNING, "Error parsing option %s: %s.\n", en->key, en->value);
+            if (avctx->err_recognition & AV_EF_EXPLODE)
+                return AVERROR(EINVAL);
+        }
+    }
+#endif
 
     param->source_width     = avctx->width;
     param->source_height    = avctx->height;
@@ -184,14 +211,6 @@ static int config_enc_params(EbSvtAv1EncConfiguration *param,
         param->profile = FF_PROFILE_AV1_HIGH;
     }
 
-    // Update param from options
-    param->hierarchical_levels      = svt_enc->hierarchical_level;
-    param->enc_mode                 = svt_enc->enc_mode;
-    param->tier                     = svt_enc->tier;
-    param->rate_control_mode        = svt_enc->rc_mode;
-    param->scene_change_detection   = svt_enc->scd;
-    param->qp                       = svt_enc->qp;
-
     param->target_bit_rate          = avctx->bit_rate;
 
     if (avctx->gop_size > 0)
@@ -213,12 +232,6 @@ static int config_enc_params(EbSvtAv1EncConfiguration *param,
 
     /* 2 = IDR, closed GOP, 1 = CRA, open GOP */
     param->intra_refresh_type = avctx->flags & AV_CODEC_FLAG_CLOSED_GOP ? 2 : 1;
-
-    if (svt_enc->la_depth >= 0)
-        param->look_ahead_distance  = svt_enc->la_depth;
-
-    param->tile_columns = svt_enc->tile_columns;
-    param->tile_rows    = svt_enc->tile_rows;
 
     return 0;
 }
@@ -534,6 +547,8 @@ static const AVOption options[] = {
 
     { "tile_columns", "Log2 of number of tile columns to use", OFFSET(tile_columns), AV_OPT_TYPE_INT, {.i64 = 0}, 0, 4, VE},
     { "tile_rows", "Log2 of number of tile rows to use", OFFSET(tile_rows), AV_OPT_TYPE_INT, {.i64 = 0}, 0, 6, VE},
+
+    { "svtav1-params", "Set the SVT-AV1 configuration using a :-separated list of key=value parameters", OFFSET(svtav1_opts), AV_OPT_TYPE_DICT, { 0 }, 0, 0, VE },
 
     {NULL},
 };
