@@ -967,8 +967,7 @@ static int decode_ga_specific_config(AACContext *ac, AVCodecContext *avctx,
 
     if (count_channels(layout_map, tags) > 1) {
         m4ac->ps = 0;
-    } else if (m4ac->sbr == 1 && m4ac->ps == -1)
-        m4ac->ps = 1;
+    }
 
     if (ac && (ret = output_configure(ac, layout_map, tags, OC_GLOBAL_HDR, 0)))
         return ret;
@@ -2572,18 +2571,16 @@ static int decode_extension_payload(AACContext *ac, GetBitContext *gb, int cnt,
             av_log(ac->avctx, AV_LOG_ERROR, "Implicit SBR was found with a first occurrence after the first frame.\n");
             skip_bits_long(gb, 8 * cnt - 4);
             return res;
-        } else if (ac->oc[1].m4ac.ps == -1 && ac->oc[1].status < OC_LOCKED &&
-                   ac->avctx->ch_layout.nb_channels == 1) {
-            ac->oc[1].m4ac.sbr = 1;
-            ac->oc[1].m4ac.ps = 1;
-            ac->avctx->profile = FF_PROFILE_AAC_HE_V2;
-            output_configure(ac, ac->oc[1].layout_map, ac->oc[1].layout_map_tags,
-                             ac->oc[1].status, 1);
         } else {
             ac->oc[1].m4ac.sbr = 1;
             ac->avctx->profile = FF_PROFILE_AAC_HE;
         }
         res = AAC_RENAME(ff_decode_sbr_extension)(ac, &che->sbr, gb, crc_flag, cnt, elem_type);
+        if (ac->oc[1].m4ac.ps == 1 && ac->oc[1].status < OC_LOCKED &&
+            ac->avctx->ch_layout.nb_channels == 1) {
+            output_configure(ac, ac->oc[1].layout_map, ac->oc[1].layout_map_tags,
+                             ac->oc[1].status, 1);
+        }
         break;
     case EXT_DYNAMIC_RANGE:
         res = decode_dynamic_range(&ac->che_drc, gb);
