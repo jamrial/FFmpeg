@@ -249,6 +249,8 @@ typedef struct MpegTSWriteStream {
     int64_t payload_dts;
     int payload_flags;
     uint8_t *payload;
+    uint8_t *extradata;
+    size_t extradata_size;
     AVFormatContext *amux;
     int data_st_warning;
 
@@ -608,12 +610,12 @@ static int mpegts_write_pmt(AVFormatContext *s, MpegTSService *service)
                 *q++ = 2;
                 *q++ = 0x80;
 
-                if (st->codecpar->extradata && st->codecpar->extradata_size >= 19) {
-                    if (st->codecpar->extradata[18] == 0 && ch <= 2) {
+                if (ts_st->extradata && ts_st->extradata_size >= 19) {
+                    if (ts_st->extradata[18] == 0 && ch <= 2) {
                         /* RTP mapping family */
                         *q++ = ch;
-                    } else if (st->codecpar->extradata[18] == 1 && ch <= 8 &&
-                               st->codecpar->extradata_size >= 21 + ch) {
+                    } else if (ts_st->extradata[18] == 1 && ch <= 8 &&
+                               ts_st->extradata_size >= 21 + ch) {
                         static const uint8_t coupled_stream_counts[9] = {
                             1, 0, 1, 1, 2, 2, 2, 3, 3
                         };
@@ -639,13 +641,13 @@ static int mpegts_write_pmt(AVFormatContext *s, MpegTSService *service)
                         };
                         /* Vorbis mapping family */
 
-                        if (st->codecpar->extradata[19] == ch - coupled_stream_counts[ch] &&
-                            st->codecpar->extradata[20] == coupled_stream_counts[ch] &&
-                            memcmp(&st->codecpar->extradata[21], channel_map_a[ch - 1], ch) == 0) {
+                        if (ts_st->extradata[19] == ch - coupled_stream_counts[ch] &&
+                            ts_st->extradata[20] == coupled_stream_counts[ch] &&
+                            memcmp(&ts_st->extradata[21], channel_map_a[ch - 1], ch) == 0) {
                             *q++ = ch;
-                        } else if (ch >= 2 && st->codecpar->extradata[19] == ch &&
-                                   st->codecpar->extradata[20] == 0 &&
-                                   memcmp(&st->codecpar->extradata[21], channel_map_b[ch - 1], ch) == 0) {
+                        } else if (ch >= 2 && ts_st->extradata[19] == ch &&
+                                   ts_st->extradata[20] == 0 &&
+                                   memcmp(&ts_st->extradata[21], channel_map_b[ch - 1], ch) == 0) {
                             *q++ = ch | 0x80;
                         } else {
                             /* Unsupported, could write an extended descriptor here */
@@ -654,7 +656,7 @@ static int mpegts_write_pmt(AVFormatContext *s, MpegTSService *service)
                         }
                     } else {
                         /* Unsupported */
-                        av_log(s, AV_LOG_ERROR, "Unsupported Opus channel mapping for family %d", st->codecpar->extradata[18]);
+                        av_log(s, AV_LOG_ERROR, "Unsupported Opus channel mapping for family %d", ts_st->extradata[18]);
                         *q++ = 0xff;
                     }
                 } else if (ch <= 2) {
@@ -727,9 +729,9 @@ static int mpegts_write_pmt(AVFormatContext *s, MpegTSService *service)
                    if (*language != '\0')
                        language++;
 
-                   if (st->codecpar->extradata_size - extradata_copied >= 5) {
-                       *q++ = st->codecpar->extradata[extradata_copied + 4]; /* subtitling_type */
-                       memcpy(q, st->codecpar->extradata + extradata_copied, 4); /* composition_page_id and ancillary_page_id */
+                   if (ts_st->extradata_size - extradata_copied >= 5) {
+                       *q++ = ts_st->extradata[extradata_copied + 4]; /* subtitling_type */
+                       memcpy(q, ts_st->extradata + extradata_copied, 4); /* composition_page_id and ancillary_page_id */
                        extradata_copied += 5;
                        q += 4;
                    } else {
@@ -737,9 +739,9 @@ static int mpegts_write_pmt(AVFormatContext *s, MpegTSService *service)
                         * 0x10 - normal with no monitor aspect ratio criticality
                         * 0x20 - for the hard of hearing with no monitor aspect ratio criticality */
                        *q++ = (st->disposition & AV_DISPOSITION_HEARING_IMPAIRED) ? 0x20 : 0x10;
-                       if ((st->codecpar->extradata_size == 4) && (extradata_copied == 0)) {
+                       if ((ts_st->extradata_size == 4) && (extradata_copied == 0)) {
                            /* support of old 4-byte extradata format */
-                           memcpy(q, st->codecpar->extradata, 4); /* composition_page_id and ancillary_page_id */
+                           memcpy(q, ts_st->extradata, 4); /* composition_page_id and ancillary_page_id */
                            extradata_copied += 4;
                            q += 4;
                        } else {
@@ -766,8 +768,8 @@ static int mpegts_write_pmt(AVFormatContext *s, MpegTSService *service)
                    if (*language != '\0')
                        language++;
 
-                   if (st->codecpar->extradata_size - 1 > extradata_copied) {
-                       memcpy(q, st->codecpar->extradata + extradata_copied, 2);
+                   if (ts_st->extradata_size - 1 > extradata_copied) {
+                       memcpy(q, ts_st->extradata + extradata_copied, 2);
                        extradata_copied += 2;
                        q += 2;
                    } else {
@@ -1164,6 +1166,13 @@ static int mpegts_init(AVFormatContext *s)
             return AVERROR(ENOMEM);
         }
 
+        if (st->codecpar->extradata_size) {
+            ts_st->extradata = av_memdup(st->codecpar->extradata, st->codecpar->extradata_size);
+            if (!ts_st->extradata)
+                return AVERROR(ENOMEM);
+            ts_st->extradata_size = st->codecpar->extradata_size;
+        }
+
         /* MPEG pid values < 16 are reserved. Applications which set st->id in
          * this range are assigned a calculated pid. */
         if (st->id < 16) {
@@ -1228,7 +1237,7 @@ static int mpegts_init(AVFormatContext *s)
         ts_st->cc              = 15;
         ts_st->discontinuity   = ts->flags & MPEGTS_FLAG_DISCONT;
         if (st->codecpar->codec_id == AV_CODEC_ID_AAC &&
-            st->codecpar->extradata_size > 0) {
+            ts_st->extradata_size > 0) {
             AVStream *ast;
             ts_st->amux = avformat_alloc_context();
             if (!ts_st->amux) {
@@ -1876,12 +1885,12 @@ static int mpegts_write_packet_internal(AVFormatContext *s, AVPacket *pkt)
     if (st->codecpar->codec_id == AV_CODEC_ID_H264) {
         const uint8_t *p = buf, *buf_end = p + size;
         uint32_t state = -1;
-        int extradd = (pkt->flags & AV_PKT_FLAG_KEY) ? st->codecpar->extradata_size : 0;
+        int extradd = (pkt->flags & AV_PKT_FLAG_KEY) ? ts_st->extradata_size : 0;
         int ret = ff_check_h264_startcode(s, st, pkt);
         if (ret < 0)
             return ret;
 
-        if (extradd && AV_RB24(st->codecpar->extradata) > 1)
+        if (extradd && AV_RB24(ts_st->extradata) > 1)
             extradd = 0;
 
         do {
@@ -1898,7 +1907,7 @@ static int mpegts_write_packet_internal(AVFormatContext *s, AVPacket *pkt)
             data = av_malloc(pkt->size + 6 + extradd);
             if (!data)
                 return AVERROR(ENOMEM);
-            memcpy(data + 6, st->codecpar->extradata, extradd);
+            memcpy(data + 6, ts_st->extradata, extradd);
             memcpy(data + 6 + extradd, pkt->data, pkt->size);
             AV_WB32(data, 0x00000001);
             data[4] = 0x09;
@@ -1942,12 +1951,12 @@ static int mpegts_write_packet_internal(AVFormatContext *s, AVPacket *pkt)
     } else if (st->codecpar->codec_id == AV_CODEC_ID_HEVC) {
         const uint8_t *p = buf, *buf_end = p + size;
         uint32_t state = -1;
-        int extradd = (pkt->flags & AV_PKT_FLAG_KEY) ? st->codecpar->extradata_size : 0;
+        int extradd = (pkt->flags & AV_PKT_FLAG_KEY) ? ts_st->extradata_size : 0;
         int ret = check_hevc_startcode(s, st, pkt);
         if (ret < 0)
             return ret;
 
-        if (extradd && AV_RB24(st->codecpar->extradata) > 1)
+        if (extradd && AV_RB24(ts_st->extradata) > 1)
             extradd = 0;
 
         do {
@@ -1964,7 +1973,7 @@ static int mpegts_write_packet_internal(AVFormatContext *s, AVPacket *pkt)
             data = av_malloc(pkt->size + 7 + extradd);
             if (!data)
                 return AVERROR(ENOMEM);
-            memcpy(data + 7, st->codecpar->extradata, extradd);
+            memcpy(data + 7, ts_st->extradata, extradd);
             memcpy(data + 7 + extradd, pkt->data, pkt->size);
             AV_WB32(data, 0x00000001);
             data[4] = 2*35;
@@ -2198,6 +2207,7 @@ static void mpegts_deinit(AVFormatContext *s)
         if (ts_st) {
             av_freep(&ts_st->dvb_ac3_desc);
             av_freep(&ts_st->payload);
+            av_freep(&ts_st->extradata);
             if (ts_st->amux) {
                 avformat_free_context(ts_st->amux);
                 ts_st->amux = NULL;
