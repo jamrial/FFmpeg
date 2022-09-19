@@ -1864,6 +1864,15 @@ static int mpegts_write_packet_internal(AVFormatContext *s, AVPacket *pkt)
     if (side_data)
         stream_id = side_data[0];
 
+    side_data = av_packet_get_side_data(pkt,
+                                        AV_PKT_DATA_NEW_EXTRADATA,
+                                        &side_data_size);
+    if (side_data) {
+        av_free(ts_st->extradata);
+        ts_st->extradata = av_memdup(side_data, side_data_size);
+        ts_st->extradata_size = side_data_size;
+    }
+
     if (!ts->first_dts_checked && dts != AV_NOPTS_VALUE) {
         ts->first_pcr += dts * 300;
         ts->first_dts_checked = 1;
