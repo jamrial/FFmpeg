@@ -26,11 +26,13 @@
 #include "libavutil/intreadwrite.h"
 #include "libavutil/mathematics.h"
 #include "libavutil/opt.h"
+#include "libavutil/pixdesc.h"
 
 #include "libavcodec/ac3_parser_internal.h"
 #include "libavcodec/avcodec.h"
 #include "libavcodec/startcode.h"
 
+#include "av1.h"
 #include "avformat.h"
 #include "avio_internal.h"
 #include "internal.h"
@@ -354,6 +356,9 @@ static int get_dvb_stream_type(AVFormatContext *s, AVStream *st)
     int stream_type;
 
     switch (st->codecpar->codec_id) {
+    case AV_CODEC_ID_AV1:
+        stream_type = STREAM_TYPE_PRIVATE_DATA;
+        break;
     case AV_CODEC_ID_MPEG1VIDEO:
     case AV_CODEC_ID_MPEG2VIDEO:
         stream_type = STREAM_TYPE_VIDEO_MPEG2;
@@ -451,6 +456,9 @@ static int get_m2ts_stream_type(AVFormatContext *s, AVStream *st)
     MpegTSWriteStream *ts_st = st->priv_data;
 
     switch (st->codecpar->codec_id) {
+    case AV_CODEC_ID_AV1:
+        stream_type = STREAM_TYPE_PRIVATE_DATA;
+        break;
     case AV_CODEC_ID_MPEG2VIDEO:
         stream_type = STREAM_TYPE_VIDEO_MPEG2;
         break;
@@ -795,6 +803,47 @@ static int mpegts_write_pmt(AVFormatContext *s, MpegTSService *service)
                 put_registration_descriptor(&q, MKTAG('V', 'C', '-', '1'));
             } else if (stream_type == STREAM_TYPE_VIDEO_HEVC && s->strict_std_compliance <= FF_COMPLIANCE_NORMAL) {
                 put_registration_descriptor(&q, MKTAG('H', 'E', 'V', 'C'));
+            } else if (codec_id == AV_CODEC_ID_AV1) {
+                FFIOContext pb;
+                uint8_t buf[4];
+
+                /* 6 bytes registration descriptor, 10 bytes AV1 descriptor */
+                if (q - data > SECTION_LENGTH - 6 - 10) {
+                    err = 1;
+                    break;
+                }
+
+                put_registration_descriptor(&q, MKTAG('A', 'V', '0', '1'));
+
+               /* The descriptor tag */
+               *q++ = 0x5F;
+               *q++ = 8;
+
+               /* private_data_specifier */
+               // FIXME, not defined in spec
+               put16(&q, 0);
+               put16(&q, 0);
+
+               ffio_init_context(&pb, buf, sizeof(buf),
+                                 1, NULL, NULL, NULL, NULL);
+
+               if ((ts_st->extradata_size < sizeof(buf)) ||
+                   ff_isom_write_av1c(&pb.pub, ts_st->extradata, sizeof(buf), 0) < 0) {
+                   // Derive values from st->codecpar if no extradata is present
+                   const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(st->codecpar->format);
+                   *q++ = 0x81; // marker, version
+                   *q++ = (st->codecpar->profile << 5) | (st->codecpar->level & 0x1F);
+                   *q++ = desc ? ((desc->comp[0].depth > 8)  << 6) | ((desc->comp[0].depth == 12) << 5) |
+                                 ((desc->nb_components == 1) << 4) |  (desc->log2_chroma_w        << 3) |
+                                  (desc->log2_chroma_h       << 2) : 0;
+                   *q++ = 3 << 6; // hdr_wcg_idc;
+                   break;
+               }
+
+               *q++ = buf[0];
+               *q++ = buf[1];
+               *q++ = buf[2];
+               *q++ = buf[3] | (3 << 6); // hdr_wcg_idc;
             } else if (stream_type == STREAM_TYPE_VIDEO_CAVS || stream_type == STREAM_TYPE_VIDEO_AVS2 ||
                        stream_type == STREAM_TYPE_VIDEO_AVS3) {
                 put_registration_descriptor(&q, MKTAG('A', 'V', 'S', 'V'));
@@ -1446,6 +1495,8 @@ static int get_pes_stream_id(AVFormatContext *s, AVStream *st, int stream_id, in
     if (st->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
         if (st->codecpar->codec_id == AV_CODEC_ID_DIRAC)
             return STREAM_ID_EXTENDED_STREAM_ID;
+        else if (st->codecpar->codec_id == AV_CODEC_ID_AV1)
+            return STREAM_ID_PRIVATE_STREAM_1;
         else
             return STREAM_ID_VIDEO_STREAM_0;
     } else if (st->codecpar->codec_type == AVMEDIA_TYPE_AUDIO &&
@@ -1991,6 +2042,16 @@ static int mpegts_write_packet_internal(AVFormatContext *s, AVPacket *pkt)
             buf     = data;
             size    = pkt->size + 7 + extradd;
         }
+    } else if (st->codecpar->codec_id == AV_CODEC_ID_AV1) {
+        int off;
+        int ret = ff_av1_filter_obus_buf(buf, &data, &size, &off);
+        if (ret < 0)
+            return ret;
+        if (buf == data) {
+            buf += off;
+            data = NULL;
+        } else
+            buf = data;
     } else if (st->codecpar->codec_id == AV_CODEC_ID_OPUS) {
         if (pkt->size < 2) {
             av_log(s, AV_LOG_ERROR, "Opus packet too short\n");
