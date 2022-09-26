@@ -869,6 +869,7 @@ static const StreamType REGD_types[] = {
     { MKTAG('I', 'D', '3', ' '), AVMEDIA_TYPE_DATA,  AV_CODEC_ID_TIMED_ID3 },
     { MKTAG('V', 'C', '-', '1'), AVMEDIA_TYPE_VIDEO, AV_CODEC_ID_VC1   },
     { MKTAG('O', 'p', 'u', 's'), AVMEDIA_TYPE_AUDIO, AV_CODEC_ID_OPUS  },
+    { MKTAG('A', 'V', '0', '1'), AVMEDIA_TYPE_VIDEO, AV_CODEC_ID_AV1   },
     { 0 },
 };
 
@@ -2034,6 +2035,23 @@ int ff_parse_mpeg2_descriptor(AVFormatContext *fc, AVStream *st, int stream_type
             st->codecpar->codec_tag = bytestream_get_le32(pp);
             if (st->codecpar->codec_id == AV_CODEC_ID_NONE)
                 mpegts_find_stream_type(st, st->codecpar->codec_tag, METADATA_types);
+        }
+        break;
+    case 0x5f: /* AV1 descriptor */
+        if (!st->codecpar->extradata) {
+            st->codecpar->extradata = av_mallocz(4 + AV_INPUT_BUFFER_PADDING_SIZE);
+            if (!st->codecpar->extradata)
+                return AVERROR(ENOMEM);
+
+            /* private_data_specifier */
+            get16(pp, desc_end);
+            get16(pp, desc_end);
+            st->codecpar->extradata[0] = get8(pp, desc_end);
+            st->codecpar->extradata[1] = get8(pp, desc_end);
+            st->codecpar->extradata[2] = get8(pp, desc_end);
+            st->codecpar->extradata[3] = get8(pp, desc_end) & 0x3f;
+            st->codecpar->extradata_size = 4;
+            sti->need_context_update = 1;
         }
         break;
     case 0x7f: /* DVB extension descriptor */
