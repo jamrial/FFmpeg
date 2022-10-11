@@ -48,11 +48,14 @@ static const char *const var_names[] = {
     "POS",         ///< original position in the file of the frame
     "PREV_INPTS",  ///< previous  input PTS
     "PREV_INT",    ///< previous  input time in seconds
+    "PREV_INDUR",  ///< previous  input time in seconds
     "PREV_OUTPTS", ///< previous output PTS
     "PREV_OUTT",   ///< previous output time in seconds
+    "PREV_OUTDUR", ///< previous output time in seconds
     "NEXT_PTS",    ///< next input PTS
     "NEXT_T",      ///< next input time in seconds
     "PTS",         ///< original pts in the file of the frame
+    "DUR",         ///< original duration in the file of the frame
     "SAMPLE_RATE", ///< sample rate (only audio)
     "STARTPTS",    ///< PTS at start of movie
     "STARTT",      ///< time at start of movie
@@ -75,11 +78,14 @@ enum var_name {
     VAR_POS,
     VAR_PREV_INPTS,
     VAR_PREV_INT,
+    VAR_PREV_INDUR,
     VAR_PREV_OUTPTS,
     VAR_PREV_OUTT,
+    VAR_PREV_OUTDUR,
     VAR_NEXT_PTS,
     VAR_NEXT_T,
     VAR_PTS,
+    VAR_DUR,
     VAR_SAMPLE_RATE,
     VAR_STARTPTS,
     VAR_STARTT,
@@ -96,7 +102,9 @@ enum var_name {
 typedef struct SetPTSContext {
     const AVClass *class;
     char *expr_str;
+    char *dur_expr_str;
     AVExpr *expr;
+    AVExpr *dur_expr;
     AVFrame *frame;
     double var_values[VAR_VARS_NB];
     enum AVMediaType type;
@@ -112,13 +120,20 @@ static av_cold int init(AVFilterContext *ctx)
         av_log(ctx, AV_LOG_ERROR, "Error while parsing expression '%s'\n", setpts->expr_str);
         return ret;
     }
+    if ((ret = av_expr_parse(&setpts->dur_expr, setpts->dur_expr_str,
+                             var_names, NULL, NULL, NULL, NULL, 0, ctx)) < 0) {
+        av_log(ctx, AV_LOG_ERROR, "Error while parsing expression '%s'\n", setpts->dur_expr_str);
+        return ret;
+    }
 
     setpts->var_values[VAR_N]           = 0.0;
     setpts->var_values[VAR_S]           = 0.0;
     setpts->var_values[VAR_PREV_INPTS]  = NAN;
     setpts->var_values[VAR_PREV_INT]    = NAN;
+    setpts->var_values[VAR_PREV_INDUR]  = NAN;
     setpts->var_values[VAR_PREV_OUTPTS] = NAN;
     setpts->var_values[VAR_PREV_OUTT]   = NAN;
+    setpts->var_values[VAR_PREV_OUTDUR] = NAN;
     setpts->var_values[VAR_STARTPTS]    = NAN;
     setpts->var_values[VAR_STARTT]      = NAN;
     return 0;
@@ -158,7 +173,8 @@ static inline char *double2int64str(char *buf, double v)
     return buf;
 }
 
-static double eval_pts(SetPTSContext *setpts, AVFilterLink *inlink, AVFrame *next, int64_t pts)
+static double eval_pts(SetPTSContext *setpts, AVExpr *expr, AVFilterLink *inlink,
+                       AVFrame *next, int64_t pts)
 {
     AVFrame *frame = setpts->frame;
 
@@ -168,6 +184,7 @@ static double eval_pts(SetPTSContext *setpts, AVFilterLink *inlink, AVFrame *nex
     }
     setpts->var_values[VAR_PTS       ] = TS2D(pts);
     setpts->var_values[VAR_T         ] = TS2T(pts, inlink->time_base);
+    setpts->var_values[VAR_DUR       ] = !frame ? NAN : TS2D(frame->duration);
     setpts->var_values[VAR_POS       ] = !frame || frame->pkt_pos == -1 ? NAN : frame->pkt_pos;
     setpts->var_values[VAR_NEXT_PTS  ] = !next ? NAN : TS2D(next->pts);
     setpts->var_values[VAR_NEXT_T    ] = !next ? NAN : TS2T(next->pts, inlink->time_base);
@@ -182,7 +199,7 @@ static double eval_pts(SetPTSContext *setpts, AVFilterLink *inlink, AVFrame *nex
         }
     }
 
-    return av_expr_eval(setpts->expr, setpts->var_values, NULL);
+    return av_expr_eval(expr, setpts->var_values, NULL);
 }
 #define d2istr(v) double2int64str((char[BUF_SIZE]){0}, v)
 
@@ -190,18 +207,21 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *next)
 {
     SetPTSContext *setpts = inlink->dst->priv;
     AVFrame *frame = setpts->frame;
-    int64_t in_pts = frame->pts;
+    int64_t in_pts = frame->pts, in_duration = frame->duration;
     int ret;
-    double d;
+    double pts, d;
 
-    d = eval_pts(setpts, inlink, next, frame->pts);
-    frame->pts = D2TS(d);
+    pts = eval_pts(setpts, setpts->expr, inlink, next, frame->pts);
+    d = eval_pts(setpts, setpts->dur_expr, inlink, next, frame->pts);
+    frame->pts = D2TS(pts);
+    frame->duration = D2TS(d);
 
     av_log(inlink->dst, AV_LOG_TRACE,
-            "N:%"PRId64" PTS:%s T:%f POS:%s NEXT_PTS:%s NEXT_T:%f",
+            "N:%"PRId64" PTS:%s T:%f DUR:%s POS:%s NEXT_PTS:%s NEXT_T:%f",
             (int64_t)setpts->var_values[VAR_N],
             d2istr(setpts->var_values[VAR_PTS]),
             setpts->var_values[VAR_T],
+            d2istr(setpts->var_values[VAR_DUR]),
             d2istr(setpts->var_values[VAR_POS]),
             d2istr(setpts->var_values[VAR_NEXT_PTS]),
             setpts->var_values[VAR_NEXT_T]);
@@ -216,7 +236,8 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *next)
                 (int64_t)setpts->var_values[VAR_NB_CONSUMED_SAMPLES]);
         break;
     }
-    av_log(inlink->dst, AV_LOG_TRACE, " -> PTS:%s T:%f\n", d2istr(d), TS2T(d, inlink->time_base));
+    av_log(inlink->dst, AV_LOG_TRACE, " -> PTS:%s T:%f DUR:%s\n",
+           d2istr(pts), TS2T(pts, inlink->time_base), d2istr(d));
 
     if (inlink->type == AVMEDIA_TYPE_VIDEO) {
         setpts->var_values[VAR_N] += 1.0;
@@ -226,8 +247,10 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *next)
 
     setpts->var_values[VAR_PREV_INPTS ] = TS2D(in_pts);
     setpts->var_values[VAR_PREV_INT   ] = TS2T(in_pts, inlink->time_base);
+    setpts->var_values[VAR_PREV_INDUR ] = TS2D(in_duration);
     setpts->var_values[VAR_PREV_OUTPTS] = TS2D(frame->pts);
     setpts->var_values[VAR_PREV_OUTT]   = TS2T(frame->pts, inlink->time_base);
+    setpts->var_values[VAR_PREV_OUTDUR] = TS2D(frame->duration);
     if (setpts->type == AVMEDIA_TYPE_AUDIO) {
         setpts->var_values[VAR_NB_CONSUMED_SAMPLES] += frame->nb_samples;
     }
@@ -263,7 +286,7 @@ static int activate(AVFilterContext *ctx)
 
         if (setpts->frame)
             return filter_frame(inlink, NULL);
-        d = eval_pts(setpts, inlink, NULL, pts);
+        d = eval_pts(setpts, setpts->expr, inlink, NULL, pts);
 
         av_log(ctx, AV_LOG_TRACE, "N:EOF PTS:%s T:%f POS:%s -> PTS:%s T:%f\n",
                d2istr(setpts->var_values[VAR_PTS]),
@@ -295,6 +318,7 @@ static av_cold void uninit(AVFilterContext *ctx)
 #if CONFIG_SETPTS_FILTER
 static const AVOption setpts_options[] = {
     { "expr", "Expression determining the frame timestamp", OFFSET(expr_str), AV_OPT_TYPE_STRING, { .str = "PTS" }, .flags = V|F },
+    { "dur_expr", "Expression determining the frame duration", OFFSET(dur_expr_str), AV_OPT_TYPE_STRING, { .str = "DUR" }, .flags = A|F },
     { NULL }
 };
 AVFILTER_DEFINE_CLASS(setpts);
@@ -334,6 +358,7 @@ const AVFilter ff_vf_setpts = {
 
 static const AVOption asetpts_options[] = {
     { "expr", "Expression determining the frame timestamp", OFFSET(expr_str), AV_OPT_TYPE_STRING, { .str = "PTS" }, .flags = A|F },
+    { "dur_expr", "Expression determining the frame duration", OFFSET(dur_expr_str), AV_OPT_TYPE_STRING, { .str = "DUR" }, .flags = A|F },
     { NULL }
 };
 AVFILTER_DEFINE_CLASS(asetpts);
