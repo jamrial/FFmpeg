@@ -50,6 +50,8 @@ static const char *const var_names[] = {
     "PREV_INT",    ///< previous  input time in seconds
     "PREV_OUTPTS", ///< previous output PTS
     "PREV_OUTT",   ///< previous output time in seconds
+    "NEXT_PTS",    ///< next input PTS
+    "NEXT_T",      ///< next input time in seconds
     "PTS",         ///< original pts in the file of the frame
     "SAMPLE_RATE", ///< sample rate (only audio)
     "STARTPTS",    ///< PTS at start of movie
@@ -75,6 +77,8 @@ enum var_name {
     VAR_PREV_INT,
     VAR_PREV_OUTPTS,
     VAR_PREV_OUTT,
+    VAR_NEXT_PTS,
+    VAR_NEXT_T,
     VAR_PTS,
     VAR_SAMPLE_RATE,
     VAR_STARTPTS,
@@ -93,6 +97,7 @@ typedef struct SetPTSContext {
     const AVClass *class;
     char *expr_str;
     AVExpr *expr;
+    AVFrame *frame;
     double var_values[VAR_VARS_NB];
     enum AVMediaType type;
 } SetPTSContext;
@@ -153,8 +158,10 @@ static inline char *double2int64str(char *buf, double v)
     return buf;
 }
 
-static double eval_pts(SetPTSContext *setpts, AVFilterLink *inlink, AVFrame *frame, int64_t pts)
+static double eval_pts(SetPTSContext *setpts, AVFilterLink *inlink, AVFrame *next, int64_t pts)
 {
+    AVFrame *frame = setpts->frame;
+
     if (isnan(setpts->var_values[VAR_STARTPTS])) {
         setpts->var_values[VAR_STARTPTS] = TS2D(pts);
         setpts->var_values[VAR_STARTT  ] = TS2T(pts, inlink->time_base);
@@ -162,6 +169,8 @@ static double eval_pts(SetPTSContext *setpts, AVFilterLink *inlink, AVFrame *fra
     setpts->var_values[VAR_PTS       ] = TS2D(pts);
     setpts->var_values[VAR_T         ] = TS2T(pts, inlink->time_base);
     setpts->var_values[VAR_POS       ] = !frame || frame->pkt_pos == -1 ? NAN : frame->pkt_pos;
+    setpts->var_values[VAR_NEXT_PTS  ] = !next ? NAN : TS2D(next->pts);
+    setpts->var_values[VAR_NEXT_T    ] = !next ? NAN : TS2T(next->pts, inlink->time_base);
     setpts->var_values[VAR_RTCTIME   ] = av_gettime();
 
     if (frame) {
@@ -177,21 +186,25 @@ static double eval_pts(SetPTSContext *setpts, AVFilterLink *inlink, AVFrame *fra
 }
 #define d2istr(v) double2int64str((char[BUF_SIZE]){0}, v)
 
-static int filter_frame(AVFilterLink *inlink, AVFrame *frame)
+static int filter_frame(AVFilterLink *inlink, AVFrame *next)
 {
     SetPTSContext *setpts = inlink->dst->priv;
+    AVFrame *frame = setpts->frame;
     int64_t in_pts = frame->pts;
+    int ret;
     double d;
 
-    d = eval_pts(setpts, inlink, frame, frame->pts);
+    d = eval_pts(setpts, inlink, next, frame->pts);
     frame->pts = D2TS(d);
 
     av_log(inlink->dst, AV_LOG_TRACE,
-            "N:%"PRId64" PTS:%s T:%f POS:%s",
+            "N:%"PRId64" PTS:%s T:%f POS:%s NEXT_PTS:%s NEXT_T:%f",
             (int64_t)setpts->var_values[VAR_N],
             d2istr(setpts->var_values[VAR_PTS]),
             setpts->var_values[VAR_T],
-            d2istr(setpts->var_values[VAR_POS]));
+            d2istr(setpts->var_values[VAR_POS]),
+            d2istr(setpts->var_values[VAR_NEXT_PTS]),
+            setpts->var_values[VAR_NEXT_T]);
     switch (inlink->type) {
     case AVMEDIA_TYPE_VIDEO:
         av_log(inlink->dst, AV_LOG_TRACE, " INTERLACED:%"PRId64,
@@ -218,7 +231,10 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *frame)
     if (setpts->type == AVMEDIA_TYPE_AUDIO) {
         setpts->var_values[VAR_NB_CONSUMED_SAMPLES] += frame->nb_samples;
     }
-    return ff_filter_frame(inlink->dst->outputs[0], frame);
+    ret = ff_filter_frame(inlink->dst->outputs[0], frame);
+    setpts->frame = next;
+
+    return ret;
 }
 
 static int activate(AVFilterContext *ctx)
@@ -236,11 +252,18 @@ static int activate(AVFilterContext *ctx)
     ret = ff_inlink_consume_frame(inlink, &in);
     if (ret < 0)
         return ret;
-    if (ret > 0)
-        return filter_frame(inlink, in);
+    if (ret > 0) {
+        if (setpts->frame)
+            return filter_frame(inlink, in);
+        setpts->frame = in;
+    }
 
     if (ff_inlink_acknowledge_status(inlink, &status, &pts)) {
-        double d = eval_pts(setpts, inlink, NULL, pts);
+        double d;
+
+        if (setpts->frame)
+            return filter_frame(inlink, NULL);
+        d = eval_pts(setpts, inlink, NULL, pts);
 
         av_log(ctx, AV_LOG_TRACE, "N:EOF PTS:%s T:%f POS:%s -> PTS:%s T:%f\n",
                d2istr(setpts->var_values[VAR_PTS]),
@@ -260,6 +283,7 @@ static av_cold void uninit(AVFilterContext *ctx)
 {
     SetPTSContext *setpts = ctx->priv;
     av_expr_free(setpts->expr);
+    av_frame_free(&setpts->frame);
     setpts->expr = NULL;
 }
 
