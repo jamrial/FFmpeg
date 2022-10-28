@@ -186,6 +186,9 @@ static const struct MovChannelLayoutMap mov_ch_layout_map_8ch[] = {
 
     { MOV_CH_LAYOUT_MPEG_7_1_C,          AV_CH_LAYOUT_7POINT1 },        // L, R, C, LFE, Ls, Rs,  Rls, Rrs
     { MOV_CH_LAYOUT_EAC3_7_1_A,          AV_CH_LAYOUT_7POINT1 },        // L, C, R, Ls,  Rs, LFE, Rls, Rrs
+    { MOV_CH_LAYOUT_AAC_7_1_B,           AV_CH_LAYOUT_7POINT1 },        // C, L, R, Ls,  Rs, Rls, Rrs, LFE
+
+    { MOV_CH_LAYOUT_AAC_7_1_C,           AV_CH_LAYOUT_7POINT1_TOP },    // C, L, R, Ls, Rs, LFE, Vhl, Vhr
 
     { MOV_CH_LAYOUT_SMPTE_DTV,           AV_CH_LAYOUT_5POINT1 |         // L, R, C, LFE, Ls, Rs, Lt, Rt
                                          AV_CH_LAYOUT_STEREO_DOWNMIX },
@@ -276,6 +279,8 @@ static const enum MovChannelLayoutTag mov_ch_layouts_aac[] = {
     MOV_CH_LAYOUT_DTS_6_1_A,
     MOV_CH_LAYOUT_AAC_OCTAGONAL,
     MOV_CH_LAYOUT_MPEG_7_1_B,
+    MOV_CH_LAYOUT_AAC_7_1_B,
+    MOV_CH_LAYOUT_AAC_7_1_C,
     MOV_CH_LAYOUT_DTS_8_0_A,
     0,
 };

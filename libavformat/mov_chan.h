@@ -135,6 +135,8 @@ enum MovChannelLayoutTag {
     MOV_CH_LAYOUT_DTS_8_0_B             = (179 << 16) | 8,
     MOV_CH_LAYOUT_DTS_8_1_A             = (180 << 16) | 9,
     MOV_CH_LAYOUT_DTS_8_1_B             = (181 << 16) | 9,
+    MOV_CH_LAYOUT_AAC_7_1_B             = (183 << 16) | 8,
+    MOV_CH_LAYOUT_AAC_7_1_C             = (184 << 16) | 8,
 };
 
 /**
