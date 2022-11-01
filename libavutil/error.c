@@ -48,6 +48,7 @@ static const struct error_entry error_entries[] = {
     { ERROR_TAG(FILTER_NOT_FOUND),   "Filter not found"                               },
     { ERROR_TAG(INPUT_CHANGED),      "Input changed"                                  },
     { ERROR_TAG(INVALIDDATA),        "Invalid data found when processing input"       },
+    { ERROR_TAG(UNRECOVERABLE),      "Unrecoverable error"                            },
     { ERROR_TAG(MUXER_NOT_FOUND),    "Muxer not found"                                },
     { ERROR_TAG(OPTION_NOT_FOUND),   "Option not found"                               },
     { ERROR_TAG(OUTPUT_CHANGED),     "Output changed"                                 },
