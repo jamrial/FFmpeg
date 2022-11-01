@@ -585,6 +585,7 @@ static void add_input_streams(OptionsContext *o, AVFormatContext *ic)
         ist->st = st;
         ist->file_index = nb_input_files;
         ist->discard = 1;
+        ist->fatal = 0;
         st->discard  = AVDISCARD_ALL;
         ist->nb_samples = 0;
         ist->first_dts = AV_NOPTS_VALUE;

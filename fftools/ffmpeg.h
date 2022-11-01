@@ -325,6 +325,7 @@ typedef struct InputStream {
     int file_index;
     AVStream *st;
     int discard;             /* true if stream data should be discarded */
+    int fatal;               /* true if the decoding process for stream is in an unrecoverable state */
     int user_set_discard;
     int decoding_needed;     /* non zero if the packets must be decoded in 'raw_fifo', see DECODING_FOR_* */
 #define DECODING_FOR_OST    1
@@ -478,6 +479,7 @@ enum forced_keyframes_const {
 
 #define ABORT_ON_FLAG_EMPTY_OUTPUT        (1 <<  0)
 #define ABORT_ON_FLAG_EMPTY_OUTPUT_STREAM (1 <<  1)
+#define ABORT_ON_FLAG_UNRECOVERABLE_DECODE_ERROR (1 <<  2)
 
 extern const char *const forced_keyframes_const_names[];
 

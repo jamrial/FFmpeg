@@ -305,6 +305,7 @@ static int opt_abort_on(void *optctx, const char *opt, const char *arg)
         { "abort_on"           , NULL, 0, AV_OPT_TYPE_FLAGS, { .i64 = 0 }, INT64_MIN, INT64_MAX,           .unit = "flags" },
         { "empty_output"       , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = ABORT_ON_FLAG_EMPTY_OUTPUT        }, .unit = "flags" },
         { "empty_output_stream", NULL, 0, AV_OPT_TYPE_CONST, { .i64 = ABORT_ON_FLAG_EMPTY_OUTPUT_STREAM }, .unit = "flags" },
+        { "unrecoverable_decode_error", NULL, 0, AV_OPT_TYPE_CONST, { .i64 = ABORT_ON_FLAG_UNRECOVERABLE_DECODE_ERROR }, .unit = "flags" },
         { NULL },
     };
     static const AVClass class = {

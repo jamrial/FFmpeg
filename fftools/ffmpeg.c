@@ -2405,6 +2405,12 @@ static int process_input_packet(InputStream *ist, const AVPacket *pkt, int no_eo
             break;
         }
 
+        if (ist->fatal)
+            break;
+
+        if (ret == AVERROR_UNRECOVERABLE)
+            ist->fatal = 1;
+
         if (ret < 0) {
             if (decode_failed) {
                 av_log(NULL, AV_LOG_ERROR, "Error while decoding stream #%d:%d: %s\n",
@@ -2413,7 +2419,8 @@ static int process_input_packet(InputStream *ist, const AVPacket *pkt, int no_eo
                 av_log(NULL, AV_LOG_FATAL, "Error while processing the decoded "
                        "data for stream #%d:%d\n", ist->file_index, ist->st->index);
             }
-            if (!decode_failed || exit_on_error)
+            if (!decode_failed || exit_on_error ||
+                (ret == AVERROR_UNRECOVERABLE && (abort_on_flags & ABORT_ON_FLAG_UNRECOVERABLE_DECODE_ERROR)))
                 exit_program(1);
             break;
         }
