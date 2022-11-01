@@ -143,6 +143,11 @@ typedef struct AVCodecInternal {
     int draining;
 
     /**
+     * An unrecoverable error was found, decoding can't proceed normally
+     */
+    int fatal;
+
+    /**
      * Temporary buffers for newly received or not yet output packets/frames.
      */
     AVPacket *buffer_pkt;

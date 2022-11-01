@@ -576,7 +576,9 @@ static int decode_receive_frame_internal(AVCodecContext *avctx, AVFrame *frame)
 
     av_assert0(!frame->buf[0]);
 
-    if (codec->cb_type == FF_CODEC_CB_TYPE_RECEIVE_FRAME) {
+    if (avci->fatal) {
+        ret = avci->draining ? AVERROR_EOF : AVERROR_UNRECOVERABLE;
+    } else if (codec->cb_type == FF_CODEC_CB_TYPE_RECEIVE_FRAME) {
         ret = codec->cb.receive_frame(avctx, frame);
         if (ret != AVERROR(EAGAIN))
             av_packet_unref(avci->last_pkt_props);
@@ -585,6 +587,9 @@ static int decode_receive_frame_internal(AVCodecContext *avctx, AVFrame *frame)
 
     if (ret == AVERROR_EOF)
         avci->draining_done = 1;
+
+    if (ret == AVERROR_UNRECOVERABLE)
+        avci->fatal = 1;
 
     /* preserve ret */
     ok = detect_colorspace(avctx, frame);
@@ -647,6 +652,16 @@ int attribute_align_arg avcodec_send_packet(AVCodecContext *avctx, const AVPacke
 
     if (avpkt && !avpkt->size && avpkt->data)
         return AVERROR(EINVAL);
+
+    if (avctx->internal->fatal) {
+        /* The API expects EOF signaling to always be handled even with
+         * of decoding errors */
+        if (!avpkt || IS_EMPTY(avpkt)) {
+            avctx->internal->draining = 1;
+            return 0;
+        }
+        return AVERROR_UNRECOVERABLE;
+    }
 
     av_packet_unref(avci->buffer_pkt);
     if (avpkt && (avpkt->data || avpkt->side_data_elems)) {
