@@ -49,6 +49,10 @@ static inline int ff_cuda_check(void *avctx,
         av_log(avctx, AV_LOG_ERROR, " -> %s: %s", err_name, err_string);
     av_log(avctx, AV_LOG_ERROR, "\n");
 
+    // Not recoverable
+    if (err == CUDA_ERROR_UNKNOWN)
+        return AVERROR_UNRECOVERABLE;
+
     return AVERROR_EXTERNAL;
 }
 
