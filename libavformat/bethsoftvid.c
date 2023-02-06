@@ -123,6 +123,7 @@ static int read_frame(BVID_DemuxContext *vid, AVIOContext *pb, AVPacket *pkt,
                                   "video packet");
         }
         avpriv_set_pts_info(st, 64, 185, vid->sample_rate);
+        st->ts_flags = AVFORMAT_TS_FLAG_DURATION;
         st->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
         st->codecpar->codec_id   = AV_CODEC_ID_BETHSOFTVID;
         st->codecpar->width      = vid->width;
@@ -259,6 +260,7 @@ static int vid_read_packet(AVFormatContext *s,
                 st->codecpar->sample_rate           = vid->sample_rate;
                 st->codecpar->bit_rate              = 8 * st->codecpar->sample_rate;
                 st->start_time                   = 0;
+                st->ts_flags                        = AVFORMAT_TS_FLAG_DURATION;
                 avpriv_set_pts_info(st, 64, 1, vid->sample_rate);
             }
             audio_length = avio_rl16(pb);
