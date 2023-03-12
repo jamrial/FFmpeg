@@ -1612,9 +1612,9 @@ static void mkv_write_dovi(AVFormatContext *s, AVIOContext *pb, AVStream *st)
                                 + (2 + 1 + 4) + (2 + 1 + ISOM_DVCC_DVVC_SIZE);
 
         if (dovi->dv_profile > 7) {
-            type = MKBETAG('d', 'v', 'v', 'C');
+            type = MATROSKA_BLOCK_ADD_ID_TYPE_DVVC;
         } else {
-            type = MKBETAG('d', 'v', 'c', 'C');
+            type = MATROSKA_BLOCK_ADD_ID_TYPE_DVCC;
         }
 
         ff_isom_put_dvcc_dvvc(s, buf, dovi);

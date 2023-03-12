@@ -360,7 +360,10 @@ typedef enum {
 
 typedef enum {
   MATROSKA_BLOCK_ADD_ID_TYPE_DEFAULT                     = 0,
+  MATROSKA_BLOCK_ADD_ID_TYPE_OPAQUE_DATA                 = 1,
   MATROSKA_BLOCK_ADD_ID_TYPE_ITU_T_T35                   = 4,
+  MATROSKA_BLOCK_ADD_ID_TYPE_DVCC                        = 0x64766343,
+  MATROSKA_BLOCK_ADD_ID_TYPE_DVVC                        = 0x64767643,
 } MatroskaBlockAddIDType;
 
 /*

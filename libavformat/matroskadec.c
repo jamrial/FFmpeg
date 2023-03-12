@@ -2404,8 +2404,8 @@ static int mkv_parse_block_addition_mappings(AVFormatContext *s, AVStream *st, M
             }
             track->blockaddid_itu_t_t35 = 1;
             break;
-        case MKBETAG('d','v','c','C'):
-        case MKBETAG('d','v','v','C'):
+        case MATROSKA_BLOCK_ADD_ID_TYPE_DVCC:
+        case MATROSKA_BLOCK_ADD_ID_TYPE_DVVC:
             if ((ret = mkv_parse_dvcc_dvvc(s, st, track, &mapping->extradata)) < 0)
                 return ret;
 
