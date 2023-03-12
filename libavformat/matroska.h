@@ -358,6 +358,11 @@ typedef enum {
   MATROSKA_VIDEO_PROJECTION_TYPE_MESH               = 3,
 } MatroskaVideoProjectionType;
 
+typedef enum {
+  MATROSKA_BLOCK_ADD_ID_TYPE_DEFAULT                     = 0,
+  MATROSKA_BLOCK_ADD_ID_TYPE_ITU_T_T35                   = 4,
+} MatroskaBlockAddIDType;
+
 /*
  * Matroska Codec IDs, strings
  */
