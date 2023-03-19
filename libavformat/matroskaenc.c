@@ -44,6 +44,7 @@
 #include "libavutil/channel_layout.h"
 #include "libavutil/crc.h"
 #include "libavutil/dict.h"
+#include "libavutil/hdr_dynamic_metadata.h"
 #include "libavutil/intfloat.h"
 #include "libavutil/intreadwrite.h"
 #include "libavutil/lfg.h"
@@ -1612,6 +1613,10 @@ static void mkv_write_blockadditionmapping(AVFormatContext *s, MatroskaMuxContex
         // we either write the default value here, or a void element. Either of them will
         // be overwritten when finishing the track.
         put_ebml_uint(mkv->track.bc, MATROSKA_ID_TRACKMAXBLKADDID, 0);
+        // Similarly, reserve space for an eventual HDR10+ ITU T.35 metadata BlockAdditionMapping.
+        put_ebml_void(pb, 3 /* BlockAdditionMapping */
+                        + 4 /* BlockAddIDValue */
+                        + 4 /* BlockAddIDType */);
     }
 
     if (dovi && dovi->dv_profile <= 10) {
@@ -2618,17 +2623,34 @@ static int webm_reformat_vtt(MatroskaMuxContext *mkv, AVIOContext *pb,
     return 0;
 }
 
+static void mkv_write_blockadditional(EbmlWriter *writer, const uint8_t *buf,
+                                      size_t size, enum AVPacketSideDataType type,
+                                      uint64_t additional_id)
+{
+    size_t offset = 0;
+
+    if (type == AV_PKT_DATA_MATROSKA_BLOCKADDITIONAL)
+        offset = 8;
+
+    ebml_writer_open_master(writer, MATROSKA_ID_BLOCKMORE);
+    ebml_writer_add_uint(writer, MATROSKA_ID_BLOCKADDID, additional_id);
+    ebml_writer_add_bin (writer, MATROSKA_ID_BLOCKADDITIONAL,
+                         buf + offset, size - offset);
+    ebml_writer_close_master(writer);
+}
+
 static int mkv_write_block(void *logctx, MatroskaMuxContext *mkv,
                            AVIOContext *pb, const AVCodecParameters *par,
                            mkv_track *track, const AVPacket *pkt,
                            int keyframe, int64_t ts, uint64_t duration,
                            int force_blockgroup, int64_t relative_packet_pos)
 {
-    uint8_t *side_data;
+    uint8_t *side_data, *buf = NULL;
     size_t side_data_size;
-    uint64_t additional_id;
+    uint64_t additional_id, max_blockaddid = 0;
     unsigned track_number = track->track_num;
-    EBML_WRITER(9);
+    int ret;
+    EBML_WRITER(13);
 
     mkv->cur_block.track  = track;
     mkv->cur_block.pkt    = pkt;
@@ -2670,16 +2692,49 @@ static int mkv_write_block(void *logctx, MatroskaMuxContext *mkv,
         // Only the Codec-specific BlockMore (id == 1) is currently supported.
         (additional_id = AV_RB64(side_data)) == 1) {
         ebml_writer_open_master(&writer, MATROSKA_ID_BLOCKADDITIONS);
-        ebml_writer_open_master(&writer, MATROSKA_ID_BLOCKMORE);
-        /* Until dbc50f8a our demuxer used a wrong default value
-         * of BlockAddID, so we write it unconditionally. */
-        ebml_writer_add_uint(&writer, MATROSKA_ID_BLOCKADDID, additional_id);
-        ebml_writer_add_bin (&writer, MATROSKA_ID_BLOCKADDITIONAL,
-                             side_data + 8, side_data_size - 8);
-        ebml_writer_close_master(&writer);
-        ebml_writer_close_master(&writer);
-        track->max_blockaddid = additional_id;
+        mkv_write_blockadditional(&writer, side_data, side_data_size,
+                                  AV_PKT_DATA_MATROSKA_BLOCKADDITIONAL,
+                                  additional_id);
+        max_blockaddid = track->max_blockaddid = FFMAX(track->max_blockaddid,
+                                                       additional_id);
     }
+
+    side_data = av_packet_get_side_data(pkt,
+                                        AV_PKT_DATA_DYNAMIC_HDR10_PLUS,
+                                        &side_data_size);
+    if (side_data_size) {
+        uint8_t *payload;
+        size_t payload_size, buf_size;
+        int ret = av_dynamic_hdr_plus_to_t35((AVDynamicHDRPlus *)side_data, &payload,
+                                             &payload_size);
+        if (ret < 0)
+            return ret;
+
+        buf_size = payload_size + 6;
+        buf = av_malloc(buf_size);
+        if (!buf) {
+            av_free(payload);
+            return AVERROR(ENOMEM);
+        }
+
+        AV_WB8 (buf + 0, 0xB5); // country_code
+        AV_WB16(buf + 1, 0x3C); // provider_code
+        AV_WB16(buf + 3, 0x01); // provider_oriented_code
+        AV_WB8 (buf + 5, 0x04); // application_identifier
+        memcpy(buf + 6, payload, payload_size);
+
+        if (!max_blockaddid)
+            ebml_writer_open_master(&writer, MATROSKA_ID_BLOCKADDITIONS);
+        mkv_write_blockadditional(&writer, buf, buf_size,
+                                  AV_PKT_DATA_DYNAMIC_HDR10_PLUS,
+                                  4);
+        track->max_blockaddid = FFMAX(track->max_blockaddid, 4);
+
+        av_free(payload);
+    }
+
+    if (max_blockaddid)
+        ebml_writer_close_master(&writer);
 
     if (!force_blockgroup && writer.nb_elements == 2) {
         /* Nothing except the BlockGroup + Block. Can use a SimpleBlock. */
@@ -2693,7 +2748,10 @@ static int mkv_write_block(void *logctx, MatroskaMuxContext *mkv,
         ebml_writer_add_sint(&writer, MATROSKA_ID_BLOCKREFERENCE,
                              track->last_timestamp - ts);
 
-    return ebml_writer_write(&writer, pb);
+    ret = ebml_writer_write(&writer, pb);
+    av_free(buf);
+
+    return ret;
 }
 
 static int mkv_end_cluster(AVFormatContext *s)
@@ -3095,6 +3153,12 @@ after_cues:
             avio_seek(mkv->track.bc, track->blockadditionmapping_offset, SEEK_SET);
 
             put_ebml_uint(mkv->track.bc, MATROSKA_ID_TRACKMAXBLKADDID, track->max_blockaddid);
+            if (track->max_blockaddid == 4) { // HDR10+
+                ebml_master mapping_master = start_ebml_master(mkv->track.bc, MATROSKA_ID_TRACKBLKADDMAPPING, 8);
+                put_ebml_uint(mkv->track.bc, MATROSKA_ID_BLKADDIDTYPE, MATROSKA_BLOCK_ADD_ID_TYPE_ITU_T_T35);
+                put_ebml_uint(mkv->track.bc, MATROSKA_ID_BLKADDIDVALUE, 4);
+                end_ebml_master(mkv->track.bc, mapping_master);
+            }
         }
 
         avio_seek(mkv->track.bc, end, SEEK_SET);
