@@ -52,6 +52,7 @@ typedef struct Libdav1dContext {
     int apply_grain;
     int operating_point;
     int all_layers;
+    int api_version;
 } Libdav1dContext;
 
 static const enum AVPixelFormat pix_fmt[][3] = {
@@ -218,6 +219,10 @@ static av_cold int libdav1d_init(AVCodecContext *c)
     int res;
 
     av_log(c, AV_LOG_INFO, "libdav1d %s\n", dav1d_version());
+
+#if FF_DAV1D_VERSION_AT_LEAST(6,10)
+    dav1d->api_version = dav1d_version_api();
+#endif
 
     dav1d_default_settings(&s);
     s.logger.cookie = c;
@@ -663,6 +668,7 @@ static const AVOption libdav1d_options[] = {
     { "filmgrain", "Apply Film Grain", OFFSET(apply_grain), AV_OPT_TYPE_BOOL, { .i64 = -1 }, -1, 1, VD | AV_OPT_FLAG_DEPRECATED },
     { "oppoint",  "Select an operating point of the scalable bitstream", OFFSET(operating_point), AV_OPT_TYPE_INT, { .i64 = -1 }, -1, 31, VD },
     { "alllayers", "Output all spatial layers", OFFSET(all_layers), AV_OPT_TYPE_BOOL, { .i64 = 0 }, 0, 1, VD },
+    { "api_version", "Runtime libdav1d API version", OFFSET(api_version), AV_OPT_TYPE_INT, { .i64 = 0 }, 0, INT_MAX, VD | AV_OPT_FLAG_EXPORT | AV_OPT_FLAG_READONLY },
     { NULL }
 };
 

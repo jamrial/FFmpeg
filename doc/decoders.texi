@@ -101,6 +101,12 @@ internal default of the library.
 @item alllayers
 Output all spatial layers of a scalable AV1 bitstream. The default value is false.
 
+@item api_version
+API version of the libdav1d used at runtime. This is a read only field filled after
+the decoder has been initialized, and it's in the format 0x00XXYYZZ, where XX is the
+major version, YY the minor version, and ZZ the patch version.
+It will be zero for libdav1d <= 1.2.0.
+
 @end table
 
 @section libdavs2
