@@ -154,6 +154,8 @@ typedef struct OptionsContext {
     int        nb_hwaccel_output_formats;
     SpecifierOpt *autorotate;
     int        nb_autorotate;
+    SpecifierOpt *apply_cropping;
+    int        nb_apply_cropping;
 
     /* output options */
     StreamMap *stream_maps;
@@ -347,6 +349,7 @@ typedef struct InputStream {
     int top_field_first;
 
     int autorotate;
+    int apply_cropping;
 
     int fix_sub_duration;
 

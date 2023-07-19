@@ -48,6 +48,7 @@ static const char *const opt_name_hwaccels[]                  = {"hwaccel", NULL
 static const char *const opt_name_hwaccel_devices[]           = {"hwaccel_device", NULL};
 static const char *const opt_name_hwaccel_output_formats[]    = {"hwaccel_output_format", NULL};
 static const char *const opt_name_autorotate[]                = {"autorotate", NULL};
+static const char *const opt_name_apply_cropping[]            = {"apply_cropping", NULL};
 static const char *const opt_name_display_rotations[]         = {"display_rotation", NULL};
 static const char *const opt_name_display_hflips[]            = {"display_hflip", NULL};
 static const char *const opt_name_display_vflips[]            = {"display_vflip", NULL};
@@ -1084,6 +1085,11 @@ static int ist_add(const OptionsContext *o, Demuxer *d, AVStream *st)
 
     ist->autorotate = 1;
     MATCH_PER_STREAM_OPT(autorotate, i, ist->autorotate, ic, st);
+
+    ist->apply_cropping = 1;
+    MATCH_PER_STREAM_OPT(apply_cropping, i, ist->apply_cropping, ic, st);
+
+    av_dict_set_int(&o->g->codec_opts, "apply_cropping", ist->apply_cropping, 0);
 
     MATCH_PER_STREAM_OPT(codec_tags, str, codec_tag, ic, st);
     if (codec_tag) {

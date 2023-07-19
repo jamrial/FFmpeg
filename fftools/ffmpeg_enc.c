@@ -448,14 +448,17 @@ int enc_open(OutputStream *ost, AVFrame *frame)
         int i;
         for (i = 0; i < ist->st->nb_side_data; i++) {
             AVPacketSideData *sd = &ist->st->side_data[i];
-            if (sd->type != AV_PKT_DATA_CPB_PROPERTIES) {
-                uint8_t *dst = av_stream_new_side_data(ost->st, sd->type, sd->size);
-                if (!dst)
-                    return AVERROR(ENOMEM);
-                memcpy(dst, sd->data, sd->size);
-                if (ist->autorotate && sd->type == AV_PKT_DATA_DISPLAYMATRIX)
-                    av_display_rotation_set((int32_t *)dst, 0);
-            }
+            uint8_t *dst;
+            if (sd->type == AV_PKT_DATA_CPB_PROPERTIES)
+                continue;
+            if (ist->apply_cropping && sd->type == AV_PKT_DATA_FRAME_CROPPING)
+                continue;
+            dst = av_stream_new_side_data(ost->st, sd->type, sd->size);
+            if (!dst)
+                return AVERROR(ENOMEM);
+            memcpy(dst, sd->data, sd->size);
+            if (ist->autorotate && sd->type == AV_PKT_DATA_DISPLAYMATRIX)
+                av_display_rotation_set((int32_t *)dst, 0);
         }
     }
 

@@ -31,6 +31,7 @@
 #include "libavutil/bprint.h"
 #include "libavutil/channel_layout.h"
 #include "libavutil/display.h"
+#include "libavutil/intreadwrite.h"
 #include "libavutil/opt.h"
 #include "libavutil/pixdesc.h"
 #include "libavutil/pixfmt.h"
@@ -1380,6 +1381,27 @@ static int configure_input_video_filter(FilterGraph *fg, InputFilter *ifilter,
 
     desc = av_pix_fmt_desc_get(ifp->format);
     av_assert0(desc);
+
+    if (ist->apply_cropping) {
+        size_t cropping_size;
+        uint8_t *cropping = av_stream_get_side_data(ist->st, AV_PKT_DATA_FRAME_CROPPING, &cropping_size);
+
+        if (cropping && cropping_size == sizeof(uint32_t) * 4) {
+            char crop_buf[64];
+            int top    = AV_RL32(cropping +  0);
+            int bottom = AV_RL32(cropping +  4);
+            int left   = AV_RL32(cropping +  8);
+            int right  = AV_RL32(cropping + 12);
+
+            if (top < 0 || bottom < 0 || left < 0 || right < 0)
+                return AVERROR(EINVAL);
+
+            snprintf(crop_buf, sizeof(crop_buf), "w=iw-%d-%d:h=ih-%d-%d", left, right, top, bottom);
+            ret = insert_filter(&last_filter, &pad_idx, "crop", crop_buf);
+            if (ret < 0)
+                return ret;
+        }
+    }
 
     // TODO: insert hwaccel enabled filters like transpose_vaapi into the graph
     if (ist->autorotate && !(desc->flags & AV_PIX_FMT_FLAG_HWACCEL)) {

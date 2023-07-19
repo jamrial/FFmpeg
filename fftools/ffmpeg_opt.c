@@ -1733,6 +1733,9 @@ const OptionDef options[] = {
     { "autorotate",       HAS_ARG | OPT_BOOL | OPT_SPEC |
                           OPT_EXPERT | OPT_INPUT,                                { .off = OFFSET(autorotate) },
         "automatically insert correct rotate filters" },
+    { "apply_cropping",   HAS_ARG | OPT_BOOL | OPT_SPEC |
+                          OPT_EXPERT | OPT_INPUT,                                { .off = OFFSET(apply_cropping) },
+        "Apply frame cropping instead of exporting it" },
     { "autoscale",        HAS_ARG | OPT_BOOL | OPT_SPEC |
                           OPT_EXPERT | OPT_OUTPUT,                               { .off = OFFSET(autoscale) },
         "automatically insert a scale filter at the end of the filter graph" },
