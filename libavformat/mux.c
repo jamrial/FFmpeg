@@ -186,6 +186,7 @@ static int init_muxer(AVFormatContext *s, AVDictionary **options)
     AVDictionary *tmp = NULL;
     const FFOutputFormat *of = ffofmt(s->oformat);
     AVDictionaryEntry *e;
+    int warned_crop = 0;
     int ret = 0;
 
     if (options)
@@ -273,6 +274,11 @@ FF_ENABLE_DEPRECATION_WARNINGS
                     ret = AVERROR(EINVAL);
                     goto fail;
                 }
+            }
+            if (!warned_crop && av_stream_get_side_data(st, AV_PKT_DATA_FRAME_CROPPING, NULL) &&
+                !(s->oformat->flags & AVFMT_CROPPING)) {
+                av_log(s, AV_LOG_WARNING, "Muxer does not support storing cropping values\n");
+                warned_crop = 1;
             }
             break;
         }
