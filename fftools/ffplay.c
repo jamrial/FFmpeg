@@ -36,6 +36,7 @@
 #include "libavutil/eval.h"
 #include "libavutil/mathematics.h"
 #include "libavutil/pixdesc.h"
+#include "libavutil/intreadwrite.h"
 #include "libavutil/imgutils.h"
 #include "libavutil/dict.h"
 #include "libavutil/fifo.h"
@@ -346,6 +347,7 @@ static const char **vfilters_list = NULL;
 static int nb_vfilters = 0;
 static char *afilters = NULL;
 static int autorotate = 1;
+static int apply_cropping = 1;
 static int find_stream_info = 1;
 static int filter_nbthreads = 0;
 
@@ -1898,6 +1900,27 @@ static int configure_video_filters(AVFilterGraph *graph, VideoState *is, const c
     last_filter = filt_ctx;                                                  \
 } while (0)
 
+    if (apply_cropping) {
+        size_t cropping_size;
+        uint8_t *cropping = av_stream_get_side_data(is->video_st, AV_PKT_DATA_FRAME_CROPPING, &cropping_size);
+
+        if (cropping && cropping_size == sizeof(uint32_t) * 4) {
+            char crop_buf[64];
+            int top    = AV_RL32(cropping +  0);
+            int bottom = AV_RL32(cropping +  4);
+            int left   = AV_RL32(cropping +  8);
+            int right  = AV_RL32(cropping + 12);
+
+            if (top < 0 || bottom < 0 || left < 0 || right < 0)  {
+                ret = AVERROR(EINVAL);
+                goto fail;
+            }
+
+            snprintf(crop_buf, sizeof(crop_buf), "w=iw-%d-%d:h=ih-%d-%d", left, right, top, bottom);
+            INSERT_FILT("crop", crop_buf);
+        }
+    }
+
     if (autorotate) {
         double theta = 0.0;
         int32_t *displaymatrix = NULL;
@@ -2593,6 +2616,7 @@ static int stream_component_open(VideoState *is, int stream_index)
         av_dict_set(&opts, "threads", "auto", 0);
     if (stream_lowres)
         av_dict_set_int(&opts, "lowres", stream_lowres, 0);
+    av_dict_set_int(&opts, "apply_cropping", apply_cropping, 0);
 
     av_dict_set(&opts, "flags", "+copy_opaque", AV_DICT_MULTIKEY);
 
@@ -3593,6 +3617,7 @@ static const OptionDef options[] = {
     { "scodec", HAS_ARG | OPT_STRING | OPT_EXPERT, { &subtitle_codec_name }, "force subtitle decoder", "decoder_name" },
     { "vcodec", HAS_ARG | OPT_STRING | OPT_EXPERT, {    &video_codec_name }, "force video decoder",    "decoder_name" },
     { "autorotate", OPT_BOOL, { &autorotate }, "automatically rotate video", "" },
+    { "apply_cropping", OPT_BOOL, { &apply_cropping }, "apply frame cropping", "" },
     { "find_stream_info", OPT_BOOL | OPT_INPUT | OPT_EXPERT, { &find_stream_info },
         "read and decode the streams to fill missing information with heuristics" },
     { "filter_threads", HAS_ARG | OPT_INT | OPT_EXPERT, { &filter_nbthreads }, "number of filter threads per graph" },
