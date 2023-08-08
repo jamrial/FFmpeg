@@ -356,6 +356,23 @@ void *av_dynarray2_add(void **tab_ptr, int *nb_ptr, size_t elem_size,
     return tab_elem_data;
 }
 
+void *av_dynarray2_add_nofree(void **tab_ptr, int *nb_ptr, size_t elem_size,
+                              const uint8_t *elem_data)
+{
+    uint8_t *tab_elem_data = NULL;
+
+    FF_DYNARRAY_ADD(INT_MAX, elem_size, *tab_ptr, *nb_ptr, {
+        tab_elem_data = (uint8_t *)*tab_ptr + (*nb_ptr) * elem_size;
+        if (elem_data)
+            memcpy(tab_elem_data, elem_data, elem_size);
+        else if (CONFIG_MEMORY_POISONING)
+            memset(tab_elem_data, FF_MEMORY_POISON, elem_size);
+    }, {
+        return NULL;
+    });
+    return tab_elem_data;
+}
+
 static void fill16(uint8_t *dst, int len)
 {
     uint32_t v = AV_RN16(dst - 2);

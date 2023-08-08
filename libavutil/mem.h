@@ -519,7 +519,7 @@ void av_memcpy_backptr(uint8_t *dst, int back, int cnt);
  * @param[in,out] tab_ptr Pointer to the array to grow
  * @param[in,out] nb_ptr  Pointer to the number of elements in the array
  * @param[in]     elem    Element to add
- * @see av_dynarray_add_nofree(), av_dynarray2_add()
+ * @see av_dynarray_add_nofree(), av_dynarray2_add(), av_dynarray2_add_nofree()
  */
 void av_dynarray_add(void *tab_ptr, int *nb_ptr, void *elem);
 
@@ -531,7 +531,7 @@ void av_dynarray_add(void *tab_ptr, int *nb_ptr, void *elem);
  * instead and leave current buffer untouched.
  *
  * @return >=0 on success, negative otherwise
- * @see av_dynarray_add(), av_dynarray2_add()
+ * @see av_dynarray_add(), av_dynarray2_add(), av_dynarray2_add_nofree()
  */
 av_warn_unused_result
 int av_dynarray_add_nofree(void *tab_ptr, int *nb_ptr, void *elem);
@@ -557,10 +557,36 @@ int av_dynarray_add_nofree(void *tab_ptr, int *nb_ptr, void *elem);
  *
  * @return Pointer to the data of the element to copy in the newly allocated
  *         space
- * @see av_dynarray_add(), av_dynarray_add_nofree()
+ * @see av_dynarray2_add_nofree(), av_dynarray_add(), av_dynarray_add_nofree()
  */
 void *av_dynarray2_add(void **tab_ptr, int *nb_ptr, size_t elem_size,
                        const uint8_t *elem_data);
+
+/**
+ * Add an element of size `elem_size` to a dynamic array.
+ *
+ * The array is reallocated when its number of elements reaches powers of 2.
+ * Therefore, the amortized cost of adding an element is constant.
+ *
+ * In case of success, the pointer to the array is updated in order to
+ * point to the new grown array, and the number pointed to by `nb_ptr`
+ * is incremented.
+ * In case of failure, the array and `nb_ptr` are left untouched, and NULL
+ * is returned.
+ *
+ * @param[in,out] tab_ptr   Pointer to the array to grow
+ * @param[in,out] nb_ptr    Pointer to the number of elements in the array
+ * @param[in]     elem_size Size in bytes of an element in the array
+ * @param[in]     elem_data Pointer to the data of the element to add. If
+ *                          `NULL`, the space of the newly added element is
+ *                          allocated but left uninitialized.
+ *
+ * @return Pointer to the data of the element to copy in the newly allocated
+ *         space on success, NULL otherwise.
+ * @see av_dynarray2_add(), av_dynarray_add(), av_dynarray_add_nofree()
+ */
+void *av_dynarray2_add_nofree(void **tab_ptr, int *nb_ptr, size_t elem_size,
+                              const uint8_t *elem_data);
 
 /**
  * @}
