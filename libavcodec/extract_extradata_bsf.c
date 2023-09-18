@@ -58,6 +58,24 @@ static int val_in_array(const int *arr, int len, int val)
     return 0;
 }
 
+static int add_metadata(const AV1OBU *obu)
+{
+    static const int metadata_obu_types[] = {
+        AV1_METADATA_TYPE_HDR_CLL, AV1_METADATA_TYPE_HDR_MDCV,
+    };
+    GetBitContext gb;
+    int metadata_type, ret;
+
+    ret = init_get_bits(&gb, obu->data, obu->size_bits);
+    if (ret < 0)
+        return 0;
+
+    metadata_type = leb128(&gb);
+
+    return val_in_array(metadata_obu_types, FF_ARRAY_ELEMS(metadata_obu_types),
+                        metadata_type);
+}
+
 static int extract_extradata_av1(AVBSFContext *ctx, AVPacket *pkt,
                                  uint8_t **data, int *size)
 {
@@ -77,6 +95,11 @@ static int extract_extradata_av1(AVBSFContext *ctx, AVPacket *pkt,
     for (i = 0; i < s->av1_pkt.nb_obus; i++) {
         AV1OBU *obu = &s->av1_pkt.obus[i];
         if (val_in_array(extradata_obu_types, nb_extradata_obu_types, obu->type)) {
+            if (obu->type == AV1_OBU_METADATA && !add_metadata(obu)) {
+                if (s->remove)
+                    filtered_size += obu->raw_size;
+                continue;
+            }
             extradata_size += obu->raw_size;
             if (obu->type == AV1_OBU_SEQUENCE_HEADER)
                 has_seq = 1;
@@ -115,6 +138,11 @@ static int extract_extradata_av1(AVBSFContext *ctx, AVPacket *pkt,
             AV1OBU *obu = &s->av1_pkt.obus[i];
             if (val_in_array(extradata_obu_types, nb_extradata_obu_types,
                              obu->type)) {
+                if (obu->type == AV1_OBU_METADATA && !add_metadata(obu)) {
+                    if (s->remove)
+                        bytestream2_put_bufferu(&pb_filtered_data, obu->raw_data, obu->raw_size);
+                    continue;
+                }
                 bytestream2_put_bufferu(&pb_extradata, obu->raw_data, obu->raw_size);
             } else if (s->remove) {
                 bytestream2_put_bufferu(&pb_filtered_data, obu->raw_data, obu->raw_size);
