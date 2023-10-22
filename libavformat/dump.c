@@ -509,7 +509,7 @@ static void dump_sidedata(void *ctx, const AVStream *st, const char *indent)
 
 /* "user interface" functions */
 static void dump_stream_format(const AVFormatContext *ic, int i,
-                               int index, int is_output)
+                               int group_index, int index, int is_output)
 {
     char buf[256];
     int flags = (is_output ? ic->oformat->flags : ic->iformat->flags);
@@ -517,6 +517,8 @@ static void dump_stream_format(const AVFormatContext *ic, int i,
     const FFStream *const sti = cffstream(st);
     const AVDictionaryEntry *lang = av_dict_get(st->metadata, "language", NULL, 0);
     const char *separator = ic->dump_separator;
+    const char *group_indent = group_index >= 0 ? "    " : "";
+    const char *extra_indent = group_index >= 0 ? "        " : "      ";
     AVCodecContext *avctx;
     int ret;
 
@@ -543,7 +545,8 @@ static void dump_stream_format(const AVFormatContext *ic, int i,
     avcodec_string(buf, sizeof(buf), avctx, is_output);
     avcodec_free_context(&avctx);
 
-    av_log(NULL, AV_LOG_INFO, "  Stream #%d:%d", index, i);
+    av_log(NULL, AV_LOG_INFO, "%s  Stream #%d", group_indent, index);
+    av_log(NULL, AV_LOG_INFO, ":%d", i);
 
     /* the pid is an important information, so we display it */
     /* XXX: add a generic system */
@@ -621,9 +624,24 @@ static void dump_stream_format(const AVFormatContext *ic, int i,
         av_log(NULL, AV_LOG_INFO, " (non-diegetic)");
     av_log(NULL, AV_LOG_INFO, "\n");
 
-    dump_metadata(NULL, st->metadata, "    ");
+    dump_metadata(NULL, st->metadata, extra_indent);
 
-    dump_sidedata(NULL, st, "    ");
+    dump_sidedata(NULL, st, extra_indent);
+}
+
+static void dump_stream_group(const AVFormatContext *ic, uint8_t *printed,
+                              int i, int index, int is_output)
+{
+    const AVStreamGroup *stg = ic->stream_groups[i];
+    char buf[512];
+    int ret;
+
+    av_log(NULL, AV_LOG_INFO, "  Stream group #%d:%d[0x%"PRIx64"]:", index, i, stg->id);
+
+    switch (stg->type) {
+    default:
+        break;
+    }
 }
 
 void av_dump_format(AVFormatContext *ic, int index,
@@ -699,7 +717,7 @@ void av_dump_format(AVFormatContext *ic, int index,
             dump_metadata(NULL, program->metadata, "    ");
             for (k = 0; k < program->nb_stream_indexes; k++) {
                 dump_stream_format(ic, program->stream_index[k],
-                                   index, is_output);
+                                   -1, index, is_output);
                 printed[program->stream_index[k]] = 1;
             }
             total += program->nb_stream_indexes;
@@ -708,9 +726,12 @@ void av_dump_format(AVFormatContext *ic, int index,
             av_log(NULL, AV_LOG_INFO, "  No Program\n");
     }
 
+    for (i = 0; i < ic->nb_stream_groups; i++)
+         dump_stream_group(ic, printed, i, index, is_output);
+
     for (i = 0; i < ic->nb_streams; i++)
         if (!printed[i])
-            dump_stream_format(ic, i, index, is_output);
+            dump_stream_format(ic, i, -1, index, is_output);
 
     av_free(printed);
 }

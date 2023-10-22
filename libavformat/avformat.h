@@ -1018,6 +1018,77 @@ typedef struct AVStream {
     int pts_wrap_bits;
 } AVStream;
 
+enum AVStreamGroupParamsType {
+    AV_STREAM_GROUP_PARAMS_NONE,
+};
+
+typedef struct AVStreamGroup {
+    /**
+     * A class for @ref avoptions. Set by avformat_stream_group_create().
+     */
+    const AVClass *av_class;
+
+    void *priv_data;
+
+    /**
+     * Group index in AVFormatContext.
+     */
+    unsigned int index;
+
+    /**
+     * Group type-specific group ID.
+     *
+     * decoding: set by libavformat
+     * encoding: may set by the user, replaced by libavformat if left unset
+     */
+    int64_t id;
+
+    /**
+     * Group type
+     *
+     * decoding: set by libavformat on group creation
+     * encoding: set by avformat_stream_group_create()
+     */
+    enum AVStreamGroupParamsType type;
+
+    /**
+     * Group type-specific parameters
+     */
+    union {
+        uintptr_t dummy; // Placeholder
+    } params;
+
+    /**
+     * Metadata that applies to the whole group.
+     *
+     * - demuxing: set by libavformat on group creation
+     * - muxing: may be set by the caller before avformat_write_header()
+     *
+     * Freed by libavformat in avformat_free_context().
+     */
+    AVDictionary *metadata;
+
+    /**
+     * Number of elements in AVStreamGroup.streams.
+     *
+     * Set by avformat_stream_group_add_stream() must not be modified by any other code.
+     */
+    unsigned int nb_streams;
+
+    /**
+     * A list of streams in the group. New entries are created with
+     * avformat_stream_group_add_stream().
+     *
+     * - demuxing: entries are created by libavformat on group creation.
+     *             If AVFMTCTX_NOHEADER is set in ctx_flags, then new entries may also
+     *             appear in av_read_frame().
+     * - muxing: entries are created by the user before avformat_write_header().
+     *
+     * Freed by libavformat in avformat_free_context().
+     */
+    AVStream **streams;
+} AVStreamGroup;
+
 struct AVCodecParserContext *av_stream_get_parser(const AVStream *s);
 
 #if FF_API_GET_END_PTS
@@ -1726,6 +1797,26 @@ typedef struct AVFormatContext {
      * @return 0 on success, a negative AVERROR code on failure
      */
     int (*io_close2)(struct AVFormatContext *s, AVIOContext *pb);
+
+    /**
+     * Number of elements in AVFormatContext.stream_groups.
+     *
+     * Set by avformat_stream_group_create(), must not be modified by any other code.
+     */
+    unsigned int nb_stream_groups;
+
+    /**
+     * A list of all stream groups in the file. New groups are created with
+     * avformat_stream_group_create(), and filled with avformat_stream_group_add_stream().
+     *
+     * - demuxing: groups may be created by libavformat in avformat_open_input().
+     *             If AVFMTCTX_NOHEADER is set in ctx_flags, then new groups may also
+     *             appear in av_read_frame().
+     * - muxing: groups may be created by the user before avformat_write_header().
+     *
+     * Freed by libavformat in avformat_free_context().
+     */
+    AVStreamGroup **stream_groups;
 } AVFormatContext;
 
 /**
@@ -1845,6 +1936,37 @@ const AVClass *avformat_get_class(void);
 const AVClass *av_stream_get_class(void);
 
 /**
+ * Get the AVClass for AVStreamGroup. It can be used in combination with
+ * AV_OPT_SEARCH_FAKE_OBJ for examining options.
+ *
+ * @see av_opt_find().
+ */
+const AVClass *av_stream_group_get_class(void);
+
+/**
+ * Add a new empty stream group to a media file.
+ *
+ * When demuxing, it may be called by the demuxer in read_header(). If the
+ * flag AVFMTCTX_NOHEADER is set in s.ctx_flags, then it may also
+ * be called in read_packet().
+ *
+ * When muxing, may be called by the user before avformat_write_header().
+ *
+ * User is required to call avformat_free_context() to clean up the allocation
+ * by avformat_stream_group_create().
+ *
+ * New streams can be added to the group with avformat_stream_group_add_stream().
+ *
+ * @param s media file handle
+ *
+ * @return newly created group or NULL on error.
+ * @see avformat_new_stream, avformat_stream_group_add_stream.
+ */
+AVStreamGroup *avformat_stream_group_create(AVFormatContext *s,
+                                            enum AVStreamGroupParamsType type,
+                                            AVDictionary **options);
+
+/**
  * Add a new stream to a media file.
  *
  * When demuxing, it is called by the demuxer in read_header(). If the
@@ -1862,6 +1984,31 @@ const AVClass *av_stream_get_class(void);
  * @return newly created stream or NULL on error.
  */
 AVStream *avformat_new_stream(AVFormatContext *s, const struct AVCodec *c);
+
+/**
+ * Add an already allocated stream to a stream group.
+ *
+ * When demuxing, it may be called by the demuxer in read_header(). If the
+ * flag AVFMTCTX_NOHEADER is set in s.ctx_flags, then it may also
+ * be called in read_packet().
+ *
+ * When muxing, may be called by the user before avformat_write_header() after
+ * having allocated a new group with avformat_stream_group_create() and stream with
+ * avformat_new_stream().
+ *
+ * User is required to call avformat_free_context() to clean up the allocation
+ * by avformat_stream_group_add_stream().
+ *
+ * @param stg stream group belonging to a media file.
+ * @param st  stream in the media file to add to the group.
+ *
+ * @retval 0                 success
+ * @retval AVERROR(EEXIST)   the stream was already in the group
+ * @retval "another negative error code" legitimate errors
+ *
+ * @see avformat_new_stream, avformat_stream_group_create.
+ */
+int avformat_stream_group_add_stream(AVStreamGroup *stg, AVStream *st);
 
 #if FF_API_AVSTREAM_SIDE_DATA
 /**
@@ -2818,6 +2965,22 @@ AVRational av_guess_frame_rate(AVFormatContext *ctx, AVStream *stream,
  */
 int avformat_match_stream_specifier(AVFormatContext *s, AVStream *st,
                                     const char *spec);
+
+/**
+ * Check if the group stg contained in s is matched by the stream group
+ * specifier spec.
+ *
+ * See the "stream group specifiers" chapter in the documentation for the
+ * syntax of spec.
+ *
+ * @return  >0 if stg is matched by spec;
+ *          0  if stg is not matched by spec;
+ *          AVERROR code if spec is invalid
+ *
+ * @note  A stream group specifier can match several groups in the format.
+ */
+int avformat_match_stream_group_specifier(AVFormatContext *s, AVStreamGroup *stg,
+                                          const char *spec);
 
 int avformat_queue_attached_pictures(AVFormatContext *s);
 
