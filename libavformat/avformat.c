@@ -37,6 +37,7 @@
 #include "avformat.h"
 #include "avio.h"
 #include "demux.h"
+#include "iamf.h"
 #include "mux.h"
 #include "internal.h"
 
@@ -91,7 +92,14 @@ void ff_free_stream_group(AVStreamGroup **pstg)
     av_dict_free(&stg->metadata);
     av_freep(&stg->priv_data);
     switch (stg->type) {
-    // Structs in the union are freed here
+    case AV_STREAM_GROUP_PARAMS_IAMF_AUDIO_ELEMENT: {
+        avformat_iamf_audio_element_free(&stg->params.iamf_audio_element);
+        break;
+    }
+    case AV_STREAM_GROUP_PARAMS_IAMF_MIX_PRESENTATION: {
+        avformat_iamf_mix_presentation_free(&stg->params.iamf_mix_presentation);
+        break;
+    }
     default:
         break;
     }

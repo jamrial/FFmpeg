@@ -1020,7 +1020,12 @@ typedef struct AVStream {
 
 enum AVStreamGroupParamsType {
     AV_STREAM_GROUP_PARAMS_NONE,
+    AV_STREAM_GROUP_PARAMS_IAMF_AUDIO_ELEMENT,
+    AV_STREAM_GROUP_PARAMS_IAMF_MIX_PRESENTATION,
 };
+
+struct AVIAMFAudioElement;
+struct AVIAMFMixPresentation;
 
 typedef struct AVStreamGroup {
     /**
@@ -1055,7 +1060,8 @@ typedef struct AVStreamGroup {
      * Group type-specific parameters
      */
     union {
-        uintptr_t dummy; // Placeholder
+        struct AVIAMFAudioElement *iamf_audio_element;
+        struct AVIAMFMixPresentation *iamf_mix_presentation;
     } params;
 
     /**

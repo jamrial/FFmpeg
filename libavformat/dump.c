@@ -38,6 +38,7 @@
 #include "libavcodec/avcodec.h"
 
 #include "avformat.h"
+#include "iamf.h"
 #include "internal.h"
 
 #define HEXDUMP_PRINT(...)                                                    \
@@ -134,28 +135,36 @@ static void print_fps(double d, const char *postfix)
         av_log(NULL, AV_LOG_INFO, "%1.0fk %s", d / 1000, postfix);
 }
 
+static void dump_dictionary(void *ctx, const AVDictionary *m,
+                            const char *name, const char *indent)
+{
+    const AVDictionaryEntry *tag = NULL;
+
+    if (!m)
+        return;
+
+    av_log(ctx, AV_LOG_INFO, "%s%s:\n", indent, name);
+    while ((tag = av_dict_iterate(m, tag)))
+        if (strcmp("language", tag->key)) {
+            const char *p = tag->value;
+            av_log(ctx, AV_LOG_INFO,
+                   "%s  %-16s: ", indent, tag->key);
+            while (*p) {
+                size_t len = strcspn(p, "\x8\xa\xb\xc\xd");
+                av_log(ctx, AV_LOG_INFO, "%.*s", (int)(FFMIN(255, len)), p);
+                p += len;
+                if (*p == 0xd) av_log(ctx, AV_LOG_INFO, " ");
+                if (*p == 0xa) av_log(ctx, AV_LOG_INFO, "\n%s  %-16s: ", indent, "");
+                if (*p) p++;
+            }
+            av_log(ctx, AV_LOG_INFO, "\n");
+        }
+}
+
 static void dump_metadata(void *ctx, const AVDictionary *m, const char *indent)
 {
-    if (m && !(av_dict_count(m) == 1 && av_dict_get(m, "language", NULL, 0))) {
-        const AVDictionaryEntry *tag = NULL;
-
-        av_log(ctx, AV_LOG_INFO, "%sMetadata:\n", indent);
-        while ((tag = av_dict_iterate(m, tag)))
-            if (strcmp("language", tag->key)) {
-                const char *p = tag->value;
-                av_log(ctx, AV_LOG_INFO,
-                       "%s  %-16s: ", indent, tag->key);
-                while (*p) {
-                    size_t len = strcspn(p, "\x8\xa\xb\xc\xd");
-                    av_log(ctx, AV_LOG_INFO, "%.*s", (int)(FFMIN(255, len)), p);
-                    p += len;
-                    if (*p == 0xd) av_log(ctx, AV_LOG_INFO, " ");
-                    if (*p == 0xa) av_log(ctx, AV_LOG_INFO, "\n%s  %-16s: ", indent, "");
-                    if (*p) p++;
-                }
-                av_log(ctx, AV_LOG_INFO, "\n");
-            }
-    }
+    if (m && !(av_dict_count(m) == 1 && av_dict_get(m, "language", NULL, 0)))
+        dump_dictionary(ctx, m, "Metadata", indent);
 }
 
 /* param change side data*/
@@ -639,6 +648,53 @@ static void dump_stream_group(const AVFormatContext *ic, uint8_t *printed,
     av_log(NULL, AV_LOG_INFO, "  Stream group #%d:%d[0x%"PRIx64"]:", index, i, stg->id);
 
     switch (stg->type) {
+    case AV_STREAM_GROUP_PARAMS_IAMF_AUDIO_ELEMENT: {
+        const AVIAMFAudioElement *audio_element = stg->params.iamf_audio_element;
+        int substream_count = 0;
+        av_log(NULL, AV_LOG_INFO, " IAMF Audio Element\n");
+        for (int j = 0; j < audio_element->num_layers; j++) {
+            const AVIAMFLayer *layer = audio_element->layers[j];
+            substream_count += layer->substream_count;
+            av_log(NULL, AV_LOG_INFO, "    Layer %d:", j);
+            ret = av_channel_layout_describe(&layer->ch_layout, buf, sizeof(buf));
+            if (ret >= 0)
+                av_log(NULL, AV_LOG_INFO, " %s", buf);
+            av_log(NULL, AV_LOG_INFO, "\n");
+            for (int k = 0; k < substream_count && k < stg->nb_streams; k++) {
+                dump_stream_format(ic, stg->streams[k]->index, i, index, is_output);
+                printed[stg->streams[k]->index] = 1;
+            }
+        }
+        break;
+    }
+    case AV_STREAM_GROUP_PARAMS_IAMF_MIX_PRESENTATION: {
+        const AVIAMFMixPresentation *mix_presentation = stg->params.iamf_mix_presentation;
+        av_log(NULL, AV_LOG_INFO, " IAMF Mix Presentation\n");
+        dump_dictionary(NULL, mix_presentation->annotations, "Annotations", "    ");
+        for (int j = 0; j < mix_presentation->num_submixes; j++) {
+            AVIAMFSubmix *sub_mix = mix_presentation->submixes[j];
+            av_log(NULL, AV_LOG_INFO, "    Submix %d:\n", j);
+            for (int k = 0; k < sub_mix->num_elements; k++) {
+                const AVIAMFSubmixElement *submix_element = sub_mix->elements[k];
+                const AVStreamGroup *audio_element = submix_element->audio_element;
+                av_log(NULL, AV_LOG_INFO, "      IAMF Audio Element #%d:%d[0x%"PRIx64"]\n",
+                       index, audio_element->index, audio_element->id);
+                dump_dictionary(NULL, submix_element->annotations, "Annotations", "        ");
+            }
+            for (int k = 0; k < sub_mix->num_layouts; k++) {
+                const AVIAMFSubmixLayout *submix_layout = sub_mix->layouts[k];
+                av_log(NULL, AV_LOG_INFO, "      Layout #%d:", k);
+                if (submix_layout->layout_type == 2) {
+                    ret = av_channel_layout_describe(&submix_layout->sound_system, buf, sizeof(buf));
+                    if (ret >= 0)
+                        av_log(NULL, AV_LOG_INFO, " %s", buf);
+                } else if (submix_layout->layout_type == 3)
+                    av_log(NULL, AV_LOG_INFO, " Binaural");
+                av_log(NULL, AV_LOG_INFO, "\n");
+            }
+        }
+        break;
+    }
     default:
         break;
     }

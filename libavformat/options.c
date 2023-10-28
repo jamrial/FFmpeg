@@ -20,6 +20,7 @@
 #include "avformat.h"
 #include "avio_internal.h"
 #include "demux.h"
+#include "iamf.h"
 #include "internal.h"
 
 #include "libavcodec/avcodec.h"
@@ -326,6 +327,43 @@ fail:
     return NULL;
 }
 
+static void *stream_group_child_next(void *obj, void *prev)
+{
+    AVStreamGroup *stg = obj;
+    if (!prev) {
+        switch(stg->type) {
+        case AV_STREAM_GROUP_PARAMS_IAMF_AUDIO_ELEMENT:
+            return stg->params.iamf_audio_element;
+        case AV_STREAM_GROUP_PARAMS_IAMF_MIX_PRESENTATION:
+            return stg->params.iamf_mix_presentation;
+        default:
+            break;
+        }
+    }
+    return NULL;
+}
+
+static const AVClass *stream_group_child_iterate(void **opaque)
+{
+    uintptr_t i = (uintptr_t)*opaque;
+    const AVClass *ret = NULL;
+
+    switch(i) {
+    case AV_STREAM_GROUP_PARAMS_IAMF_AUDIO_ELEMENT:
+        ret = avformat_iamf_audio_element_get_class();
+        break;
+    case AV_STREAM_GROUP_PARAMS_IAMF_MIX_PRESENTATION:
+        ret = avformat_iamf_mix_presentation_get_class();
+        break;
+    default:
+        break;
+    }
+
+    if (ret)
+        *opaque = (void*)(i + 1);
+    return ret;
+}
+
 static const AVOption stream_group_options[] = {
     {"id", "Set group id", offsetof(AVStreamGroup, id), AV_OPT_TYPE_INT64, {.i64 = 0}, 0, INT64_MAX, AV_OPT_FLAG_ENCODING_PARAM },
     { NULL }
@@ -336,6 +374,8 @@ static const AVClass stream_group_class = {
     .item_name      = av_default_item_name,
     .version        = LIBAVUTIL_VERSION_INT,
     .option         = stream_group_options,
+    .child_next     = stream_group_child_next,
+    .child_class_iterate = stream_group_child_iterate,
 };
 
 const AVClass *av_stream_group_get_class(void)
@@ -366,7 +406,16 @@ AVStreamGroup *avformat_stream_group_create(AVFormatContext *s,
     av_opt_set_defaults(stg);
     stg->type = type;
     switch (type) {
-    // Structs in the union are allocated here
+    case AV_STREAM_GROUP_PARAMS_IAMF_AUDIO_ELEMENT:
+        stg->params.iamf_audio_element = avformat_iamf_audio_element_alloc();
+        if (!stg->params.iamf_audio_element)
+            goto fail;
+        break;
+    case AV_STREAM_GROUP_PARAMS_IAMF_MIX_PRESENTATION:
+        stg->params.iamf_mix_presentation = avformat_iamf_mix_presentation_alloc();
+        if (!stg->params.iamf_mix_presentation)
+            goto fail;
+        break;
     default:
         goto fail;
     }
