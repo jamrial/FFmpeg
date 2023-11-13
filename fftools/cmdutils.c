@@ -922,6 +922,14 @@ int check_stream_specifier(AVFormatContext *s, AVStream *st, const char *spec)
     return ret;
 }
 
+int check_stream_group_specifier(AVFormatContext *s, AVStreamGroup *stg, const char *spec)
+{
+    int ret = avformat_match_stream_group_specifier(s, stg, spec);
+    if (ret < 0)
+        av_log(s, AV_LOG_ERROR, "Invalid stream group specifier: %s.\n", spec);
+    return ret;
+}
+
 int filter_codec_opts(const AVDictionary *opts, enum AVCodecID codec_id,
                       AVFormatContext *s, AVStream *st, const AVCodec *codec,
                       AVDictionary **dst)

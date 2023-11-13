@@ -301,6 +301,17 @@ int locate_option(int argc, char **argv, const OptionDef *options,
 int check_stream_specifier(AVFormatContext *s, AVStream *st, const char *spec);
 
 /**
+ * Check if the given group matches a stream group specifier.
+ *
+ * @param s  Corresponding format context.
+ * @param st Stream group from s to be checked.
+ * @param spec A stream group specifier of the [v|a|s|d]:[\<stream group index\>] form.
+ *
+ * @return 1 if the group matches, 0 if it doesn't, <0 on error
+ */
+int check_stream_group_specifier(AVFormatContext *s, AVStreamGroup *stg, const char *spec);
+
+/**
  * Filter out options for given codec.
  *
  * Create a new options dictionary containing only the options from

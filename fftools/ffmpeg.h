@@ -262,6 +262,8 @@ typedef struct OptionsContext {
     int        nb_disposition;
     SpecifierOpt *program;
     int        nb_program;
+    SpecifierOpt *stream_groups;
+    int        nb_stream_groups;
     SpecifierOpt *time_bases;
     int        nb_time_bases;
     SpecifierOpt *enc_time_bases;
@@ -905,6 +907,23 @@ void update_benchmark(const char *fmt, ...);
     }\
     if (_matches > 1)\
        WARN_MULTIPLE_OPT_USAGE(name, type, so, st);\
+}
+
+#define MATCH_PER_STREAM_GROUP_OPT(name, type, outvar, fmtctx, stg)\
+{\
+    int _ret, _matches = 0;\
+    SpecifierOpt *so;\
+    for (int _i = 0; _i < o->nb_ ## name; _i++) {\
+        char *spec = o->name[_i].specifier;\
+        if ((_ret = check_stream_group_specifier(fmtctx, stg, spec)) > 0) {\
+            outvar = o->name[_i].u.type;\
+            so = &o->name[_i];\
+            _matches++;\
+        } else if (_ret < 0)\
+            return _ret;\
+    }\
+    if (_matches > 1)\
+       WARN_MULTIPLE_OPT_USAGE(name, type, so, stg);\
 }
 
 #define MATCH_PER_TYPE_OPT(name, type, outvar, fmtctx, mediatype)\
