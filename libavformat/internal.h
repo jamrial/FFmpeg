@@ -212,7 +212,7 @@ typedef struct FFStream {
     /**
      * bitstream filter to run on stream
      * - encoding: Set by muxer using ff_stream_add_bitstream_filter
-     * - decoding: unused
+     * - decoding: Set by demuxer using ff_stream_add_bitstream_filter
      */
     struct AVBSFContext *bsfc;
 
@@ -751,5 +751,16 @@ int ff_match_url_ext(const char *url, const char *extensions);
 
 struct FFOutputFormat;
 void avpriv_register_devices(const struct FFOutputFormat * const o[], const AVInputFormat * const i[]);
+
+/**
+ * Add a bitstream filter to a stream.
+ *
+ * @param st output stream to add a filter to
+ * @param name the name of the filter to add
+ * @param args filter-specific argument string
+ * @return  >0 on success;
+ *          AVERROR code on failure
+ */
+int ff_stream_add_bitstream_filter(AVStream *st, const char *name, const char *args);
 
 #endif /* AVFORMAT_INTERNAL_H */

@@ -540,6 +540,109 @@ static int update_wrap_reference(AVFormatContext *s, AVStream *st, int stream_in
     return 1;
 }
 
+static void update_timestamps(AVFormatContext *s, AVStream *st, AVPacket *pkt)
+{
+    FFStream *const sti = ffstream(st);
+
+    if (update_wrap_reference(s, st, pkt->stream_index, pkt) && sti->pts_wrap_behavior == AV_PTS_WRAP_SUB_OFFSET) {
+        // correct first time stamps to negative values
+        if (!is_relative(sti->first_dts))
+            sti->first_dts = wrap_timestamp(st, sti->first_dts);
+        if (!is_relative(st->start_time))
+            st->start_time = wrap_timestamp(st, st->start_time);
+        if (!is_relative(sti->cur_dts))
+            sti->cur_dts = wrap_timestamp(st, sti->cur_dts);
+    }
+
+    pkt->dts = wrap_timestamp(st, pkt->dts);
+    pkt->pts = wrap_timestamp(st, pkt->pts);
+
+    force_codec_ids(s, st);
+
+    /* TODO: audio: time filter; video: frame reordering (pts != dts) */
+    if (s->use_wallclock_as_timestamps)
+        pkt->dts = pkt->pts = av_rescale_q(av_gettime(), AV_TIME_BASE_Q, st->time_base);
+}
+
+static int filter_packet(AVFormatContext *s, AVStream *st, AVPacket *pkt)
+{
+    FFFormatContext *const si = ffformatcontext(s);
+    FFStream *const sti = ffstream(st);
+    const AVPacket *pkt1;
+    int err;
+
+    if (!sti->bsfc) {
+        const PacketListEntry *pktl = si->raw_packet_buffer.head;
+        if (AVPACKET_IS_EMPTY(pkt))
+            return 0;
+
+        update_timestamps(s, st, pkt);
+
+        if (!pktl && sti->request_probe <= 0)
+            return 0;
+
+        err = avpriv_packet_list_put(&si->raw_packet_buffer, pkt, NULL, 0);
+        if (err < 0) {
+            av_packet_unref(pkt);
+            return err;
+        }
+
+        pkt1 = &si->raw_packet_buffer.tail->pkt;
+        si->raw_packet_buffer_size += pkt1->size;
+
+        if (sti->request_probe <= 0)
+            return 0;
+
+        return probe_codec(s, s->streams[pkt1->stream_index], pkt1);
+    }
+
+    err = av_bsf_send_packet(sti->bsfc, pkt);
+    if (err < 0) {
+        av_log(s, AV_LOG_ERROR,
+                "Failed to send packet to filter %s for stream %d\n",
+                sti->bsfc->filter->name, st->index);
+        return err;
+    }
+
+    do {
+        AVStream *out_st;
+        FFStream *out_sti;
+
+        err = av_bsf_receive_packet(sti->bsfc, pkt);
+        if (err < 0) {
+            if (err == AVERROR(EAGAIN) || err == AVERROR_EOF)
+                return 0;
+            av_log(s, AV_LOG_ERROR, "Error applying bitstream filters to an output "
+                   "packet for stream #%d: %s\n", st->index, av_err2str(err));
+            if (!(s->error_recognition & AV_EF_EXPLODE) && err != AVERROR(ENOMEM))
+                continue;
+            return err;
+        }
+        out_st = s->streams[pkt->stream_index];
+        out_sti = ffstream(out_st);
+
+        update_timestamps(s, out_st, pkt);
+
+        err = avpriv_packet_list_put(&si->raw_packet_buffer, pkt, NULL, 0);
+        if (err < 0) {
+            av_packet_unref(pkt);
+            return err;
+        }
+
+        pkt1 = &si->raw_packet_buffer.tail->pkt;
+        si->raw_packet_buffer_size += pkt1->size;
+
+        if (out_sti->request_probe <= 0)
+            continue;
+
+        err = probe_codec(s, out_st, pkt1);
+        if (err < 0)
+            return err;
+    } while (1);
+
+    return 0;
+}
+
 int ff_read_packet(AVFormatContext *s, AVPacket *pkt)
 {
     FFFormatContext *const si = ffformatcontext(s);
@@ -557,9 +660,6 @@ FF_ENABLE_DEPRECATION_WARNINGS
 
     for (;;) {
         PacketListEntry *pktl = si->raw_packet_buffer.head;
-        AVStream *st;
-        FFStream *sti;
-        const AVPacket *pkt1;
 
         if (pktl) {
             AVStream *const st = s->streams[pktl->pkt.stream_index];
@@ -582,16 +682,27 @@ FF_ENABLE_DEPRECATION_WARNINGS
                We must re-call the demuxer to get the real packet. */
             if (err == FFERROR_REDO)
                 continue;
-            if (!pktl || err == AVERROR(EAGAIN))
+            if (err == AVERROR(EAGAIN))
                 return err;
             for (unsigned i = 0; i < s->nb_streams; i++) {
                 AVStream *const st  = s->streams[i];
                 FFStream *const sti = ffstream(st);
+                int ret;
+
+                // Drain buffered packets in the bsf context on eof
+                if (err == AVERROR_EOF)
+                    if ((ret = filter_packet(s, st, pkt)) < 0)
+                        return ret;
+                pktl = si->raw_packet_buffer.head;
+                if (!pktl)
+                    continue;
                 if (sti->probe_packets || sti->request_probe > 0)
-                    if ((err = probe_codec(s, st, NULL)) < 0)
-                        return err;
+                    if ((ret = probe_codec(s, st, NULL)) < 0)
+                        return ret;
                 av_assert0(sti->request_probe <= 0);
             }
+            if (!pktl)
+                return err;
             continue;
         }
 
@@ -616,42 +727,11 @@ FF_ENABLE_DEPRECATION_WARNINGS
         av_assert0(pkt->stream_index < (unsigned)s->nb_streams &&
                    "Invalid stream index.\n");
 
-        st  = s->streams[pkt->stream_index];
-        sti = ffstream(st);
-
-        if (update_wrap_reference(s, st, pkt->stream_index, pkt) && sti->pts_wrap_behavior == AV_PTS_WRAP_SUB_OFFSET) {
-            // correct first time stamps to negative values
-            if (!is_relative(sti->first_dts))
-                sti->first_dts = wrap_timestamp(st, sti->first_dts);
-            if (!is_relative(st->start_time))
-                st->start_time = wrap_timestamp(st, st->start_time);
-            if (!is_relative(sti->cur_dts))
-                sti->cur_dts = wrap_timestamp(st, sti->cur_dts);
-        }
-
-        pkt->dts = wrap_timestamp(st, pkt->dts);
-        pkt->pts = wrap_timestamp(st, pkt->pts);
-
-        force_codec_ids(s, st);
-
-        /* TODO: audio: time filter; video: frame reordering (pts != dts) */
-        if (s->use_wallclock_as_timestamps)
-            pkt->dts = pkt->pts = av_rescale_q(av_gettime(), AV_TIME_BASE_Q, st->time_base);
-
-        if (!pktl && sti->request_probe <= 0)
+        err = filter_packet(s, s->streams[pkt->stream_index], pkt);
+        if (err < 0)
+            return err;
+        if (!AVPACKET_IS_EMPTY(pkt))
             return 0;
-
-        err = avpriv_packet_list_put(&si->raw_packet_buffer,
-                                     pkt, NULL, 0);
-        if (err < 0) {
-            av_packet_unref(pkt);
-            return err;
-        }
-        pkt1 = &si->raw_packet_buffer.tail->pkt;
-        si->raw_packet_buffer_size += pkt1->size;
-
-        if ((err = probe_codec(s, st, pkt1)) < 0)
-            return err;
     }
 }
 
