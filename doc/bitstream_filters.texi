@@ -465,6 +465,22 @@ Please note that this filter is auto-inserted for MPEG-TS (muxer
 @code{mpegts}) and raw HEVC/H.265 (muxer @code{h265} or
 @code{hevc}) output formats.
 
+@section iamf_frame_split
+
+Split a packet containing a Temporal Unit with one or more Audio Frame
+OBUs into several packets each containing the respective extracted audio
+data without the OBU encapsulation.
+Stream index in output packets will be set based on the order the OBUs
+are coded.
+
+@table @option
+@item first_index
+Lowest stream index value to set in output packets
+
+@item inband_descriptors
+Enable parsing in-band descriptor OBUs
+@end table
+
 @section imxdump
 
 Modifies the bitstream to fit in MOV and to be usable by the Final Cut
