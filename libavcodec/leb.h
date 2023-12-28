@@ -25,6 +25,7 @@
 #define AVCODEC_LEB_H
 
 #include "get_bits.h"
+#include "put_bits.h"
 
 /**
  * Read a unsigned integer coded as a variable number of up to eight
@@ -65,6 +66,27 @@ static inline int64_t get_leb128(GetBitContext *gb) {
     }
 
     return ret;
+}
+
+/**
+ * Write a unsigned integer coded as a variable number of up to eight
+ * little-endian bytes, where the MSB in a byte signals another byte
+ * is coded.
+ */
+static inline void put_leb(PutBitContext *s, unsigned value)
+{
+    int len;
+    uint8_t byte;
+
+    len = (av_log2(value) + 7) / 7;
+
+    for (int i = 0; i < len; i++) {
+        byte = value >> (7 * i) & 0x7f;
+        if (i < len - 1)
+            byte |= 0x80;
+
+        put_bits_no_assert(s, 8, byte);
+    }
 }
 
 #endif /* AVCODEC_LEB_H */

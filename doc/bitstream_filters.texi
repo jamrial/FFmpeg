@@ -481,6 +481,20 @@ Lowest stream index value to set in output packets
 Enable parsing in-band descriptor OBUs
 @end table
 
+@section iamf_frame_merge
+
+Encapsulate audio data packets from different streams and merge them
+into a single packet containing all Audio Frame OBUs.
+
+@table @option
+@item index_mapping
+A :-separated list of stream_index=audio_substream_id entries to set
+stream id in output Audio Frame OBUs
+
+@item out_index
+Stream index to in output packets
+@end table
+
 @section imxdump
 
 Modifies the bitstream to fit in MOV and to be usable by the Final Cut

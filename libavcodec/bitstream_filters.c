@@ -42,6 +42,7 @@ extern const FFBitStreamFilter ff_h264_redundant_pps_bsf;
 extern const FFBitStreamFilter ff_hapqa_extract_bsf;
 extern const FFBitStreamFilter ff_hevc_metadata_bsf;
 extern const FFBitStreamFilter ff_hevc_mp4toannexb_bsf;
+extern const FFBitStreamFilter ff_iamf_frame_merge_bsf;
 extern const FFBitStreamFilter ff_iamf_frame_split_bsf;
 extern const FFBitStreamFilter ff_imx_dump_header_bsf;
 extern const FFBitStreamFilter ff_media100_to_mjpegb_bsf;
