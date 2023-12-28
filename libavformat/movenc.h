@@ -170,6 +170,10 @@ typedef struct MOVTrack {
     unsigned int squash_fragment_samples_to_one; //< flag to note formats where all samples for a fragment are to be squashed
 
     PacketList squashed_packet_queue;
+
+    struct AVBSFContext *bsf;
+
+    struct IAMFContext *iamf;
 } MOVTrack;
 
 typedef enum {
@@ -188,6 +192,7 @@ typedef struct MOVMuxContext {
     const AVClass *av_class;
     int     mode;
     int64_t time;
+    int     nb_streams;
     int     nb_tracks;
     int     nb_meta_tmcd;  ///< number of new created tmcd track based on metadata (aka not data copy)
     int     chapter_track; ///< qt chapter track number
