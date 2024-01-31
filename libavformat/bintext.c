@@ -66,6 +66,9 @@ static AVStream * init_stream(AVFormatContext *s)
 
     avpriv_set_pts_info(st, 60, bin->framerate.den, bin->framerate.num);
 
+    st->avg_frame_rate = bin->framerate;
+    st->ts_flags       = AVFORMAT_TS_FLAG_RATE;
+
     /* simulate tty display speed */
     bin->chars_per_frame = av_clip(av_q2d(st->time_base) * bin->chars_per_frame, 1, INT_MAX);
 
