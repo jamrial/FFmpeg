@@ -125,6 +125,8 @@ static int adx_read_header(AVFormatContext *s)
 
     avpriv_set_pts_info(st, 64, BLOCK_SAMPLES, par->sample_rate);
 
+    st->ts_flags = AVFORMAT_TS_FLAG_PTS | AVFORMAT_TS_FLAG_DURATION;
+
     return 0;
 }
 
