@@ -380,6 +380,7 @@ got_sound:
     avpriv_set_pts_info(st, 64, 1, st->codecpar->sample_rate);
     st->start_time = 0;
     st->duration = st->nb_frames * aiff->block_duration;
+    st->ts_flags = AVFORMAT_TS_FLAG_DURATION;
 
     /* Position the stream at the first block */
     avio_seek(pb, offset, SEEK_SET);
