@@ -134,6 +134,8 @@ static int alp_read_header(AVFormatContext *s)
                                   par->bits_per_coded_sample;
 
     avpriv_set_pts_info(st, 64, 1, par->sample_rate);
+    st->ts_flags = AVFORMAT_TS_FLAG_DURATION;
+
     return 0;
 }
 
