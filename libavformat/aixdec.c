@@ -67,6 +67,9 @@ static int aix_read_header(AVFormatContext *s)
         st->codecpar->sample_rate = avio_rb32(s->pb);
         st->codecpar->ch_layout.nb_channels = avio_r8(s->pb);
         avpriv_set_pts_info(st, 64, 1, st->codecpar->sample_rate);
+
+        st->ts_flags = AVFORMAT_TS_FLAG_DURATION;
+
         avio_skip(s->pb, 3);
     }
 
