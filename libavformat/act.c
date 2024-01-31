@@ -95,6 +95,8 @@ static int read_header(AVFormatContext *s)
     st->codecpar->ch_layout.nb_channels = 1;
     avpriv_set_pts_info(st, 64, 1, 100);
 
+    st->ts_flags = AVFORMAT_TS_FLAG_DURATION;
+
     st->codecpar->codec_id=AV_CODEC_ID_G729;
 
     avio_seek(pb, 257, SEEK_SET);
