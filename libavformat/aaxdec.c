@@ -292,6 +292,7 @@ static int aax_read_header(AVFormatContext *s)
             return AVERROR_INVALIDDATA;
 
         avpriv_set_pts_info(st, 64, 32, par->sample_rate);
+        st->ts_flags = AVFORMAT_TS_FLAG_PTS;
   /*} else if (!strcmp(codec, "HCA") ){
         par->codec_id = AV_CODEC_ID_HCA;*/
     } else {
