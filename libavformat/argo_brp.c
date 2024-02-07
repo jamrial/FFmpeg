@@ -210,6 +210,7 @@ static int argo_brp_read_header(AVFormatContext *s)
         if (hdr->codec_id == BRP_CODEC_ID_BVID) {
             ArgoBVIDHeader *bvid = &hdr->extradata.bvid;
 
+            st->ts_flags             = AVFORMAT_TS_FLAG_PTS | AVFORMAT_TS_FLAG_DURATION;
             st->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
             st->codecpar->codec_id   = AV_CODEC_ID_ARGO;
 
@@ -242,6 +243,7 @@ static int argo_brp_read_header(AVFormatContext *s)
                 return AVERROR_PATCHWELCOME;
             }
 
+            st->ts_flags             = AVFORMAT_TS_FLAG_PTS | AVFORMAT_TS_FLAG_DURATION;
             st->codecpar->codec_type = AVMEDIA_TYPE_AUDIO;
             st->codecpar->codec_id   = AV_CODEC_ID_ADPCM_ARGO;
             brp->basf.index          = i;
@@ -254,6 +256,7 @@ static int argo_brp_read_header(AVFormatContext *s)
         } else if (hdr->codec_id == BRP_CODEC_ID_MASK) {
             ArgoMASKHeader *mask = &hdr->extradata.mask;
 
+            st->ts_flags             = AVFORMAT_TS_FLAG_PTS;
             st->codecpar->codec_type = AVMEDIA_TYPE_DATA;
 
             mask->num_frames = AV_RL32(buf + 0);
