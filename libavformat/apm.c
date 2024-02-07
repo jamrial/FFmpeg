@@ -174,6 +174,7 @@ static int apm_read_header(AVFormatContext *s)
     memcpy(par->extradata, buf + 20, APM_EXTRADATA_SIZE);
 
     avpriv_set_pts_info(st, 64, 1, par->sample_rate);
+    st->ts_flags    = AVFORMAT_TS_FLAG_DURATION;
     st->start_time  = 0;
     st->duration    = extradata.data_size *
                       (8 / par->bits_per_coded_sample) /
