@@ -170,6 +170,7 @@ static int apng_read_header(AVFormatContext *s)
     /* set the timebase to something large enough (1/100,000 of second)
      * to hopefully cope with all sane frame durations */
     avpriv_set_pts_info(st, 64, 1, 100000);
+    st->ts_flags             = AVFORMAT_TS_FLAG_DURATION;
     st->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
     st->codecpar->codec_id   = AV_CODEC_ID_APNG;
     st->codecpar->width      = avio_rb32(pb);
