@@ -58,6 +58,7 @@ static int aqt_read_header(AVFormatContext *s)
     if (!st)
         return AVERROR(ENOMEM);
     avpriv_set_pts_info(st, 64, aqt->frame_rate.den, aqt->frame_rate.num);
+    st->ts_flags             = AVFORMAT_TS_FLAG_PTS | AVFORMAT_TS_FLAG_DURATION;
     st->codecpar->codec_type = AVMEDIA_TYPE_SUBTITLE;
     st->codecpar->codec_id   = AV_CODEC_ID_TEXT;
 
