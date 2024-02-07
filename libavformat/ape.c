@@ -343,6 +343,8 @@ static int ape_read_header(AVFormatContext * s)
     st->duration  = total_blocks;
     avpriv_set_pts_info(st, 64, 1, ape->samplerate);
 
+    st->ts_flags = AVFORMAT_TS_FLAG_PTS | AVFORMAT_TS_FLAG_DURATION;
+
     if ((ret = ff_alloc_extradata(st->codecpar, APE_EXTRADATA_SIZE)) < 0)
         return ret;
     AV_WL16(st->codecpar->extradata + 0, ape->fileversion);
