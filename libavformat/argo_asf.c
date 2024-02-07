@@ -132,6 +132,7 @@ int ff_argo_asf_fill_stream(AVFormatContext *s, AVStream *st, const ArgoASFFileH
                                           st->codecpar->bits_per_coded_sample;
 
     avpriv_set_pts_info(st, 64, 1, st->codecpar->sample_rate);
+    st->ts_flags        = AVFORMAT_TS_FLAG_PTS | AVFORMAT_TS_FLAG_DURATION;
     st->start_time      = 0;
 
     if (fhdr->num_chunks == 1) {
