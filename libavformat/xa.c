@@ -91,6 +91,7 @@ static int xa_read_header(AVFormatContext *s)
                                   st->codecpar->sample_rate / 28, 0, INT_MAX);
 
     avpriv_set_pts_info(st, 64, 1, st->codecpar->sample_rate);
+    st->ts_flags = AVFORMAT_TS_FLAG_DURATION;
     st->start_time = 0;
 
     return 0;
