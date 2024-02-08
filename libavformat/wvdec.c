@@ -260,6 +260,7 @@ static int wv_read_header(AVFormatContext *s)
     st->codecpar->sample_rate           = wc->rate;
     st->codecpar->bits_per_coded_sample = wc->bpp;
     avpriv_set_pts_info(st, 64, 1, wc->rate);
+    st->ts_flags = AVFORMAT_TS_FLAG_PTS;
     st->start_time = 0;
     if (wc->header.total_samples != 0xFFFFFFFFu)
         st->duration = wc->header.total_samples;
