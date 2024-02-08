@@ -633,6 +633,7 @@ skip:
         st->codecpar->ch_layout = (AVChannelLayout)AV_CHANNEL_LAYOUT_MONO;
         st->codecpar->sample_rate = 8000;
     }
+    st->ts_flags = AVFORMAT_TS_FLAG_PTS | AVFORMAT_TS_FLAG_DTS;
     sti->request_probe = request_probe;
     sti->need_parsing  = AVSTREAM_PARSE_FULL;
 
@@ -841,6 +842,7 @@ static int vobsub_read_header(AVFormatContext *s)
                 st->codecpar->codec_type = AVMEDIA_TYPE_SUBTITLE;
                 st->codecpar->codec_id   = AV_CODEC_ID_DVD_SUBTITLE;
                 avpriv_set_pts_info(st, 64, 1, 1000);
+                st->ts_flags = AVFORMAT_TS_FLAG_PTS | AVFORMAT_TS_FLAG_DTS;
                 av_dict_set(&st->metadata, "language", id, 0);
                 if (alt[0])
                     av_dict_set(&st->metadata, "title", alt, 0);
