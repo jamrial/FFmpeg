@@ -116,6 +116,7 @@ static int vmd_read_header(AVFormatContext *s)
         if (!vst)
             return AVERROR(ENOMEM);
         avpriv_set_pts_info(vst, 33, 1, 10);
+        vst->ts_flags = AVFORMAT_TS_FLAG_PTS
         vmd->video_stream_index = vst->index;
         vst->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
         vst->codecpar->codec_id = vmd->is_indeo3 ? AV_CODEC_ID_INDEO3 : AV_CODEC_ID_VMDVIDEO;
@@ -171,6 +172,7 @@ static int vmd_read_header(AVFormatContext *s)
         if (vst)
             avpriv_set_pts_info(vst, 33, num, den);
         avpriv_set_pts_info(st, 33, num, den);
+        st->ts_flags = AVFORMAT_TS_FLAG_PTS;
     }
     if (!s->nb_streams)
         return AVERROR_INVALIDDATA;
