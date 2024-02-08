@@ -65,6 +65,7 @@ static int vplayer_read_header(AVFormatContext *s)
     avpriv_set_pts_info(st, 64, 1, 100);
     st->codecpar->codec_type = AVMEDIA_TYPE_SUBTITLE;
     st->codecpar->codec_id   = AV_CODEC_ID_VPLAYER;
+    st->ts_flags = AVFORMAT_TS_FLAG_PTS | AVFORMAT_TS_FLAG_DTS | AVFORMAT_TS_FLAG_DURATION;
 
     while (!avio_feof(s->pb)) {
         char line[4096];
