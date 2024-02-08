@@ -258,6 +258,7 @@ static int yuv4_read_header(AVFormatContext *s)
     ffformatcontext(s)->data_offset = data_offset = avio_tell(pb);
 
     st->duration = (avio_size(pb) - data_offset) / s->packet_size;
+    st->ts_flags = AVFORMAT_TS_FLAG_RATE | AVFORMAT_TS_FLAG_PTS | AVFORMAT_TS_FLAG_DURATION;
 
     return 0;
 }
