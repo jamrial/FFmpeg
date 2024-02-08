@@ -331,7 +331,8 @@ static int track_header(VividasDemuxContext *viv, AVFormatContext *s,
 
         st->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
         st->codecpar->codec_id = AV_CODEC_ID_VP6;
-
+        st->ts_flags = AVFORMAT_TS_FLAG_PTS;
+	
         off = avio_tell(pb);
         off += ffio_read_varlen(pb);
         avio_r8(pb); // '3'
@@ -367,6 +368,7 @@ static int track_header(VividasDemuxContext *viv, AVFormatContext *s,
 
         st->codecpar->codec_type = AVMEDIA_TYPE_AUDIO;
         st->codecpar->codec_id = AV_CODEC_ID_VORBIS;
+        st->ts_flags = AVFORMAT_TS_FLAG_PTS;
 
         off = avio_tell(pb);
         off += ffio_read_varlen(pb); // length
