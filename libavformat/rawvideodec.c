@@ -64,6 +64,7 @@ static int rawvideo_read_header(AVFormatContext *ctx)
     }
 
     avpriv_set_pts_info(st, 64, s->framerate.den, s->framerate.num);
+    st->ts_flags = AVFORMAT_TS_FLAG_PTS | AVFORMAT_TS_FLAG_DTS;
 
     ret = av_image_check_size(s->width, s->height, 0, ctx);
     if (ret < 0)
