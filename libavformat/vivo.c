@@ -224,7 +224,9 @@ static int vivo_read_header(AVFormatContext *s)
         fps = (AVRational){ 1, 25 };
 
     avpriv_set_pts_info(ast, 64, 1, ast->codecpar->sample_rate);
+    ast->ts_flags = AVFORMAT_TS_FLAG_DURATION;
     avpriv_set_pts_info(vst, 64, fps.num, fps.den);
+    vst->ts_flags = AVFORMAT_TS_FLAG_DURATION;
     if (duration)
         s->duration = av_rescale(duration, 1000, 1);
 
