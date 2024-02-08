@@ -611,6 +611,7 @@ static AVStream * new_stream(AVFormatContext *s, AVStream *st, int sid, int code
     st->codecpar->codec_type = codec_type;
     ffstream(st)->need_parsing = AVSTREAM_PARSE_FULL;
     avpriv_set_pts_info(st, 64, 1, 10000000);
+    st->ts_flags = AVFORMAT_TS_FLAG_PTS;
     return st;
 }
 
