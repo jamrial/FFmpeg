@@ -251,6 +251,7 @@ static int modplug_read_header(AVFormatContext *s)
             goto fail;
         }
         avpriv_set_pts_info(vst, 64, 1, 1000);
+        vst->ts_flags = AVFORMAT_TS_FLAG_PTS | AVFORMAT_TS_FLAG_DTS;
         vst->duration = st->duration;
         vst->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
         vst->codecpar->codec_id   = AV_CODEC_ID_XBIN;
