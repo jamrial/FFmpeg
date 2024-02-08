@@ -70,6 +70,7 @@ static int webvtt_read_header(AVFormatContext *s)
     st->codecpar->codec_type = AVMEDIA_TYPE_SUBTITLE;
     st->codecpar->codec_id   = AV_CODEC_ID_WEBVTT;
     st->disposition |= webvtt->kind;
+    st->ts_flags = AVFORMAT_TS_FLAG_PTS | AVFORMAT_TS_FLAG_DTS | AVFORMAT_TS_FLAG_DURATION;
 
     av_bprint_init(&cue,    0, AV_BPRINT_SIZE_UNLIMITED);
 
