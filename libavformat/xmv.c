@@ -294,6 +294,8 @@ static int xmv_process_packet_header(AVFormatContext *s)
 
         vst->duration = xmv->video_duration;
 
+        vst->ts_flags = AVFORMAT_TS_FLAG_PTS;
+
         xmv->video.stream_index = vst->index;
 
         xmv->video.created = 1;
@@ -343,6 +345,8 @@ static int xmv_process_packet_header(AVFormatContext *s)
             packet->stream_index = ast->index;
 
             ast->duration = xmv->video_duration;
+
+            ast->ts_flags = AVFORMAT_TS_FLAG_PTS | AVFORMAT_TS_FLAG_DURATION;
 
             packet->created = 1;
         }
