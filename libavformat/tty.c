@@ -117,6 +117,7 @@ static int read_header(AVFormatContext *avctx)
     st->codecpar->height = s->height;
     avpriv_set_pts_info(st, 60, s->framerate.den, s->framerate.num);
     st->avg_frame_rate = s->framerate;
+    st->ts_flags = AVFORMAT_TS_FLAG_PTS | AVFORMAT_TS_FLAG_RATE;
 
     /* simulate tty display speed */
     s->chars_per_frame = FFMAX(av_q2d(st->time_base)*s->chars_per_frame, 1);
