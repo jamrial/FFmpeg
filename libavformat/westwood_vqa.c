@@ -117,6 +117,7 @@ static int wsvqa_read_header(AVFormatContext *s)
     st->codecpar->width = AV_RL16(&header[6]);
     st->codecpar->height = AV_RL16(&header[8]);
     fps = header[12];
+    st->ts_flags = AVFORMAT_TS_FLAG_DURATION | AVFORMAT_TS_FLAG_SPARSE;
     st->nb_frames =
     st->duration  = AV_RL16(&header[4]);
     if (fps < 1 || fps > 30) {
