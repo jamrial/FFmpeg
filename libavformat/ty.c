@@ -310,6 +310,7 @@ static int ty_read_header(AVFormatContext *s)
     st->codecpar->codec_id   = AV_CODEC_ID_MPEG2VIDEO;
     ffstream(st)->need_parsing = AVSTREAM_PARSE_FULL_RAW;
     avpriv_set_pts_info(st, 64, 1, 90000);
+    st->ts_flags = AVFORMAT_TS_FLAG_PTS | AVFORMAT_TS_FLAG_SPARSE;
 
     ast = avformat_new_stream(s, NULL);
     if (!ast)
@@ -323,6 +324,7 @@ static int ty_read_header(AVFormatContext *s)
         ast->codecpar->codec_id = AV_CODEC_ID_AC3;
     }
     avpriv_set_pts_info(ast, 64, 1, 90000);
+    ast->ts_flags = AVFORMAT_TS_FLAG_PTS | AVFORMAT_TS_FLAG_SPARSE;
 
     ty->first_chunk = 1;
 
