@@ -223,11 +223,16 @@ int ff_img_read_header(AVFormatContext *s1)
         return AVERROR(ENOSYS);
 #endif
         avpriv_set_pts_info(st, 64, 1, 1000000000);
+        st->ts_flags = AVFORMAT_TS_FLAG_PTS;
     } else if (s->ts_from_file)
         avpriv_set_pts_info(st, 64, 1, 1);
+        st->ts_flags = AVFORMAT_TS_FLAG_PTS;
     else {
         avpriv_set_pts_info(st, 64, s->framerate.den, s->framerate.num);
         st->avg_frame_rate = st->r_frame_rate = s->framerate;
+        st->ts_flags = AVFORMAT_TS_FLAG_RATE;
+        if (!s->is_pipe)
+            st->ts_flags |= AVFORMAT_TS_FLAG_PTS;
     }
 
     if (s->width && s->height) {
