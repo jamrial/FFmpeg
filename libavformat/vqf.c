@@ -223,7 +223,7 @@ static int vqf_read_header(AVFormatContext *s)
     }
     c->frame_bit_len = st->codecpar->bit_rate*size/st->codecpar->sample_rate;
     avpriv_set_pts_info(st, 64, size, st->codecpar->sample_rate);
-
+    st->ts_flags = AVFORMAT_TS_FLAG_DURATION;
     /* put first 12 bytes of COMM chunk in extradata */
     if ((ret = ff_alloc_extradata(st->codecpar, 12)) < 0)
         return ret;
