@@ -185,6 +185,7 @@ static int wc3_read_header(AVFormatContext *s)
     st->codecpar->codec_tag = 0;  /* no fourcc */
     st->codecpar->width = wc3->width;
     st->codecpar->height = wc3->height;
+    st->ts_flags = AVFORMAT_TS_FLAG_PTS;
 
     st = avformat_new_stream(s, NULL);
     if (!st)
@@ -200,6 +201,7 @@ static int wc3_read_header(AVFormatContext *s)
     st->codecpar->bit_rate = st->codecpar->ch_layout.nb_channels * st->codecpar->sample_rate *
         st->codecpar->bits_per_coded_sample;
     st->codecpar->block_align = WC3_AUDIO_BITS * st->codecpar->ch_layout.nb_channels;
+    st->ts_flags = AVFORMAT_TS_FLAG_PTS;
 
     return 0;
 }
