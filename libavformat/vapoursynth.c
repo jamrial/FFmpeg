@@ -268,6 +268,7 @@ static av_cold int read_header_vs(AVFormatContext *s)
         vs->is_cfr = 1;
         avpriv_set_pts_info(st, 64, info->fpsDen, info->fpsNum);
         st->duration = info->numFrames;
+        st->ts_flags = AVFORMAT_TS_FLAG_PTS;
     } else {
         // VFR. Just set "something".
         avpriv_set_pts_info(st, 64, 1, AV_TIME_BASE);
