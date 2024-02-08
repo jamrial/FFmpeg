@@ -64,6 +64,7 @@ static int voc_read_packet(AVFormatContext *s, AVPacket *pkt)
         if (!st)
             return AVERROR(ENOMEM);
         st->codecpar->codec_type = AVMEDIA_TYPE_AUDIO;
+        st->ts_flags = AVFORMAT_TS_FLAG_PTS | AVFORMAT_TS_FLAG_DTS;
     }
     return ff_voc_get_packet(s, pkt, s->streams[0], 0);
 }
