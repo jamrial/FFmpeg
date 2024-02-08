@@ -78,9 +78,10 @@ static int vc1t_read_header(AVFormatContext *s)
         return AVERROR_INVALIDDATA;
     avio_skip(pb, 8);
     fps = avio_rl32(pb);
-    if(fps == 0xFFFFFFFF)
+    if (fps == 0xFFFFFFFF) {
         avpriv_set_pts_info(st, 32, 1, 1000);
-    else{
+        st->ts_flags = AVFORMAT_TS_FLAG_PTS;
+    } els e{
         if (!fps) {
             av_log(s, AV_LOG_ERROR, "Zero FPS specified, defaulting to 1 FPS\n");
             fps = 1;
