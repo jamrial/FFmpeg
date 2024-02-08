@@ -120,6 +120,7 @@ static int wsaud_read_header(AVFormatContext *s)
     st->codecpar->codec_type  = AVMEDIA_TYPE_AUDIO;
     av_channel_layout_default(&st->codecpar->ch_layout, channels);
     st->codecpar->sample_rate = sample_rate;
+    st->ts_flags = AVFORMAT_TS_FLAG_DURATION;
 
     return 0;
 }
