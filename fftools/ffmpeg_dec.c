@@ -506,8 +506,8 @@ static int packet_decode(DecoderPriv *dp, AVPacket *pkt, AVFrame *frame)
     // With fate-indeo3-2, we're getting 0-sized packets before EOF for some
     // reason. This seems like a semi-critical bug. Don't trigger EOF, and
     // skip the packet.
-    if (pkt && pkt->size == 0)
-        return 0;
+   // if (pkt && pkt->size == 0)
+      //  return 0;
 
     if (pkt && (dp->flags & DECODER_FLAG_TS_UNRELIABLE)) {
         pkt->pts = AV_NOPTS_VALUE;

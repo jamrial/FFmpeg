@@ -48,6 +48,7 @@ static int txd_read_header(AVFormatContext *s) {
     st->codecpar->codec_id = AV_CODEC_ID_TXD;
     avpriv_set_pts_info(st, 64, 1, 5);
     st->avg_frame_rate = av_inv_q(st->time_base);
+    st->ts_flags = AVFORMAT_TS_FLAG_RATE;
     /* the parameters will be extracted from the compressed bitstream */
 
     return 0;
