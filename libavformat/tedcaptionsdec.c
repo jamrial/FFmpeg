@@ -303,6 +303,7 @@ static av_cold int tedcaptions_read_header(AVFormatContext *avf)
     sti->probe_packets = 0;
     st->start_time    = 0;
     st->duration      = last->pts + last->duration;
+    st->ts_flags      = AVFORMAT_TS_FLAG_PTS | AVFORMAT_TS_FLAG_DTS | AVFORMAT_TS_FLAG_DURATION;
     sti->cur_dts      = 0;
 
     return 0;
