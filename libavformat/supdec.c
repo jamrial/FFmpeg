@@ -29,6 +29,7 @@ static int sup_read_header(AVFormatContext *s)
         return AVERROR(ENOMEM);
     st->codecpar->codec_type = AVMEDIA_TYPE_SUBTITLE;
     st->codecpar->codec_id = AV_CODEC_ID_HDMV_PGS_SUBTITLE;
+    st->ts_flags = AVFORMAT_TS_FLAG_PTS | AVFORMAT_TS_FLAG_DTS | AVFORMAT_TS_FLAG_SPARSE;
     avpriv_set_pts_info(st, 32, 1, 90000);
 
     return 0;
