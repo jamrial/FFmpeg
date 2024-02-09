@@ -230,6 +230,7 @@ static int seq_read_header(AVFormatContext *s)
     st->codecpar->codec_tag = 0;  /* no fourcc */
     st->codecpar->width = SEQ_FRAME_W;
     st->codecpar->height = SEQ_FRAME_H;
+    st->ts_flags = AVFORMAT_TS_FLAG_PTS;
 
     /* initialize the audio decoder stream */
     st = avformat_new_stream(s, NULL);
