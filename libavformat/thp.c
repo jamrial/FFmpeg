@@ -144,6 +144,7 @@ static int thp_read_header(AVFormatContext *s)
             st->codecpar->codec_tag = 0;  /* no fourcc */
             st->codecpar->ch_layout.nb_channels = avio_rb32(pb);
             st->codecpar->sample_rate = avio_rb32(pb); /* Frequency.  */
+            st->ts_flags = AVFORMAT_TS_FLAG_DURATION;
             st->duration           = avio_rb32(pb);
 
             avpriv_set_pts_info(st, 64, 1, st->codecpar->sample_rate);
