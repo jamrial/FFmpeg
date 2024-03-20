@@ -442,13 +442,21 @@ static int decode_hrd(GetBitContext *gb, int common_inf_present,
     return 0;
 }
 
+static void uninit_vps(FFRefStructOpaque opaque, void *obj)
+{
+    HEVCVPS *vps = obj;
+
+    for (int i = 0; i < vps->vps_num_hrd_parameters; i++)
+        ff_refstruct_unref(&vps->hdr[i]);
+}
+
 int ff_hevc_decode_nal_vps(GetBitContext *gb, AVCodecContext *avctx,
                            HEVCParamSets *ps)
 {
     int i,j;
     int vps_id = 0;
     ptrdiff_t nal_size;
-    HEVCVPS *vps = ff_refstruct_allocz(sizeof(*vps));
+    HEVCVPS *vps = ff_refstruct_alloc_ext(sizeof(*vps), 0, NULL, uninit_vps);
 
     if (!vps)
         return AVERROR(ENOMEM);
@@ -538,12 +546,17 @@ int ff_hevc_decode_nal_vps(GetBitContext *gb, AVCodecContext *avctx,
             goto err;
         }
         for (i = 0; i < vps->vps_num_hrd_parameters; i++) {
+            HEVCHdrParams *hdr = ff_refstruct_allocz(sizeof(*hdr));
             int common_inf_present = 1;
+
+            if (!hdr)
+                return AVERROR(ENOMEM);
 
             get_ue_golomb_long(gb); // hrd_layer_set_idx
             if (i)
                 common_inf_present = get_bits1(gb);
-            decode_hrd(gb, common_inf_present, &vps->hdr[i],
+
+            decode_hrd(gb, common_inf_present, hdr,
                        vps->vps_max_sub_layers);
         }
     }

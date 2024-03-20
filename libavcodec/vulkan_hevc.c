@@ -563,7 +563,7 @@ static void set_vps(const HEVCVPS *vps,
                     HEVCHeaderVPSSet sls[])
 {
     for (int i = 0; i < vps->vps_num_hrd_parameters; i++) {
-        const HEVCHdrParams *src = &vps->hdr[i];
+        const HEVCHdrParams *src = vps->hdr[i];
 
         sls_hdr[i] = (StdVideoH265HrdParameters) {
             .flags = (StdVideoH265HrdFlags) {
