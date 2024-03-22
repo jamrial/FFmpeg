@@ -334,6 +334,15 @@ FF_ENABLE_DEPRECATION_WARNINGS
     if (for_user) {
         if (codec->update_thread_context_for_user)
             err = codec->update_thread_context_for_user(dst, src);
+
+        av_frame_side_data_free(&dst->decoded_side_data, &dst->nb_decoded_side_data);
+        for (int i = 0; i < src->nb_decoded_side_data; i++) {
+            int ret = av_frame_side_data_clone(&dst->decoded_side_data,
+                                               &dst->nb_decoded_side_data,
+                                               src->decoded_side_data[i], 0);
+            if (ret < 0)
+                return ret;
+        }
     } else {
         const PerThreadContext *p_src = src->internal->thread_ctx;
         PerThreadContext       *p_dst = dst->internal->thread_ctx;
@@ -767,6 +776,8 @@ static av_cold int init_thread(PerThreadContext *p, int *threads_to_free,
     if (!copy)
         return AVERROR(ENOMEM);
     copy->priv_data = NULL;
+    copy->decoded_side_data = NULL;
+    copy->nb_decoded_side_data = 0;
 
     /* From now on, this PerThreadContext will be cleaned up by
      * ff_frame_thread_free in case of errors. */
