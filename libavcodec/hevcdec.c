@@ -2791,7 +2791,8 @@ static int set_side_data(HEVCContext *s)
         uint32_t *tc_sd;
         char tcbuf[AV_TIMECODE_STR_SIZE];
         AVFrameSideData *tcside;
-        ret = ff_frame_new_side_data(s->avctx, out, AV_FRAME_DATA_S12M_TIMECODE,
+        ret = ff_frame_new_side_data(s->avctx, &out->side_data, &out->nb_side_data,
+                                     AV_FRAME_DATA_S12M_TIMECODE,
                                      sizeof(uint32_t) * 4, &tcside);
         if (ret < 0)
             return ret;
@@ -2821,7 +2822,8 @@ static int set_side_data(HEVCContext *s)
         if (!info_ref)
             return AVERROR(ENOMEM);
 
-        ret = ff_frame_new_side_data_from_buf(s->avctx, out, AV_FRAME_DATA_DYNAMIC_HDR_PLUS, &info_ref, NULL);
+        ret = ff_frame_new_side_data_from_buf(s->avctx, &out->side_data, &out->nb_side_data,
+                                              AV_FRAME_DATA_DYNAMIC_HDR_PLUS, &info_ref);
         if (ret < 0)
             return ret;
     }

@@ -964,7 +964,8 @@ static int export_itut_t35(AVCodecContext *avctx, AVFrame *frame,
             if (!ret)
                 break;
 
-            ret = ff_frame_new_side_data_from_buf(avctx, frame, AV_FRAME_DATA_A53_CC, &buf, NULL);
+            ret = ff_frame_new_side_data_from_buf(avctx, &frame->side_data, &frame->nb_side_data,
+                                                  AV_FRAME_DATA_A53_CC, &buf);
             if (ret < 0)
                 return ret;
 
@@ -1028,7 +1029,7 @@ static int export_metadata(AVCodecContext *avctx, AVFrame *frame)
     if (s->mdcv) {
         AVMasteringDisplayMetadata *mastering;
 
-        ret = ff_decode_mastering_display_new(avctx, frame, &mastering);
+        ret = ff_decode_mastering_display_new(avctx, &frame->side_data, &frame->nb_side_data, &mastering);
         if (ret < 0)
             return ret;
 
@@ -1051,7 +1052,7 @@ static int export_metadata(AVCodecContext *avctx, AVFrame *frame)
     if (s->cll) {
         AVContentLightMetadata *light;
 
-        ret = ff_decode_content_light_new(avctx, frame, &light);
+        ret = ff_decode_content_light_new(avctx, &frame->side_data, &frame->nb_side_data, &light);
         if (ret < 0)
             return ret;
 

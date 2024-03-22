@@ -471,7 +471,7 @@ static int libdav1d_receive_frame(AVCodecContext *c, AVFrame *frame)
     if (p->mastering_display) {
         AVMasteringDisplayMetadata *mastering;
 
-        res = ff_decode_mastering_display_new(c, frame, &mastering);
+        res = ff_decode_mastering_display_new(c, &frame->side_data, &frame->nb_side_data, &mastering);
         if (res < 0)
             goto fail;
 
@@ -493,7 +493,7 @@ static int libdav1d_receive_frame(AVCodecContext *c, AVFrame *frame)
     if (p->content_light) {
         AVContentLightMetadata *light;
 
-        res = ff_decode_content_light_new(c, frame, &light);
+        res = ff_decode_content_light_new(c, &frame->side_data, &frame->nb_side_data, &light);
         if (res < 0)
             goto fail;
 
@@ -528,7 +528,8 @@ static int libdav1d_receive_frame(AVCodecContext *c, AVFrame *frame)
                 if (!res)
                     break;
 
-                res = ff_frame_new_side_data_from_buf(c, frame, AV_FRAME_DATA_A53_CC, &buf, NULL);
+                res = ff_frame_new_side_data_from_buf(c, &frame->side_data, &frame->nb_side_data,
+                                                      AV_FRAME_DATA_A53_CC, &buf);
                 if (res < 0)
                     goto fail;
 

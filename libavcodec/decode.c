@@ -1799,87 +1799,114 @@ int ff_decode_preinit(AVCodecContext *avctx)
  * @retval 0 side data of this type can be added to frame
  * @retval 1 side data of this type should not be added to frame
  */
-static int side_data_pref(const AVCodecContext *avctx, AVFrame *frame,
-                          enum AVFrameSideDataType type)
+static int side_data_pref(const AVCodecContext *avctx, AVFrameSideData ***sd,
+                          int *nb_sd, enum AVFrameSideDataType type)
 {
     DecodeContext *dc = decode_ctx(avctx->internal);
 
     // Note: could be skipped for `type` without corresponding packet sd
-    if (av_frame_get_side_data(frame, type)) {
+    if (av_frame_side_data_get(*sd, *nb_sd, type)) {
         if (dc->side_data_pref_mask & (1ULL << type))
             return 1;
-        av_frame_remove_side_data(frame, type);
+        av_frame_side_data_remove(sd, nb_sd, type);
     }
 
     return 0;
 }
 
-
-int ff_frame_new_side_data(const AVCodecContext *avctx, AVFrame *frame,
-                           enum AVFrameSideDataType type, size_t size,
+int ff_frame_new_side_data(const AVCodecContext *avctx, AVFrameSideData ***sd,
+                           int *nb_sd, enum AVFrameSideDataType type, size_t size,
                            AVFrameSideData **psd)
 {
-    AVFrameSideData *sd;
-
-    if (side_data_pref(avctx, frame, type)) {
+    if (side_data_pref(avctx, sd, nb_sd, type)) {
         if (psd)
             *psd = NULL;
         return 0;
     }
 
-    sd = av_frame_new_side_data(frame, type, size);
-    if (psd)
-        *psd = sd;
+    *psd = av_frame_side_data_new(sd, nb_sd, type, size, 0);
 
-    return sd ? 0 : AVERROR(ENOMEM);
+    return *psd ? 0 : AVERROR(ENOMEM);
 }
 
-int ff_frame_new_side_data_from_buf(const AVCodecContext *avctx,
-                                    AVFrame *frame, enum AVFrameSideDataType type,
-                                    AVBufferRef **buf, AVFrameSideData **psd)
+int ff_frame_new_side_data_from_buf(const AVCodecContext *avctx, AVFrameSideData ***sd,
+                                    int *nb_sd, enum AVFrameSideDataType type,
+                                    AVBufferRef **buf)
 {
-    AVFrameSideData *sd = NULL;
     int ret = 0;
 
-    if (side_data_pref(avctx, frame, type))
+    if (side_data_pref(avctx, sd, nb_sd, type))
         goto finish;
 
-    sd = av_frame_new_side_data_from_buf(frame, type, *buf);
-    if (sd)
-        *buf = NULL;
-    else
+    if (!av_frame_side_data_add(sd, nb_sd, type, buf, 0))
         ret = AVERROR(ENOMEM);
 
 finish:
     av_buffer_unref(buf);
-    if (psd)
-        *psd = sd;
 
     return ret;
 }
 
-int ff_decode_mastering_display_new(const AVCodecContext *avctx, AVFrame *frame,
-                                    AVMasteringDisplayMetadata **mdm)
+int ff_decode_mastering_display_new(const AVCodecContext *avctx, AVFrameSideData ***sd,
+                                    int *nb_sd, AVMasteringDisplayMetadata **mdm)
 {
-    if (side_data_pref(avctx, frame, AV_FRAME_DATA_MASTERING_DISPLAY_METADATA)) {
+    AVBufferRef *buf;
+    size_t size;
+
+    if (side_data_pref(avctx, sd, nb_sd, AV_FRAME_DATA_MASTERING_DISPLAY_METADATA)) {
         *mdm = NULL;
         return 0;
     }
 
-    *mdm = av_mastering_display_metadata_create_side_data(frame);
-    return *mdm ? 0 : AVERROR(ENOMEM);
+    *mdm = av_mastering_display_metadata_alloc_size(&size);
+    if (!*mdm)
+        return AVERROR(ENOMEM);
+
+    buf = av_buffer_create((uint8_t *)*mdm, size, NULL, NULL, 0);
+    if (!buf) {
+        av_freep(mdm);
+        return AVERROR(ENOMEM);
+    }
+
+    if (!av_frame_side_data_add(sd, nb_sd, AV_FRAME_DATA_MASTERING_DISPLAY_METADATA,
+                                &buf, AV_FRAME_SIDE_DATA_FLAG_UNIQUE)) {
+        *mdm = NULL;
+        av_buffer_unref(&buf);
+        return AVERROR(ENOMEM);
+    }
+
+    return 0;
 }
 
-int ff_decode_content_light_new(const AVCodecContext *avctx, AVFrame *frame,
-                                AVContentLightMetadata **clm)
+int ff_decode_content_light_new(const AVCodecContext *avctx, AVFrameSideData ***sd,
+                                int *nb_sd, AVContentLightMetadata **clm)
 {
-    if (side_data_pref(avctx, frame, AV_FRAME_DATA_CONTENT_LIGHT_LEVEL)) {
+    AVBufferRef *buf;
+    size_t size;
+
+    if (side_data_pref(avctx, sd, nb_sd, AV_FRAME_DATA_CONTENT_LIGHT_LEVEL)) {
         *clm = NULL;
         return 0;
     }
 
-    *clm = av_content_light_metadata_create_side_data(frame);
-    return *clm ? 0 : AVERROR(ENOMEM);
+    *clm = av_content_light_metadata_alloc(&size);
+    if (!*clm)
+        return AVERROR(ENOMEM);
+
+    buf = av_buffer_create((uint8_t *)*clm, size, NULL, NULL, 0);
+    if (!buf) {
+        av_freep(clm);
+        return AVERROR(ENOMEM);
+    }
+
+    if (!av_frame_side_data_add(sd, nb_sd, AV_FRAME_DATA_CONTENT_LIGHT_LEVEL,
+                                &buf, AV_FRAME_SIDE_DATA_FLAG_UNIQUE)) {
+        *clm = NULL;
+        av_buffer_unref(&buf);
+        return AVERROR(ENOMEM);
+    }
+
+    return 0;
 }
 
 int ff_copy_palette(void *dst, const AVPacket *src, void *logctx)

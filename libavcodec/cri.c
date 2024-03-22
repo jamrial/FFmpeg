@@ -398,7 +398,8 @@ skip:
     }
 
     if (hflip || vflip) {
-        ff_frame_new_side_data(avctx, p, AV_FRAME_DATA_DISPLAYMATRIX,
+        ff_frame_new_side_data(avctx, &p->side_data, &p->nb_side_data,
+                               AV_FRAME_DATA_DISPLAYMATRIX,
                                sizeof(int32_t) * 9, &rotation);
         if (rotation) {
             av_display_rotation_set((int32_t *)rotation->data, 0.f);

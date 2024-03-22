@@ -680,8 +680,8 @@ static int populate_avctx_color_fields(AVCodecContext *avctx, AVFrame *frame)
         }
     } else if (s->iccp_data) {
         AVFrameSideData *sd;
-        ret = ff_frame_new_side_data(avctx, frame, AV_FRAME_DATA_ICC_PROFILE,
-                                     s->iccp_data_len, &sd);
+        ret = ff_frame_new_side_data(avctx, &frame->side_data, &frame->nb_side_data,
+                                     AV_FRAME_DATA_ICC_PROFILE, s->iccp_data_len, &sd);
         if (ret < 0)
             return ret;
         if (sd) {
@@ -748,7 +748,7 @@ static int populate_avctx_color_fields(AVCodecContext *avctx, AVFrame *frame)
     if (s->have_clli) {
         AVContentLightMetadata *clli;
 
-        ret = ff_decode_content_light_new(avctx, frame, &clli);
+        ret = ff_decode_content_light_new(avctx, &frame->side_data, &frame->nb_side_data, &clli);
         if (ret < 0)
             return ret;
 
@@ -765,7 +765,7 @@ static int populate_avctx_color_fields(AVCodecContext *avctx, AVFrame *frame)
     if (s->have_mdvc) {
         AVMasteringDisplayMetadata *mdvc;
 
-        ret = ff_decode_mastering_display_new(avctx, frame, &mdvc);
+        ret = ff_decode_mastering_display_new(avctx, &frame->side_data, &frame->nb_side_data, &mdvc);
         if (ret < 0)
             return ret;
 

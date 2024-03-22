@@ -1706,7 +1706,8 @@ static int tiff_decode_tag(TiffContext *s, AVFrame *frame)
         if (bytestream2_get_bytes_left(&gb_temp) < count)
             return AVERROR_INVALIDDATA;
 
-        ret = ff_frame_new_side_data(s->avctx, frame, AV_FRAME_DATA_ICC_PROFILE, count, &sd);
+        ret = ff_frame_new_side_data(s->avctx, &frame->side_data, &frame->nb_side_data,
+                                     AV_FRAME_DATA_ICC_PROFILE, count, &sd);
         if (ret < 0)
             return ret;
         if (sd)

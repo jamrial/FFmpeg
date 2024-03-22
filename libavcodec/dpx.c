@@ -288,7 +288,8 @@ static int decode_frame(AVCodecContext *avctx, AVFrame *p,
 
         if (i != 0xFFFFFFFF) {
             AVFrameSideData *tcside;
-            ret = ff_frame_new_side_data(avctx, p, AV_FRAME_DATA_S12M_TIMECODE,
+            ret = ff_frame_new_side_data(avctx, &p->side_data, &p->nb_side_data,
+                                         AV_FRAME_DATA_S12M_TIMECODE,
                                          sizeof(uint32_t) * 4, &tcside);
             if (ret < 0)
                 return ret;

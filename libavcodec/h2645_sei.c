@@ -750,7 +750,7 @@ FF_ENABLE_DEPRECATION_WARNINGS
         int i;
         AVMasteringDisplayMetadata *metadata;
 
-        ret = ff_decode_mastering_display_new(avctx, frame, &metadata);
+        ret = ff_decode_mastering_display_new(avctx, &frame->side_data, &frame->nb_side_data, &metadata);
         if (ret < 0)
             return ret;
 
@@ -793,7 +793,7 @@ FF_ENABLE_DEPRECATION_WARNINGS
     if (sei->content_light.present) {
         AVContentLightMetadata *metadata;
 
-        ret = ff_decode_content_light_new(avctx, frame, &metadata);
+        ret = ff_decode_content_light_new(avctx, &frame->side_data, &frame->nb_side_data, &metadata);
         if (ret < 0)
             return ret;
 

@@ -2839,7 +2839,8 @@ the_end:
         for (i = 0; i < s->iccnum; i++)
             total_size += s->iccentries[i].length;
 
-        ret = ff_frame_new_side_data(avctx, frame, AV_FRAME_DATA_ICC_PROFILE, total_size, &sd);
+        ret = ff_frame_new_side_data(avctx, &frame->side_data, &frame->nb_side_data,
+                                     AV_FRAME_DATA_ICC_PROFILE, total_size, &sd);
         if (ret < 0) {
             av_log(avctx, AV_LOG_ERROR, "Could not allocate frame side data\n");
             return ret;

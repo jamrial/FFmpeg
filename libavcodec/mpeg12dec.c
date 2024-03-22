@@ -1314,7 +1314,8 @@ static int mpeg_field_start(MpegEncContext *s, const uint8_t *buf, int buf_size)
             }
         }
 
-        ret = ff_frame_new_side_data(s->avctx, s->current_picture_ptr->f,
+        ret = ff_frame_new_side_data(s->avctx, &s->current_picture_ptr->f->side_data,
+                                     &s->current_picture_ptr->f->nb_side_data,
                                      AV_FRAME_DATA_PANSCAN, sizeof(s1->pan_scan),
                                      &pan_scan);
         if (ret < 0)
@@ -1324,8 +1325,9 @@ static int mpeg_field_start(MpegEncContext *s, const uint8_t *buf, int buf_size)
 
         if (s1->a53_buf_ref) {
             ret = ff_frame_new_side_data_from_buf(
-                s->avctx, s->current_picture_ptr->f, AV_FRAME_DATA_A53_CC,
-                &s1->a53_buf_ref, NULL);
+                 s->avctx, &s->current_picture_ptr->f->side_data,
+                 &s->current_picture_ptr->f->nb_side_data,
+                 AV_FRAME_DATA_A53_CC, &s1->a53_buf_ref);
             if (ret < 0)
                 return ret;
         }
@@ -1341,7 +1343,8 @@ static int mpeg_field_start(MpegEncContext *s, const uint8_t *buf, int buf_size)
 
         if (s1->has_afd) {
             AVFrameSideData *sd;
-            ret = ff_frame_new_side_data(s->avctx, s->current_picture_ptr->f,
+            ret = ff_frame_new_side_data(s->avctx, &s->current_picture_ptr->f->side_data,
+                                         &s->current_picture_ptr->f->nb_side_data,
                                          AV_FRAME_DATA_AFD, 1, &sd);
             if (ret < 0)
                 return ret;

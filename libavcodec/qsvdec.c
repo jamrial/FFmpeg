@@ -661,7 +661,7 @@ static int qsv_export_hdr_side_data(AVCodecContext *avctx, mfxExtMasteringDispla
         const int luma_den = 10000;
         int i;
 
-        ret = ff_decode_mastering_display_new(avctx, frame, &mastering);
+        ret = ff_decode_mastering_display_new(avctx, &frame->side_data, &frame->nb_side_data, &mastering);
         if (ret < 0)
             return ret;
 
@@ -687,7 +687,7 @@ static int qsv_export_hdr_side_data(AVCodecContext *avctx, mfxExtMasteringDispla
     if (clli->InsertPayloadToggle) {
         AVContentLightMetadata *light;
 
-        ret = ff_decode_content_light_new(avctx, frame, &light);
+        ret = ff_decode_content_light_new(avctx, &frame->side_data, &frame->nb_side_data, &light);
         if (ret < 0)
             return ret;
 

@@ -1501,7 +1501,8 @@ exif_end:
 
             s->has_iccp = 1;
 
-            ret = ff_frame_new_side_data(avctx, p, AV_FRAME_DATA_ICC_PROFILE, chunk_size, &sd);
+            ret = ff_frame_new_side_data(avctx, &p->side_data, &p->nb_side_data,
+                                         AV_FRAME_DATA_ICC_PROFILE, chunk_size, &sd);
             if (ret < 0)
                 return ret;
 

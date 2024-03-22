@@ -1253,7 +1253,8 @@ static int h264_export_frame_props(H264Context *h)
         uint32_t *tc_sd;
         char tcbuf[AV_TIMECODE_STR_SIZE];
         AVFrameSideData *tcside;
-        ret = ff_frame_new_side_data(h->avctx, out, AV_FRAME_DATA_S12M_TIMECODE,
+        ret = ff_frame_new_side_data(h->avctx, &out->side_data, &out->nb_side_data,
+                                     AV_FRAME_DATA_S12M_TIMECODE,
                                      sizeof(uint32_t)*4, &tcside);
         if (ret < 0)
             return ret;

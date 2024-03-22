@@ -156,14 +156,14 @@ const AVPacketSideData *ff_get_coded_side_data(const AVCodecContext *avctx,
                                                enum AVPacketSideDataType type);
 
 /**
- * Wrapper around av_frame_new_side_data, which rejects side data overridden by
+ * Wrapper around av_frame_side_data_new, which rejects side data overridden by
  * the demuxer. Returns 0 on success, and a negative error code otherwise.
- * If successful and sd is not NULL, *sd may either contain a pointer to the new
+ * If successful and psd is not NULL, *psd may either contain a pointer to the new
  * side data, or NULL in case the side data was already present.
  */
-int ff_frame_new_side_data(const AVCodecContext *avctx, AVFrame *frame,
-                           enum AVFrameSideDataType type, size_t size,
-                           AVFrameSideData **sd);
+int ff_frame_new_side_data(const AVCodecContext *avctx, AVFrameSideData ***sd,
+                           int *nb_sd, enum AVFrameSideDataType type, size_t size,
+                           AVFrameSideData **psd);
 
 /**
  * Similar to `ff_frame_new_side_data`, but using an existing buffer ref.
@@ -171,29 +171,29 @@ int ff_frame_new_side_data(const AVCodecContext *avctx, AVFrame *frame,
  * *buf is ALWAYS consumed by this function and NULL written in its place, even
  * on failure.
  */
-int ff_frame_new_side_data_from_buf(const AVCodecContext *avctx,
-                                    AVFrame *frame, enum AVFrameSideDataType type,
-                                    AVBufferRef **buf, AVFrameSideData **sd);
+int ff_frame_new_side_data_from_buf(const AVCodecContext *avctx, AVFrameSideData ***sd,
+                                    int *nb_sd, enum AVFrameSideDataType type,
+                                    AVBufferRef **buf);
 
 struct AVMasteringDisplayMetadata;
 struct AVContentLightMetadata;
 
 /**
- * Wrapper around av_mastering_display_metadata_create_side_data(), which
+ * Similar to av_mastering_display_metadata_create_side_data(), but
  * rejects side data overridden by the demuxer. Returns 0 on success, and a
  * negative error code otherwise. If successful, *mdm may either be a pointer to
  * the new side data, or NULL in case the side data was already present.
  */
-int ff_decode_mastering_display_new(const AVCodecContext *avctx, AVFrame *frame,
-                                    struct AVMasteringDisplayMetadata **mdm);
+int ff_decode_mastering_display_new(const AVCodecContext *avctx, AVFrameSideData ***sd,
+                                    int *nb_sd, struct AVMasteringDisplayMetadata **mdm);
 
 /**
- * Wrapper around av_content_light_metadata_create_side_data(), which
+ * Similar to av_content_light_metadata_create_side_data(), but
  * rejects side data overridden by the demuxer. Returns 0 on success, and a
  * negative error code otherwise. If successful, *clm may either be a pointer to
  * the new side data, or NULL in case the side data was already present.
  */
-int ff_decode_content_light_new(const AVCodecContext *avctx, AVFrame *frame,
-                                struct AVContentLightMetadata **clm);
+int ff_decode_content_light_new(const AVCodecContext *avctx, AVFrameSideData ***sd,
+                                int *nb_sd, struct AVContentLightMetadata **clm);
 
 #endif /* AVCODEC_DECODE_H */
