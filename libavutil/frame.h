@@ -1048,6 +1048,10 @@ void av_frame_side_data_free(AVFrameSideData ***sd, int *nb_sd);
  * Don't add a new entry if another of the same type exists.
  */
 #define AV_FRAME_SIDE_DATA_FLAG_REPLACE (1 << 1)
+/**
+ * Create a new reference instead of taking ownership of the passed in one.
+ */
+#define AV_FRAME_SIDE_DATA_FLAG_NEW_REF (1 << 2)
 
 /**
  * Add new side data entry to an array.
@@ -1066,10 +1070,39 @@ void av_frame_side_data_free(AVFrameSideData ***sd, int *nb_sd);
  *       is attempted.
  * @note In case of AV_FRAME_SIDE_DATA_FLAG_REPLACE being set, if an
  *       entry of the same type already exists, it will be replaced instead.
+ * @note AV_FRAME_SIDE_DATA_FLAG_NEW_REF has no effect in this function.
  */
 AVFrameSideData *av_frame_side_data_new(AVFrameSideData ***sd, int *nb_sd,
                                         enum AVFrameSideDataType type,
                                         size_t size, unsigned int flags);
+
+/**
+ * Add a new side data entry to an array from an existing AVBufferRef.
+ *
+ * @param sd    pointer to array of side data to which to add another entry,
+ *              or to NULL in order to start a new array.
+ * @param nb_sd pointer to an integer containing the number of entries in
+ *              the array.
+ * @param type  type of the added side data
+ * @param buf   Pointer to AVBufferRef to add to the array. On success,
+ *              the function takes ownership of the AVBufferRef and *buf is
+ *              set to NULL, unless AV_FRAME_SIDE_DATA_FLAG_NEW_REF is set
+ *              in which case the ownership will remain with the caller.
+ * @param flags Some combination of AV_FRAME_SIDE_DATA_FLAG_* flags, or 0.
+ *
+ * @return newly added side data on success, NULL on error.
+ * @note In case of AV_FRAME_SIDE_DATA_FLAG_UNIQUE being set, entries of
+ *       matching AVFrameSideDataType will be removed before the addition
+ *       is attempted.
+ * @note In case of AV_FRAME_SIDE_DATA_FLAG_REPLACE being set, if an
+ *       entry of the same type already exists, it will be replaced instead.
+ * @note In case of AV_FRAME_SIDE_DATA_FLAG_NEW_REF being set, the ownership
+ *       of *buf will remain with the caller.
+ *
+ */
+AVFrameSideData *av_frame_side_data_add(AVFrameSideData ***sd, int *nb_sd,
+                                        enum AVFrameSideDataType type,
+                                        AVBufferRef **buf, unsigned int flags);
 
 /**
  * Add a new side data entry to an array based on existing side data, taking
@@ -1089,6 +1122,7 @@ AVFrameSideData *av_frame_side_data_new(AVFrameSideData ***sd, int *nb_sd,
  *       is attempted.
  * @note In case of AV_FRAME_SIDE_DATA_FLAG_REPLACE being set, if an
  *       entry of the same type already exists, it will be replaced instead.
+ * @note AV_FRAME_SIDE_DATA_FLAG_NEW_REF has no effect in this function.
  */
 int av_frame_side_data_clone(AVFrameSideData ***sd, int *nb_sd,
                              const AVFrameSideData *src, unsigned int flags);
