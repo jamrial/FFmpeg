@@ -138,6 +138,9 @@ typedef struct InputFilterPriv {
 
     AVRational          time_base;
 
+    AVFrameSideData   **side_data;
+    int                 nb_side_data;
+
     AVFifo             *frame_queue;
 
     AVBufferRef        *hw_frames_ctx;
@@ -193,6 +196,9 @@ typedef struct OutputFilterPriv {
     int                     width, height;
     int                     sample_rate;
     AVChannelLayout         ch_layout;
+
+    AVFrameSideData       **side_data;
+    int                     nb_side_data;
 
     // time base in which the output is sent to our downstream
     // does not need to match the filtersink's timebase
@@ -916,6 +922,7 @@ void fg_free(FilterGraph **pfg)
         av_buffer_unref(&ifp->hw_frames_ctx);
         av_freep(&ifp->linklabel);
         av_freep(&ifp->opts.name);
+        av_frame_side_data_free(&ifp->side_data, &ifp->nb_side_data);
         av_freep(&ifilter->name);
         av_freep(&fg->inputs[j]);
     }
@@ -929,6 +936,7 @@ void fg_free(FilterGraph **pfg)
         av_freep(&ofilter->linklabel);
         av_freep(&ofilter->name);
         av_channel_layout_uninit(&ofp->ch_layout);
+        av_frame_side_data_free(&ofp->side_data, &ofp->nb_side_data);
         av_freep(&fg->outputs[j]);
     }
     av_freep(&fg->outputs);
@@ -1542,6 +1550,8 @@ static int configure_input_video_filter(FilterGraph *fg, AVFilterGraph *graph,
                                             args.str, NULL, graph)) < 0)
         goto fail;
     par->hw_frames_ctx = ifp->hw_frames_ctx;
+    par->side_data     = ifp->side_data;
+    par->nb_side_data  = ifp->nb_side_data;
     ret = av_buffersrc_parameters_set(ifp->filter, par);
     if (ret < 0)
         goto fail;
@@ -1611,6 +1621,9 @@ static int configure_input_audio_filter(FilterGraph *fg, AVFilterGraph *graph,
     AVBPrint args;
     char name[255];
     int ret, pad_idx = 0;
+    AVBufferSrcParameters *par = av_buffersrc_parameters_alloc();
+    if (!par)
+        return AVERROR(ENOMEM);
 
     av_bprint_init(&args, 0, AV_BPRINT_SIZE_AUTOMATIC);
     av_bprintf(&args, "time_base=%d/%d:sample_rate=%d:sample_fmt=%s",
@@ -1628,7 +1641,13 @@ static int configure_input_audio_filter(FilterGraph *fg, AVFilterGraph *graph,
     if ((ret = avfilter_graph_create_filter(&ifp->filter, abuffer_filt,
                                             name, args.str, NULL,
                                             graph)) < 0)
-        return ret;
+        goto fail;
+    par->side_data     = ifp->side_data;
+    par->nb_side_data  = ifp->nb_side_data;
+    ret = av_buffersrc_parameters_set(ifp->filter, par);
+    if (ret < 0)
+        goto fail;
+    av_freep(&par);
     last_filter = ifp->filter;
 
     snprintf(name, sizeof(name), "trim for input stream %s", ifp->opts.name);
@@ -1641,6 +1660,10 @@ static int configure_input_audio_filter(FilterGraph *fg, AVFilterGraph *graph,
         return ret;
 
     return 0;
+fail:
+    av_freep(&par);
+
+    return ret;
 }
 
 static int configure_input_filter(FilterGraph *fg, AVFilterGraph *graph,
@@ -1794,6 +1817,10 @@ static int configure_filtergraph(FilterGraph *fg, FilterGraphThread *fgt)
         ret = av_buffersink_get_ch_layout(sink, &ofp->ch_layout);
         if (ret < 0)
             goto fail;
+        av_frame_side_data_free(&ofp->side_data, &ofp->nb_side_data);
+        ret = av_buffersink_get_side_data(sink, &ofp->side_data, &ofp->nb_side_data);
+        if (ret < 0)
+            goto fail;
     }
 
     for (int i = 0; i < fg->nb_inputs; i++) {
@@ -1859,6 +1886,12 @@ static int ifilter_parameters_from_frame(InputFilter *ifilter, const AVFrame *fr
 
     ifp->sample_rate         = frame->sample_rate;
     ret = av_channel_layout_copy(&ifp->ch_layout, &frame->ch_layout);
+    if (ret < 0)
+        return ret;
+
+    av_frame_side_data_free(&ifp->side_data, &ifp->nb_side_data);
+    ret = clone_side_data(&ifp->side_data, &ifp->nb_side_data,
+                          frame->side_data, frame->nb_side_data, 0);
     if (ret < 0)
         return ret;
 
@@ -2191,6 +2224,11 @@ static int close_output(OutputFilterPriv *ofp, FilterGraphThread *fgt)
             if (ret < 0)
                 return ret;
         }
+        av_frame_side_data_free(&frame->side_data, &frame->nb_side_data);
+        ret = clone_side_data(&frame->side_data, &frame->nb_side_data,
+                              ofp->side_data, ofp->nb_side_data, 0);
+        if (ret < 0)
+            return ret;
 
         fd = frame_data(frame);
         if (!fd)
@@ -2541,6 +2579,13 @@ static int send_eof(FilterGraphThread *fgt, InputFilter *ifilter,
 
             ret = av_channel_layout_copy(&ifp->ch_layout,
                                          &ifp->opts.fallback->ch_layout);
+            if (ret < 0)
+                return ret;
+
+            av_frame_side_data_free(&ifp->side_data, &ifp->nb_side_data);
+            ret = clone_side_data(&ifp->side_data, &ifp->nb_side_data,
+                                  ifp->opts.fallback->side_data,
+                                  ifp->opts.fallback->nb_side_data, 0);
             if (ret < 0)
                 return ret;
 
