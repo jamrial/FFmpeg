@@ -63,6 +63,8 @@ typedef struct BufferSourceContext {
     int channels;
     char    *channel_layout_str;
     AVChannelLayout ch_layout;
+    AVFrameSideData **side_data;
+    int nb_side_data;
 
     int eof;
     int64_t last_pts;
@@ -160,6 +162,15 @@ int av_buffersrc_parameters_set(AVFilterContext *ctx, AVBufferSrcParameters *par
         break;
     default:
         return AVERROR_BUG;
+    }
+
+    for (int i = 0; i < param->nb_side_data; i++) {
+        int ret = av_frame_side_data_clone(&s->side_data, &s->nb_side_data,
+                                           param->side_data[i], 0);
+        if (ret < 0) {
+            av_frame_side_data_free(&s->side_data, &s->nb_side_data);
+            return ret;
+        }
     }
 
     return 0;
@@ -515,6 +526,15 @@ static int config_props(AVFilterLink *link)
         break;
     default:
         return AVERROR(EINVAL);
+    }
+
+    for (int i = 0; i < c->nb_side_data; i++) {
+        int ret = av_frame_side_data_clone(&link->side_data, &link->nb_side_data,
+                                           c->side_data[i], 0);
+        if (ret < 0) {
+            av_frame_side_data_free(&link->side_data, &link->nb_side_data);
+            return ret;
+        }
     }
 
     link->time_base = c->time_base;
