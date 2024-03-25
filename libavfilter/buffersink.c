@@ -208,6 +208,27 @@ int av_buffersink_get_ch_layout(const AVFilterContext *ctx, AVChannelLayout *out
     return 0;
 }
 
+int av_buffersink_get_side_data(const AVFilterContext *ctx,
+                                AVFrameSideData ***side_data,
+                                int *nb_side_data)
+{
+    AVFrameSideData **sd = NULL;
+    int nb_sd = 0;
+    av_assert0(ctx->filter->activate == activate);
+
+    for (int i = 0; i < ctx->inputs[0]->nb_side_data; i++) {
+        int ret = av_frame_side_data_clone(&sd, &nb_sd,
+                                           ctx->inputs[0]->side_data[i], 0);
+        if (ret < 0) {
+            av_frame_side_data_free(&sd, &nb_sd);
+            return ret;
+        }
+    }
+    *side_data = sd;
+    *nb_side_data = nb_sd;
+    return 0;
+}
+
 #define CHECK_LIST_SIZE(field) \
         if (buf->field ## _size % sizeof(*buf->field)) { \
             av_log(ctx, AV_LOG_ERROR, "Invalid size for " #field ": %d, " \

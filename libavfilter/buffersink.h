@@ -48,6 +48,7 @@
  * - av_buffersink_get_channels(),
  * - av_buffersink_get_ch_layout(),
  * - av_buffersink_get_sample_rate().
+ * - av_buffersink_get_side_data().
  *
  * The layout returned by av_buffersink_get_ch_layout() must de uninitialized
  * by the caller.
@@ -128,6 +129,10 @@ int              av_buffersink_get_ch_layout           (const AVFilterContext *c
 int              av_buffersink_get_sample_rate         (const AVFilterContext *ctx);
 
 AVBufferRef *    av_buffersink_get_hw_frames_ctx       (const AVFilterContext *ctx);
+
+int              av_buffersink_get_side_data           (const AVFilterContext *ctx,
+                                                        AVFrameSideData ***side_data,
+                                                        int *nb_side_data);
 
 /** @} */
 
