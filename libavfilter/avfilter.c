@@ -203,6 +203,7 @@ static void link_free(AVFilterLink **link)
     ff_framequeue_free(&li->fifo);
     ff_frame_pool_uninit(&li->frame_pool);
     av_channel_layout_uninit(&(*link)->ch_layout);
+    av_frame_side_data_free(&(*link)->side_data, &(*link)->nb_side_data);
 
     av_freep(link);
 }
@@ -416,6 +417,17 @@ int ff_filter_config_links(AVFilterContext *filter)
                 link->hw_frames_ctx = av_buffer_ref(link->src->inputs[0]->hw_frames_ctx);
                 if (!link->hw_frames_ctx)
                     return AVERROR(ENOMEM);
+            }
+
+            if (inlink && inlink->nb_side_data && !link->nb_side_data) {
+                for (i = 0; i < inlink->nb_side_data; i++) {
+                    ret = av_frame_side_data_clone(&link->side_data, &link->nb_side_data,
+                                                   inlink->side_data[i], 0);
+                    if (ret < 0) {
+                        av_frame_side_data_free(&link->side_data, &link->nb_side_data);
+                        return ret;
+                    }
+                }
             }
 
             if ((config_link = link->dstpad->config_props))
