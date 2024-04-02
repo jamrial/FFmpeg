@@ -225,6 +225,7 @@ External library support:
   --enable-libcdio         enable audio CD grabbing with libcdio [no]
   --enable-libcodec2       enable codec2 en/decoding using libcodec2 [no]
   --enable-libdav1d        enable AV1 decoding via libdav1d [no]
+  --enable-liblcevc-dec    enable LCEVC decoding via liblcevc-dec [no]
   --enable-libdavs2        enable AVS2 decoding via libdavs2 [no]
   --enable-libdc1394       enable IIDC-1394 grabbing using libdc1394
                            and libraw1394 [no]
@@ -1914,6 +1915,7 @@ EXTERNAL_LIBRARY_LIST="
     libcelt
     libcodec2
     libdav1d
+    liblcevc_dec
     libdc1394
     libflite
     libfontconfig
@@ -4030,7 +4032,7 @@ cws2fws_extralibs="zlib_extralibs"
 
 # libraries, in any order
 avcodec_deps="avutil"
-avcodec_suggest="libm stdatomic"
+avcodec_suggest="libm stdatomic liblcevc_dec"
 avdevice_deps="avformat avcodec avutil"
 avdevice_suggest="libm stdatomic"
 avfilter_deps="avutil"
@@ -6906,6 +6908,7 @@ enabled libklvanc         && require libklvanc libklvanc/vanc.h klvanc_context_c
 enabled libkvazaar        && require_pkg_config libkvazaar "kvazaar >= 2.0.0" kvazaar.h kvz_api_get
 enabled liblc3            && require_pkg_config liblc3 "lc3 >= 1.1.0" lc3.h lc3_hr_setup_encoder
 enabled liblensfun        && require_pkg_config liblensfun lensfun lensfun.h lf_db_create
+enabled liblcevc_dec      && require_pkg_config liblcevc_dec "lcevc_dec >= 2.0.0" "LCEVC/lcevc_dec.h" LCEVC_CreateDecoder
 
 if enabled libmfx && enabled libvpl; then
    die "ERROR: can not use libmfx and libvpl together"
