@@ -1502,6 +1502,10 @@ static int init_postproc(AVCodecContext *avctx, AVFrame *frame)
     if (dc->post_process_initialized)
         return 0;
 
+    // LCEVC
+    if (!avctx->hwaccel && av_frame_get_side_data(frame, AV_FRAME_DATA_LCEVC))
+        type = FF_POSTPROC_TYPE_LCEVC;
+
     if (type != FF_POSTPROC_TYPE_NONE) {
         dc->post_process_initialized = ff_postproc_is_open(dc->post_process);
         if (!dc->post_process_initialized) {

@@ -35,4 +35,6 @@ typedef struct FFPostProcType {
     enum FFPostProcEnum type;
 } FFPostProcType;
 
+extern const FFPostProcType ff_lcevc_postproc;
+
 #endif /* AVCODEC_POSTPROCESS_H */

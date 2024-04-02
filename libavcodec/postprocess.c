@@ -37,6 +37,9 @@ typedef struct FFPostProcInternal {
 } FFPostProcInternal;
 
 static const struct FFPostProcType *const post_process_table[] = {
+#if CONFIG_LIBLCEVC_DEC
+    &ff_lcevc_postproc,
+#endif
 };
 
 static av_always_inline FFPostProcInternal *ffpostproci(FFPostProc *pp)
