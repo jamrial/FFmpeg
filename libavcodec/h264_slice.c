@@ -191,6 +191,11 @@ static int alloc_picture(H264Context *h, H264Picture *pic)
 
     av_assert0(!pic->f->data[0]);
 
+    if (pic->needs_lcevc) {
+        pic->f->width  = FFMAX(h->avctx->width,  h->avctx->coded_width)  * 2 / FFMAX(h->avctx->sample_aspect_ratio.den, 1);
+        pic->f->height = FFMAX(h->avctx->height, h->avctx->coded_height) * 2 / FFMAX(h->avctx->sample_aspect_ratio.num, 1);
+    }
+
     pic->tf.f = pic->f;
     ret = ff_thread_get_ext_buffer(h->avctx, &pic->tf,
                                    pic->reference ? AV_GET_BUFFER_FLAG_REF : 0);
@@ -204,6 +209,11 @@ static int alloc_picture(H264Context *h, H264Picture *pic)
         ret = ff_thread_get_buffer(h->avctx, pic->f_grain, 0);
         if (ret < 0)
             goto fail;
+    }
+
+    if (pic->needs_lcevc) {
+        pic->f->width  = FFMAX(h->avctx->width,  h->avctx->coded_width);
+        pic->f->height = FFMAX(h->avctx->height, h->avctx->coded_height);
     }
 
     ret = ff_hwaccel_frame_priv_alloc(h->avctx, &pic->hwaccel_picture_private);
@@ -459,6 +469,8 @@ int ff_h264_update_thread_context(AVCodecContext *dst,
     h->recovery_frame        = h1->recovery_frame;
     h->non_gray              = h1->non_gray;
 
+    av_buffer_replace(&h->lcevc, h1->lcevc);
+
     return err;
 }
 
@@ -518,6 +530,9 @@ static int h264_frame_start(H264Context *h)
 
     pic->needs_fg = h->sei.common.film_grain_characteristics.present && !h->avctx->hwaccel &&
         !(h->avctx->export_side_data & AV_CODEC_EXPORT_DATA_FILM_GRAIN);
+
+    pic->needs_lcevc = CONFIG_LIBLCEVC_DEC && h->sei.common.lcevc.info && !h->avctx->hwaccel &&
+        !(h->avctx->export_side_data & AV_CODEC_EXPORT_DATA_ENHANCEMENTS);
 
     if ((ret = alloc_picture(h, pic)) < 0)
         return ret;

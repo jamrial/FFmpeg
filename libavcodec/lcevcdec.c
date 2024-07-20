@@ -223,6 +223,8 @@ int ff_lcevc_process(void *logctx, AVFrame *frame)
     if (ret < 0)
         return ret;
 
+    av_frame_remove_side_data(frame, AV_FRAME_DATA_LCEVC);
+
     return 0;
 }
 

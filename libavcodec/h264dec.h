@@ -154,6 +154,7 @@ typedef struct H264Picture {
     int invalid_gap;
     int sei_recovery_frame_cnt;
     int needs_fg;           ///< whether picture needs film grain synthesis (see `f_grain`)
+    int needs_lcevc;        ///< whether picture needs LCEVC enhancement
 
     const PPS   *pps;
 
@@ -580,6 +581,8 @@ typedef struct H264Context {
     int non_gray;                       ///< Did we encounter a intra frame after a gray gap frame
     int noref_gray;
     int skip_gray;
+
+    AVBufferRef *lcevc; // FFLCEVCContext
 } H264Context;
 
 extern const uint16_t ff_h264_mb_sizes[4];

@@ -103,6 +103,7 @@ static void h264_copy_picture_params(H264Picture *dst, const H264Picture *src)
     dst->mb_height     = src->mb_height;
     dst->mb_stride     = src->mb_stride;
     dst->needs_fg      = src->needs_fg;
+    dst->needs_lcevc   = src->needs_lcevc;
 }
 
 int ff_h264_ref_picture(H264Picture *dst, const H264Picture *src)

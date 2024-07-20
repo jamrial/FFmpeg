@@ -38,6 +38,7 @@
 #include "libavutil/video_enc_params.h"
 
 #include "codec_internal.h"
+#include "decode.h"
 #include "internal.h"
 #include "error_resilience.h"
 #include "avcodec.h"
@@ -49,6 +50,7 @@
 #include "golomb.h"
 #include "hwaccel_internal.h"
 #include "hwconfig.h"
+#include "lcevcdec.h"
 #include "mpegutils.h"
 #include "profiles.h"
 #include "rectangle.h"
@@ -377,6 +379,8 @@ static av_cold int h264_decode_end(AVCodecContext *avctx)
     h264_free_pic(h, &h->cur_pic);
     h264_free_pic(h, &h->last_pic_for_ec);
 
+    av_buffer_unref(&h->lcevc);
+
     return 0;
 }
 
@@ -404,6 +408,9 @@ FF_ENABLE_DEPRECATION_WARNINGS
 #endif
 
     if (!avctx->internal->is_copy) {
+#if CONFIG_LIBLCEVC_DEC
+        FFLCEVCContext *lcevc;
+#endif
         if (avctx->extradata_size > 0 && avctx->extradata) {
             ret = ff_h264_decode_extradata(avctx->extradata, avctx->extradata_size,
                                            &h->ps, &h->is_avc, &h->nal_length_size,
@@ -418,6 +425,21 @@ FF_ENABLE_DEPRECATION_WARNINGS
                ret = 0;
            }
         }
+#if CONFIG_LIBLCEVC_DEC
+        lcevc = av_mallocz(sizeof(*lcevc));
+        ret = ff_lcevc_init(lcevc, avctx);
+        if (ret < 0) {
+            int explode = avctx->err_recognition & AV_EF_EXPLODE;
+            av_log(avctx, explode ? AV_LOG_ERROR: AV_LOG_WARNING,
+                   "Error initializing LCEVC\n");
+            if (explode) {
+                av_free(lcevc);
+                return ret;
+            }
+            ret = 0;
+        }
+        h->lcevc = av_buffer_create((uint8_t *)lcevc, sizeof(*lcevc), ff_lcevc_free, lcevc, 0);
+#endif
     }
 
     if (h->ps.sps && h->ps.sps->bitstream_restriction_flag &&
@@ -667,9 +689,20 @@ static int decode_nal_units(H264Context *h, const uint8_t *buf, int buf_size)
                     h->setup_finished = 1;
                 }
 
-                if (h->avctx->hwaccel &&
-                    (ret = FF_HW_CALL(h->avctx, start_frame, buf, buf_size)) < 0)
-                    goto end;
+                if (h->avctx->hwaccel) {
+                    ret = FF_HW_CALL(h->avctx, start_frame, buf, buf_size);
+                    if (ret < 0)
+                        goto end;
+                } else if (CONFIG_LIBLCEVC_DEC && h->cur_pic_ptr->needs_lcevc) {
+                    FrameDecodeData *fdd = (FrameDecodeData*)h->cur_pic_ptr->f->private_ref->data;
+                    fdd->post_process_opaque = av_buffer_ref(h->lcevc);
+                    if (!fdd->post_process_opaque) {
+                        ret = -1;
+                        goto end;
+                    }
+                    fdd->post_process_opaque_free = ff_lcevc_unref;
+                    fdd->post_process = ff_lcevc_process;
+                }
             }
 
             max_slice_ctx = avctx->hwaccel ? 1 : h->nb_slice_ctx;
@@ -904,6 +937,8 @@ static int output_frame(H264Context *h, AVFrame *dst, H264Picture *srcp)
 
     if (!(h->avctx->export_side_data & AV_CODEC_EXPORT_DATA_FILM_GRAIN))
         av_frame_remove_side_data(dst, AV_FRAME_DATA_FILM_GRAIN_PARAMS);
+    if (!(h->avctx->export_side_data & AV_CODEC_EXPORT_DATA_ENHANCEMENTS) && !CONFIG_LIBLCEVC_DEC)
+        av_frame_remove_side_data(dst, AV_FRAME_DATA_LCEVC);
 
     return 0;
 fail:
