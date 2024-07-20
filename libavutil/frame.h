@@ -228,6 +228,11 @@ enum AVFrameSideDataType {
      * encoding.
      */
     AV_FRAME_DATA_VIDEO_HINT,
+
+    /**
+     * Raw LCEVC payload data, as a uint8_t array.
+     */
+    AV_FRAME_DATA_LCEVC,
 };
 
 enum AVActiveFormatDescription {
