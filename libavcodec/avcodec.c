@@ -447,6 +447,8 @@ av_cold void ff_codec_close(AVCodecContext *avctx)
         ff_refstruct_unref(&avci->pool);
         ff_refstruct_pool_uninit(&avci->progress_frame_pool);
 
+        ff_refstruct_unref(&avci->lcevc);
+
         ff_hwaccel_uninit(avctx);
 
         av_bsf_free(&avci->bsf);

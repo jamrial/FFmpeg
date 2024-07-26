@@ -48,6 +48,7 @@
 #include "hwaccel_internal.h"
 #include "hwconfig.h"
 #include "internal.h"
+#include "lcevcdec.h"
 #include "packet_internal.h"
 #include "progressframe.h"
 #include "refstruct.h"
@@ -1434,6 +1435,7 @@ int ff_decode_frame_props_from_pkt(const AVCodecContext *avctx,
         { AV_PKT_DATA_DYNAMIC_HDR10_PLUS,         AV_FRAME_DATA_DYNAMIC_HDR_PLUS },
         { AV_PKT_DATA_S12M_TIMECODE,              AV_FRAME_DATA_S12M_TIMECODE },
         { AV_PKT_DATA_SKIP_SAMPLES,               AV_FRAME_DATA_SKIP_SAMPLES },
+        { AV_PKT_DATA_LCEVC,                      AV_FRAME_DATA_LCEVC },
     };
 
     frame->pts          = pkt->pts;
@@ -1599,6 +1601,7 @@ int ff_attach_decode_data(AVFrame *frame)
 int ff_get_buffer(AVCodecContext *avctx, AVFrame *frame, int flags)
 {
     const FFHWAccel *hwaccel = ffhwaccel(avctx->hwaccel);
+    int lcevc = 0, width = 0, height = 0;
     int override_dimensions = 1;
     int ret;
 
@@ -1639,8 +1642,17 @@ int ff_get_buffer(AVCodecContext *avctx, AVFrame *frame, int flags)
             ret = hwaccel->alloc_frame(avctx, frame);
             goto end;
         }
-    } else
+    } else {
         avctx->sw_pix_fmt = avctx->pix_fmt;
+        lcevc = CONFIG_LIBLCEVC_DEC && avctx->codec_type == AVMEDIA_TYPE_VIDEO &&
+                avctx->internal->lcevc && av_frame_get_side_data(frame, AV_FRAME_DATA_LCEVC);
+        if (lcevc) {
+            width         = frame->width;
+            height        = frame->height;
+            frame->width  = frame->width  * 2 / FFMAX(frame->sample_aspect_ratio.den, 1);
+            frame->height = frame->height * 2 / FFMAX(frame->sample_aspect_ratio.num, 1);
+        }
+    }
 
     ret = avctx->get_buffer2(avctx, frame, flags);
     if (ret < 0)
@@ -1651,6 +1663,17 @@ int ff_get_buffer(AVCodecContext *avctx, AVFrame *frame, int flags)
     ret = ff_attach_decode_data(frame);
     if (ret < 0)
         goto fail;
+
+    if (CONFIG_LIBLCEVC_DEC && lcevc) {
+        FrameDecodeData *fdd = (FrameDecodeData*)frame->private_ref->data;
+
+        fdd->post_process_opaque = ff_refstruct_ref(avctx->internal->lcevc);
+        fdd->post_process_opaque_free = ff_lcevc_unref;
+        fdd->post_process = ff_lcevc_process;
+
+        frame->width  = width;
+        frame->height = height;
+    }
 
 end:
     if (avctx->codec_type == AVMEDIA_TYPE_VIDEO && !override_dimensions &&
@@ -1724,7 +1747,7 @@ static void check_progress_consistency(const ProgressFrame *f)
     av_assert1(!f->progress || f->progress->f == f->f);
 }
 
-static int progress_frame_get(AVCodecContext *avctx, ProgressFrame *f)
+int ff_progress_frame_alloc(AVCodecContext *avctx, ProgressFrame *f)
 {
     FFRefStructPool *pool = avctx->internal->progress_frame_pool;
 
@@ -1742,9 +1765,12 @@ int ff_progress_frame_get_buffer(AVCodecContext *avctx, ProgressFrame *f, int fl
 {
     int ret;
 
-    ret = progress_frame_get(avctx, f);
-    if (ret < 0)
-        return ret;
+    check_progress_consistency(f);
+    if (!f->f) {
+        ret = ff_progress_frame_alloc(avctx, f);
+        if (ret < 0)
+            return ret;
+    }
 
     ret = ff_thread_get_buffer(avctx, f->progress->f, flags);
     if (ret < 0) {
@@ -1948,6 +1974,18 @@ int ff_decode_preinit(AVCodecContext *avctx)
     ret = decode_bsfs_init(avctx);
     if (ret < 0)
         return ret;
+
+    if (CONFIG_LIBLCEVC_DEC && !(avctx->export_side_data & AV_CODEC_EXPORT_DATA_ENHANCEMENTS)) {
+        avci->lcevc = ff_refstruct_alloc_ext(sizeof(*avci->lcevc), 0, NULL, ff_lcevc_free);
+
+        if (!avci->lcevc) {
+            int explode = avctx->err_recognition & AV_EF_EXPLODE;
+            av_log(avctx, explode ? AV_LOG_ERROR: AV_LOG_WARNING,
+                   "Error allocating LCEVC context\n");
+            if (explode)
+                return AVERROR(ENOMEM);
+        }
+    }
 
 #if FF_API_DROPCHANGED
     if (avctx->flags & AV_CODEC_FLAG_DROPCHANGED)

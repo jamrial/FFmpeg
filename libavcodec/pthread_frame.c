@@ -782,6 +782,7 @@ void ff_frame_thread_free(AVCodecContext *avctx, int thread_count)
             ff_refstruct_unref(&ctx->internal->pool);
             av_packet_free(&ctx->internal->in_pkt);
             av_packet_free(&ctx->internal->last_pkt_props);
+            ff_refstruct_unref(&ctx->internal->lcevc);
             av_freep(&ctx->internal);
             av_buffer_unref(&ctx->hw_frames_ctx);
             av_frame_side_data_free(&ctx->decoded_side_data,
@@ -877,6 +878,9 @@ static av_cold int init_thread(PerThreadContext *p, int *threads_to_free,
     copy->internal->in_pkt = av_packet_alloc();
     if (!copy->internal->in_pkt)
         return AVERROR(ENOMEM);
+
+    if (avctx->internal->lcevc)
+        copy->internal->lcevc = ff_refstruct_ref(avctx->internal->lcevc);
 
     copy->internal->last_pkt_props = av_packet_alloc();
     if (!copy->internal->last_pkt_props)
