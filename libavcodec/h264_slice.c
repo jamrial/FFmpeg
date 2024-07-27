@@ -518,6 +518,14 @@ static int h264_frame_start(H264Context *h)
 
     pic->needs_fg = h->sei.common.film_grain_characteristics.present && !h->avctx->hwaccel &&
         !(h->avctx->export_side_data & AV_CODEC_EXPORT_DATA_FILM_GRAIN);
+    if (CONFIG_LIBLCEVC_DEC && h->sei.common.lcevc.info && !h->avctx->hwaccel &&
+        !(h->avctx->export_side_data & AV_CODEC_EXPORT_DATA_ENHANCEMENTS)) {
+        HEVCSEILCEVC *lcevc = &h->sei.common.lcevc;
+        ret = ff_frame_new_side_data_from_buf(h->avctx, pic->f,
+                                              AV_FRAME_DATA_LCEVC, &lcevc->info);
+        if (ret < 0)
+            return ret;
+    }
 
     if ((ret = alloc_picture(h, pic)) < 0)
         return ret;

@@ -904,6 +904,8 @@ static int output_frame(H264Context *h, AVFrame *dst, H264Picture *srcp)
 
     if (!(h->avctx->export_side_data & AV_CODEC_EXPORT_DATA_FILM_GRAIN))
         av_frame_remove_side_data(dst, AV_FRAME_DATA_FILM_GRAIN_PARAMS);
+    if (!CONFIG_LIBLCEVC_DEC && !(h->avctx->export_side_data & AV_CODEC_EXPORT_DATA_ENHANCEMENTS))
+        av_frame_remove_side_data(dst, AV_FRAME_DATA_LCEVC);
 
     return 0;
 fail:
