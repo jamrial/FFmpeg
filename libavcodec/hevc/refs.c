@@ -86,10 +86,23 @@ static HEVCFrame *alloc_frame(HEVCContext *s, HEVCLayerContext *l)
         if (frame->f)
             continue;
 
+        ret = ff_progress_frame_alloc(s->avctx, &frame->tf);
+        if (ret < 0)
+            return NULL;
+
+        if (CONFIG_LIBLCEVC_DEC && s->sei.common.lcevc.info && !s->avctx->hwaccel &&
+            !(s->avctx->export_side_data & AV_CODEC_EXPORT_DATA_ENHANCEMENTS)) {
+            HEVCSEILCEVC *lcevc = &s->sei.common.lcevc;
+            ret = ff_frame_new_side_data_from_buf(s->avctx, frame->tf.f,
+                                                  AV_FRAME_DATA_LCEVC, &lcevc->info);
+            if (ret < 0)
+                goto fail;
+        }
+
         ret = ff_progress_frame_get_buffer(s->avctx, &frame->tf,
                                            AV_GET_BUFFER_FLAG_REF);
         if (ret < 0)
-            return NULL;
+            goto fail;
 
         frame->rpl = ff_refstruct_allocz(s->pkt.nb_nals * sizeof(*frame->rpl));
         if (!frame->rpl)
