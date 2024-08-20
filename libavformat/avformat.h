@@ -1084,11 +1084,25 @@ typedef struct AVStreamGroupTileGrid {
     int height;
 } AVStreamGroupTileGrid;
 
+typedef struct AVStreamGroupLCEVC {
+    const AVClass *av_class;
+
+    /**
+     * Width of the final stream for presentation.
+     */
+    int width;
+    /**
+     * Height of the final image for presentation.
+     */
+    int height;
+} AVStreamGroupLCEVC;
+
 enum AVStreamGroupParamsType {
     AV_STREAM_GROUP_PARAMS_NONE,
     AV_STREAM_GROUP_PARAMS_IAMF_AUDIO_ELEMENT,
     AV_STREAM_GROUP_PARAMS_IAMF_MIX_PRESENTATION,
     AV_STREAM_GROUP_PARAMS_TILE_GRID,
+    AV_STREAM_GROUP_PARAMS_LCEVC,
 };
 
 struct AVIAMFAudioElement;
@@ -1130,6 +1144,7 @@ typedef struct AVStreamGroup {
         struct AVIAMFAudioElement *iamf_audio_element;
         struct AVIAMFMixPresentation *iamf_mix_presentation;
         struct AVStreamGroupTileGrid *tile_grid;
+        struct AVStreamGroupLCEVC *lcevc;
     } params;
 
     /**
