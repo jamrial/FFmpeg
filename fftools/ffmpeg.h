@@ -468,6 +468,12 @@ typedef struct InputFile {
      * if new streams appear dynamically during demuxing */
     InputStream    **streams;
     int           nb_streams;
+
+    /**
+     * stream groups that ffmpeg is aware of
+     */
+    struct InputStreamGroup **stream_groups;
+    int             nb_stream_groups;
 } InputFile;
 
 enum forced_keyframes_const {
