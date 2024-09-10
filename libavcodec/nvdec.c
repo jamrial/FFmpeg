@@ -324,6 +324,8 @@ static int nvdec_init_hwframes(AVCodecContext *avctx, AVBufferRef **out_frames_r
     return 0;
 }
 
+static int nvdec_retrieve_data(struct FFPostProc *pp, void *logctx, void *obj);
+
 int ff_nvdec_decode_init(AVCodecContext *avctx)
 {
     NVDECContext *ctx = avctx->internal->hwaccel_priv_data;
@@ -434,6 +436,10 @@ int ff_nvdec_decode_init(AVCodecContext *avctx)
         goto fail;
     }
 
+    ret = ff_decode_post_process_init_custom(avctx, nvdec_retrieve_data);
+    if (ret < 0)
+        goto fail;
+
     return 0;
 fail:
     ff_nvdec_decode_uninit(avctx);
@@ -478,8 +484,9 @@ finish:
     av_free(unmap_data);
 }
 
-static int nvdec_retrieve_data(void *logctx, AVFrame *frame)
+static int nvdec_retrieve_data(struct FFPostProc *pp, void *logctx, void *obj)
 {
+    AVFrame        *frame = obj;
     FrameDecodeData  *fdd = (FrameDecodeData*)frame->private_ref->data;
     NVDECFrame        *cf = (NVDECFrame*)fdd->hwaccel_priv;
     NVDECDecoder *decoder = cf->decoder;
@@ -587,7 +594,6 @@ int ff_nvdec_start_frame(AVCodecContext *avctx, AVFrame *frame)
 
     fdd->hwaccel_priv      = cf;
     fdd->hwaccel_priv_free = nvdec_fdd_priv_free;
-    fdd->post_process      = nvdec_retrieve_data;
 
     return 0;
 fail:

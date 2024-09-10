@@ -426,6 +426,9 @@ av_cold void ff_codec_close(AVCodecContext *avctx)
     if (avcodec_is_open(avctx)) {
         AVCodecInternal *avci = avctx->internal;
 
+        if (av_codec_is_decoder(avctx->codec))
+            ff_decode_internal_uninit(avci);
+
         if (CONFIG_FRAME_THREAD_ENCODER &&
             avci->frame_thread_encoder && avctx->thread_count > 1) {
             ff_frame_thread_encoder_free(avctx);

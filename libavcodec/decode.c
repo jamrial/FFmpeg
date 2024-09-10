@@ -49,6 +49,7 @@
 #include "hwconfig.h"
 #include "internal.h"
 #include "packet_internal.h"
+#include "postprocess.h"
 #include "progressframe.h"
 #include "refstruct.h"
 #include "thread.h"
@@ -89,6 +90,9 @@ typedef struct DecodeContext {
      * (global or attached to packets) side data over bytestream.
      */
     uint64_t side_data_pref_mask;
+
+    FFPostProc *post_process;
+    int post_process_initialized;
 } DecodeContext;
 
 static DecodeContext *decode_ctx(AVCodecInternal *avci)
@@ -702,7 +706,7 @@ FF_ENABLE_DEPRECATION_WARNINGS
             FrameDecodeData *fdd = (FrameDecodeData*)frame->private_ref->data;
 
             if (fdd->post_process) {
-                ret = fdd->post_process(avctx, frame);
+                ret = ff_postproc_process(fdd->post_process, avctx, frame);
                 if (ret < 0) {
                     av_frame_unref(frame);
                     return ret;
@@ -1488,6 +1492,28 @@ FF_ENABLE_DEPRECATION_WARNINGS
     return 0;
 }
 
+static int init_postproc(AVCodecContext *avctx, AVFrame *frame)
+{
+    AVCodecInternal *avci = avctx->internal;
+    DecodeContext     *dc = decode_ctx(avci);
+    enum FFPostProcEnum type = FF_POSTPROC_TYPE_NONE;
+    int ret;
+
+    if (dc->post_process_initialized)
+        return 0;
+
+    if (type != FF_POSTPROC_TYPE_NONE) {
+        dc->post_process_initialized = ff_postproc_is_open(dc->post_process);
+        if (!dc->post_process_initialized) {
+            ret = ff_postproc_init(dc->post_process, avctx, type);
+            if (ret < 0 && ret != AVERROR(ENOSYS))
+                return ret;
+        }
+    }
+
+    return 0;
+}
+
 int ff_decode_frame_props(AVCodecContext *avctx, AVFrame *frame)
 {
     int ret;
@@ -1522,6 +1548,12 @@ FF_ENABLE_DEPRECATION_WARNINGS
     ret = fill_frame_props(avctx, frame);
     if (ret < 0)
         return ret;
+
+    if (!(avctx->export_side_data & AV_CODEC_EXPORT_DATA_ENHANCEMENTS)) {
+        ret = init_postproc(avctx, frame);
+        if (ret < 0)
+            return ret;
+    }
 
     switch (avctx->codec->type) {
     case AVMEDIA_TYPE_VIDEO:
@@ -1559,12 +1591,30 @@ static void validate_avframe_allocation(AVCodecContext *avctx, AVFrame *frame)
     }
 }
 
+int ff_decode_post_process_init_custom(AVCodecContext *avctx,
+                                       int (*post_process)(FFPostProc *pp, void *logctx, void *obj))
+{
+    AVCodecInternal *avci = avctx->internal;
+    DecodeContext     *dc = decode_ctx(avci);
+    int ret;
+
+    if (ff_postproc_is_open(dc->post_process))
+        return AVERROR(EINVAL);
+
+    ret = ff_postproc_init_custom(dc->post_process, post_process);
+    if (ret < 0)
+        return ret;
+
+    dc->post_process_initialized = 1;
+
+    return 0;
+}
+
 static void decode_data_free(void *opaque, uint8_t *data)
 {
     FrameDecodeData *fdd = (FrameDecodeData*)data;
 
-    if (fdd->post_process_opaque_free)
-        fdd->post_process_opaque_free(fdd->post_process_opaque);
+    ff_refstruct_unref(&fdd->post_process);
 
     if (fdd->hwaccel_priv_free)
         fdd->hwaccel_priv_free(fdd->hwaccel_priv);
@@ -1596,8 +1646,21 @@ int ff_attach_decode_data(AVFrame *frame)
     return 0;
 }
 
+void ff_attach_post_process_data(AVCodecContext *avctx, AVFrame *frame)
+{
+    AVCodecInternal *avci = avctx->internal;
+    DecodeContext     *dc = decode_ctx(avci);
+    FrameDecodeData  *fdd = (FrameDecodeData*)frame->private_ref->data;
+
+    av_assert1(!fdd->post_process);
+
+    ff_refstruct_replace(&fdd->post_process, dc->post_process);
+}
+
 int ff_get_buffer(AVCodecContext *avctx, AVFrame *frame, int flags)
 {
+    AVCodecInternal *avci = avctx->internal;
+    DecodeContext     *dc = decode_ctx(avci);
     const FFHWAccel *hwaccel = ffhwaccel(avctx->hwaccel);
     int override_dimensions = 1;
     int ret;
@@ -1642,7 +1705,10 @@ int ff_get_buffer(AVCodecContext *avctx, AVFrame *frame, int flags)
     } else
         avctx->sw_pix_fmt = avctx->pix_fmt;
 
-    ret = avctx->get_buffer2(avctx, frame, flags);
+    if (dc->post_process_initialized && dc->post_process->caps & FF_POSTPROC_CAP_GET_BUFFER)
+        ret = ff_postproc_get_buffer(dc->post_process, avctx, frame, flags);
+    else
+        ret = avctx->get_buffer2(avctx, frame, flags);
     if (ret < 0)
         goto fail;
 
@@ -1651,6 +1717,9 @@ int ff_get_buffer(AVCodecContext *avctx, AVFrame *frame, int flags)
     ret = ff_attach_decode_data(frame);
     if (ret < 0)
         goto fail;
+
+    if (dc->post_process_initialized)
+        ff_attach_post_process_data(avctx, frame);
 
 end:
     if (avctx->codec_type == AVMEDIA_TYPE_VIDEO && !override_dimensions &&
@@ -1957,6 +2026,10 @@ int ff_decode_preinit(AVCodecContext *avctx)
         av_log(avctx, AV_LOG_WARNING, "The dropchanged flag is deprecated.\n");
 #endif
 
+    dc->post_process = ff_postproc_alloc();
+    if (!dc->post_process)
+        return AVERROR(ENOMEM);
+
     return 0;
 }
 
@@ -2185,4 +2258,20 @@ void ff_decode_flush_buffers(AVCodecContext *avctx)
 AVCodecInternal *ff_decode_internal_alloc(void)
 {
     return av_mallocz(sizeof(DecodeContext));
+}
+
+void ff_decode_internal_sync(AVCodecContext *dst, const AVCodecContext *src)
+{
+    const DecodeContext *srcidc = decode_ctx(src->internal);
+    DecodeContext *dstidc = decode_ctx(dst->internal);
+
+    ff_refstruct_replace(&dstidc->post_process, srcidc->post_process);
+    dstidc->post_process_initialized = srcidc->post_process_initialized;
+}
+
+void ff_decode_internal_uninit(AVCodecInternal *avci)
+{
+    DecodeContext *dc = decode_ctx(avci);
+
+    ff_refstruct_unref(&dc->post_process);
 }

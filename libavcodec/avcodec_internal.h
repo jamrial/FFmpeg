@@ -68,7 +68,11 @@ void ff_decode_flush_buffers(struct AVCodecContext *avctx);
 void ff_encode_flush_buffers(struct AVCodecContext *avctx);
 
 struct AVCodecInternal *ff_decode_internal_alloc(void);
+void ff_decode_internal_sync(struct AVCodecContext *dst,
+                             const struct AVCodecContext *src);
 struct AVCodecInternal *ff_encode_internal_alloc(void);
+
+void ff_decode_internal_uninit(struct AVCodecInternal *avci);
 
 void ff_codec_close(struct AVCodecContext *avctx);
 

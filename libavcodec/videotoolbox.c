@@ -92,9 +92,10 @@ int ff_videotoolbox_buffer_copy(VTContext *vtctx,
     return 0;
 }
 
-static int videotoolbox_postproc_frame(void *avctx, AVFrame *frame)
+static int videotoolbox_postproc_frame(struct FFPostProc *pp, void *avctx, void *obj)
 {
     int ret;
+    AVFrame *frame = obj;
     VTHWFrame *ref = (VTHWFrame *)frame->buf[0]->data;
 
     if (!ref->pixbuf) {
@@ -129,7 +130,6 @@ int ff_videotoolbox_alloc_frame(AVCodecContext *avctx, AVFrame *frame)
     uint8_t    *data = NULL;
     AVBufferRef *buf = NULL;
     int ret = ff_attach_decode_data(frame);
-    FrameDecodeData *fdd;
     if (ret < 0)
         return ret;
 
@@ -143,8 +143,7 @@ int ff_videotoolbox_alloc_frame(AVCodecContext *avctx, AVFrame *frame)
     }
     frame->buf[0] = buf;
 
-    fdd = (FrameDecodeData*)frame->private_ref->data;
-    fdd->post_process = videotoolbox_postproc_frame;
+    ff_attach_post_process_data(avctx, frame);
 
     frame->width  = avctx->width;
     frame->height = avctx->height;
@@ -1272,6 +1271,10 @@ int ff_videotoolbox_common_init(AVCodecContext *avctx)
     }
 
     err = videotoolbox_start(avctx);
+    if (err < 0)
+        goto fail;
+
+    err = ff_decode_post_process_init_custom(avctx, videotoolbox_postproc_frame);
     if (err < 0)
         goto fail;
 

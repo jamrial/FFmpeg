@@ -52,6 +52,7 @@ OBJS = ac3_parser.o                                                     \
        options.o                                                        \
        parser.o                                                         \
        parsers.o                                                        \
+       postprocess.o                                                    \
        profiles.o                                                       \
        qsv_api.o                                                        \
        raw.o                                                            \

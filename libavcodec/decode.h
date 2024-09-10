@@ -38,12 +38,9 @@ typedef struct FrameDecodeData {
      * @note This code is called at some unspecified point after the frame is
      * returned from the decoder's decode/receive_frame call. Therefore it cannot rely
      * on AVCodecContext being in any specific state, so it does not get to
-     * access AVCodecContext directly at all. All the state it needs must be
-     * stored in the post_process_opaque object.
+     * access AVCodecContext directly at all.
      */
-    int (*post_process)(void *logctx, AVFrame *frame);
-    void *post_process_opaque;
-    void (*post_process_opaque_free)(void *opaque);
+    struct FFPostProc *post_process;
 
     /**
      * Per-frame private data for hwaccels.
@@ -83,6 +80,11 @@ int ff_decode_get_hw_frames_ctx(AVCodecContext *avctx,
                                 enum AVHWDeviceType dev_type);
 
 int ff_attach_decode_data(AVFrame *frame);
+
+void ff_attach_post_process_data(AVCodecContext *avctx, AVFrame *frame);
+
+int ff_decode_post_process_init_custom(AVCodecContext *avctx,
+                                       int (*post_process)(struct FFPostProc *pp, void *logctx, void *obj));
 
 /**
  * Check whether the side-data of src contains a palette of
