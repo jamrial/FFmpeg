@@ -67,6 +67,8 @@ typedef struct RefCount {
 #endif
 } RefCount;
 
+const size_t ff_refstruct_size = REFCOUNT_OFFSET;
+
 static RefCount *get_refcount(void *obj)
 {
     RefCount *ref = (RefCount*)((char*)obj - REFCOUNT_OFFSET);
@@ -86,9 +88,12 @@ static void *get_userdata(void *buf)
     return (char*)buf + REFCOUNT_OFFSET;
 }
 
-static void refcount_init(RefCount *ref, FFRefStructOpaque opaque,
-                          void (*free_cb)(FFRefStructOpaque opaque, void *obj))
+static void *refcount_init(void *buf, size_t size, unsigned flags, FFRefStructOpaque opaque,
+                           void (*free_cb)(FFRefStructOpaque opaque, void *obj))
 {
+    RefCount *ref = buf;
+    void *obj;
+
     atomic_init(&ref->refcount, 1);
     ref->opaque  = opaque;
     ref->free_cb = free_cb;
@@ -97,24 +102,35 @@ static void refcount_init(RefCount *ref, FFRefStructOpaque opaque,
 #if REFSTRUCT_CHECKED
     ref->cookie  = REFSTRUCT_COOKIE;
 #endif
+
+    obj = get_userdata(buf);
+    if (!(flags & FF_REFSTRUCT_FLAG_NO_ZEROING))
+        memset(obj, 0, size);
+
+    return obj;
 }
 
 void *ff_refstruct_alloc_ext_c(size_t size, unsigned flags, FFRefStructOpaque opaque,
                                void (*free_cb)(FFRefStructOpaque opaque, void *obj))
 {
-    void *buf, *obj;
+    void *buf;
 
     if (size > SIZE_MAX - REFCOUNT_OFFSET)
         return NULL;
     buf = av_malloc(size + REFCOUNT_OFFSET);
     if (!buf)
         return NULL;
-    refcount_init(buf, opaque, free_cb);
-    obj = get_userdata(buf);
-    if (!(flags & FF_REFSTRUCT_FLAG_NO_ZEROING))
-        memset(obj, 0, size);
 
-    return obj;
+    return refcount_init(buf, size, flags, opaque, free_cb);
+}
+
+void *ff_refstruct_create_c(void *buf, size_t size, unsigned flags, FFRefStructOpaque opaque,
+                            void (*free_cb)(FFRefStructOpaque opaque, void *obj))
+{
+    if (size > SIZE_MAX - REFCOUNT_OFFSET)
+        return NULL;
+
+    return refcount_init(buf, size, flags, opaque, free_cb);
 }
 
 void ff_refstruct_unref(void *objp)

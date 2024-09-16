@@ -108,6 +108,46 @@ void *ff_refstruct_allocz(size_t size)
 }
 
 /**
+ * Extra bytes required by the RefStruct API
+ */
+extern const size_t ff_refstruct_size;
+
+/**
+ * Take ownership of a buffer of at least usable size `size` plus ff_refstruct_size
+ * to create a refcounted object managed via the RefStruct API.
+ *
+ * By default (in the absence of flags to the contrary),
+ * the returned object is initially zeroed.
+ *
+ * @param buf     The buffer to use for the object. Must be at least
+ *                ff_refstruct_size bytes bigger than the desired usable size.
+ * @param size    Desired usable size of the returned object.
+ * @param flags   A bitwise combination of FF_REFSTRUCT_FLAG_* flags.
+ * @param opaque  A pointer that will be passed to the free_cb callback.
+ * @param free_cb A callback for freeing this object's content
+ *                when its reference count reaches zero;
+ *                it must not free the object itself.
+ * @return A pointer to an object of the desired size or NULL on failure.
+ *         On success, the ownership of buf is passed to the object.
+ */
+void *ff_refstruct_create_c(void *buf, size_t size, unsigned flags, FFRefStructOpaque opaque,
+                            void (*free_cb)(FFRefStructOpaque opaque, void *obj));
+
+/**
+ * A wrapper around ff_refstruct_create_c() for the common case
+ * of a non-const qualified opaque.
+ *
+ * @see ff_refstruct_create_c()
+ */
+static inline
+void *ff_refstruct_create(void *buf, size_t size, unsigned flags, void *opaque,
+                          void (*free_cb)(FFRefStructOpaque opaque, void *obj))
+{
+    return ff_refstruct_create_c(buf, size, flags, (FFRefStructOpaque){.nc = opaque},
+                                 free_cb);
+}
+
+/**
  * Decrement the reference count of the underlying object and automatically
  * free the object if there are no more references to it.
  *
