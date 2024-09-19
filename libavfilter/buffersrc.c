@@ -63,6 +63,9 @@ typedef struct BufferSourceContext {
     char    *channel_layout_str;
     AVChannelLayout ch_layout;
 
+    AVFrameSideData **side_data;
+    int            nb_side_data;
+
     int eof;
     int64_t last_pts;
     int link_delta, prev_delta;
@@ -120,6 +123,20 @@ int av_buffersrc_parameters_set(AVFilterContext *ctx, AVBufferSrcParameters *par
 
     if (param->time_base.num > 0 && param->time_base.den > 0)
         s->time_base = param->time_base;
+
+    for (int i = 0; i < param->nb_side_data; i++) {
+        const AVSideDataDescriptor *desc = av_frame_side_data_desc(param->side_data[i]->type);
+        int ret;
+
+        if (!(desc->props & AV_SIDE_DATA_PROP_GLOBAL))
+            continue;
+
+        ret = av_frame_side_data_clone(&s->side_data,
+                                       &s->nb_side_data,
+                                       param->side_data[i], 0);
+        if (ret < 0)
+            return ret;
+    }
 
     switch (ctx->filter->outputs[0].type) {
     case AVMEDIA_TYPE_VIDEO:
@@ -430,6 +447,7 @@ static av_cold void uninit(AVFilterContext *ctx)
     BufferSourceContext *s = ctx->priv;
     av_buffer_unref(&s->hw_frames_ctx);
     av_channel_layout_uninit(&s->ch_layout);
+    av_frame_side_data_free(&s->side_data, &s->nb_side_data);
 }
 
 static int query_formats(AVFilterContext *ctx)
@@ -523,6 +541,14 @@ static int config_props(AVFilterLink *link)
         break;
     default:
         return AVERROR(EINVAL);
+    }
+
+    for (int i = 0; i < c->nb_side_data; i++) {
+        int ret = av_frame_side_data_clone(&link->side_data,
+                                           &link->nb_side_data,
+                                           c->side_data[i], 0);
+        if (ret < 0)
+            return ret;
     }
 
     link->time_base = c->time_base;

@@ -665,6 +665,9 @@ typedef struct FrameData {
 
     int64_t wallclock[LATENCY_PROBE_NB];
 
+    AVFrameSideData *const *side_data;
+    int            nb_side_data;
+
     AVCodecParameters *par_enc;
 } FrameData;
 

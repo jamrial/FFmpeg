@@ -127,6 +127,10 @@ int              av_buffersink_get_ch_layout           (const AVFilterContext *c
                                                         AVChannelLayout *ch_layout);
 int              av_buffersink_get_sample_rate         (const AVFilterContext *ctx);
 
+int              av_buffersink_get_side_data           (const AVFilterContext *ctx,
+                                                        AVFrameSideData *const **side_data,
+                                                        int             *nb_side_data);
+
 AVBufferRef *    av_buffersink_get_hw_frames_ctx       (const AVFilterContext *ctx);
 
 /** @} */

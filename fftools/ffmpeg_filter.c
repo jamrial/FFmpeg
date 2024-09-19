@@ -139,6 +139,9 @@ typedef struct InputFilterPriv {
 
     AVRational          time_base;
 
+    AVFrameSideData   **side_data;
+    int                 nb_side_data;
+
     AVFifo             *frame_queue;
 
     AVBufferRef        *hw_frames_ctx;
@@ -1000,6 +1003,8 @@ void fg_free(FilterGraph **pfg)
         av_frame_free(&ifp->frame);
         av_frame_free(&ifp->opts.fallback);
 
+        av_frame_side_data_free(&ifp->side_data, &ifp->nb_side_data);
+
         av_buffer_unref(&ifp->hw_frames_ctx);
         av_freep(&ifp->linklabel);
         av_freep(&ifp->opts.name);
@@ -1684,6 +1689,8 @@ static int configure_input_video_filter(FilterGraph *fg, AVFilterGraph *graph,
                                             args.str, NULL, graph)) < 0)
         goto fail;
     par->hw_frames_ctx = ifp->hw_frames_ctx;
+    par->side_data = ifp->side_data;
+    par->nb_side_data = ifp->nb_side_data;
     ret = av_buffersrc_parameters_set(ifp->filter, par);
     if (ret < 0)
         goto fail;
@@ -2018,6 +2025,18 @@ static int ifilter_parameters_from_frame(InputFilter *ifilter, const AVFrame *fr
     ret = av_channel_layout_copy(&ifp->ch_layout, &frame->ch_layout);
     if (ret < 0)
         return ret;
+
+    for (int i = 0; i < frame->nb_side_data; i++) {
+        const AVSideDataDescriptor *desc = av_frame_side_data_desc(frame->side_data[i]->type);
+
+        if (!(desc->props & AV_SIDE_DATA_PROP_GLOBAL))
+            continue;
+
+        ret = av_frame_side_data_clone(&ifp->side_data, &ifp->nb_side_data,
+                                       frame->side_data[i], AV_FRAME_SIDE_DATA_FLAG_UNIQUE);
+        if (ret < 0)
+            return ret;
+    }
 
     sd = av_frame_get_side_data(frame, AV_FRAME_DATA_DISPLAYMATRIX);
     if (sd)
@@ -2507,6 +2526,10 @@ static int fg_output_step(OutputFilterPriv *ofp, FilterGraphThread *fgt,
     }
 
     fd->wallclock[LATENCY_PROBE_FILTER_POST] = av_gettime_relative();
+
+    ret = av_buffersink_get_side_data(filter, &fd->side_data, &fd->nb_side_data);
+    if (ret < 0)
+        return ret;
 
     // only use bits_per_raw_sample passed through from the decoder
     // if the filtergraph did not touch the frame data

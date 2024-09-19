@@ -204,6 +204,8 @@ static void link_free(AVFilterLink **link)
     ff_framequeue_free(&li->fifo);
     ff_frame_pool_uninit(&li->frame_pool);
     av_channel_layout_uninit(&(*link)->ch_layout);
+    av_frame_side_data_free(&(*link)->side_data,
+                            &(*link)->nb_side_data);
 
     av_buffer_unref(&li->l.hw_frames_ctx);
 
@@ -412,6 +414,16 @@ int ff_filter_config_links(AVFilterContext *filter)
 
                 if (!link->time_base.num && !link->time_base.den)
                     link->time_base = (AVRational) {1, link->sample_rate};
+            }
+
+            if (inlink) {
+                if (!link->nb_side_data)
+                    for (int i = 0; i < inlink->nb_side_data; i++) {
+                        int ret = av_frame_side_data_clone(&link->side_data, &link->nb_side_data,
+                                                           inlink->side_data[i], 0);
+                        if (ret < 0)
+                            return ret;
+                    }
             }
 
             if (link->src->nb_inputs &&
