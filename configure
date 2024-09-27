@@ -7803,6 +7803,10 @@ check_builtin stdbit "stdbit.h assert.h" \
     'static_assert(__STDC_VERSION_STDBIT_H__ >= 202311L, "Compiler lacks stdbit.h")' || \
     add_cppflags '-I\$(SRC_PATH)/compat/stdbit'
 
+check_builtin stdckdint "stdckdint.h assert.h" \
+    'static_assert(__STDC_VERSION_STDCKDINT_H__ >= 202311L, "Compiler lacks stdckdint.h")' || \
+    add_cppflags '-I\$(SRC_PATH)/compat/stdckdint'
+
 # Check if requested libraries were found.
 for lib in $AUTODETECT_LIBS; do
     requested $lib && ! enabled $lib && die "ERROR: $lib requested but not found";
