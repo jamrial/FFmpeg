@@ -28,6 +28,7 @@
 #include <inttypes.h>
 #include <limits.h>
 #include <stdint.h>
+#include <stdckdint.h>
 
 #include "libavutil/attributes.h"
 #include "libavutil/bprint.h"
@@ -3488,6 +3489,7 @@ static int mov_read_stts(MOVContext *c, AVIOContext *pb, MOVAtom atom)
         return AVERROR(ENOMEM);
 
     for (i = 0; i < entries && !pb->eof_reached; i++) {
+        int64_t entry_duration;
         unsigned int sample_duration;
         unsigned int sample_count;
         unsigned int min_entries = FFMIN(FFMAX(i + 1, 1024 * 1024), entries);
@@ -3515,21 +3517,27 @@ static int mov_read_stts(MOVContext *c, AVIOContext *pb, MOVAtom atom)
            There may be abnormally large values as well. */
         if (sample_duration > c->max_stts_delta) {
             // assume high delta is a correction if negative when cast as int32
-            int32_t delta_magnitude = (int32_t)sample_duration;
+            int64_t delta_magnitude = (int32_t)sample_duration;
             av_log(c->fc, AV_LOG_WARNING, "Too large sample offset %u in stts entry %u with count %u in st:%d. Clipping to 1.\n",
                    sample_duration, i, sample_count, st->index);
             sc->stts_data[i].duration = 1;
-            corrected_dts += (delta_magnitude < 0 ? (int64_t)delta_magnitude : 1) * sample_count;
+            entry_duration = sample_count;
+            if (delta_magnitude >= 0)
+                delta_magnitude = 1;
+            ckd_mul(&delta_magnitude, delta_magnitude, sample_count);
+            ckd_add(&corrected_dts, delta_magnitude, corrected_dts);
         } else {
-            corrected_dts += sample_duration * (int64_t)sample_count;
+            ckd_mul(&entry_duration, sample_duration, sample_count);
+            ckd_add(&corrected_dts, entry_duration, corrected_dts);
         }
 
-        current_dts += sc->stts_data[i].duration * (int64_t)sample_count;
+        ckd_add(&current_dts, current_dts, entry_duration);
 
         if (current_dts > corrected_dts) {
             int64_t drift = (current_dts - corrected_dts)/FFMAX(sample_count, 1);
-            uint32_t correction = (sc->stts_data[i].duration > drift) ? drift : sc->stts_data[i].duration - 1;
-            current_dts -= correction * (uint64_t)sample_count;
+            int64_t correction = (sc->stts_data[i].duration > drift) ? drift : sc->stts_data[i].duration - 1;
+            ckd_mul(&correction, correction, sample_count);
+            ckd_sub(&current_dts, correction, current_dts);
             sc->stts_data[i].duration -= correction;
         }
 
