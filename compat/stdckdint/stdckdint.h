@@ -54,19 +54,7 @@
  * @version 0.1 (2023-07-22)
  */
 
-#ifndef JTCKDINT_H_
-#define JTCKDINT_H_
-
-#ifdef __has_include
-#define __ckd_has_include(x) __has_include(x)
-#else
-#define __ckd_has_include(x) 0
-#endif
-
-#if __ckd_has_include(<stdckdint.h>)
-#include <stdckdint.h>
-#else
-
+#ifndef __STDC_VERSION_STDCKDINT_H__
 #define __STDC_VERSION_STDCKDINT_H__ 202311L
 
 #if ((defined(__llvm__) ||                                              \
@@ -391,5 +379,4 @@ __ckd_declare_mul(__ckd_mul_uint128, unsigned __int128)
 # error Not implemented.
 
 #endif /* GNU */
-#endif /* stdckdint.h */
-#endif /* JTCKDINT_H_ */
+#endif /* __STDC_VERSION_STDCKDINT_H__ */
