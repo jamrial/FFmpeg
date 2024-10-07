@@ -2931,6 +2931,46 @@ yuv2uyva_X_c(SwsContext *c, const int16_t *lumFilter,
     }
 }
 
+static void
+yuv2vyu444_X_c(SwsContext *c, const int16_t *lumFilter,
+               const int16_t **lumSrc, int lumFilterSize,
+               const int16_t *chrFilter, const int16_t **chrUSrc,
+               const int16_t **chrVSrc, int chrFilterSize,
+               const int16_t **alpSrc, uint8_t *dest, int dstW, int y)
+{
+    int i;
+
+    for (i = 0; i < dstW; i++) {
+        int j;
+        int Y = 1 << 18, U = 1 << 18;
+        int V = 1 << 18;
+
+        for (j = 0; j < lumFilterSize; j++)
+            Y += lumSrc[j][i] * lumFilter[j];
+
+        for (j = 0; j < chrFilterSize; j++)
+            U += chrUSrc[j][i] * chrFilter[j];
+
+        for (j = 0; j < chrFilterSize; j++)
+            V += chrVSrc[j][i] * chrFilter[j];
+
+        Y >>= 19;
+        U >>= 19;
+        V >>= 19;
+
+        if (Y  & 0x100)
+            Y = av_clip_uint8(Y);
+        if (U  & 0x100)
+            U = av_clip_uint8(U);
+        if (V  & 0x100)
+            V = av_clip_uint8(V);
+
+        dest[3 * i    ] = V;
+        dest[3 * i + 1] = Y;
+        dest[3 * i + 2] = U;
+    }
+}
+
 #define output_pixel(pos, val, bits) \
     AV_WL16(pos, av_clip_uintp2(val >> shift, bits) << output_shift);
 
@@ -3464,6 +3504,9 @@ av_cold void ff_sws_init_output_funcs(SwsContext *c,
         *yuv2packed1 = yuv2uyvy422_1_c;
         *yuv2packed2 = yuv2uyvy422_2_c;
         *yuv2packedX = yuv2uyvy422_X_c;
+        break;
+    case AV_PIX_FMT_VYU444:
+        *yuv2packedX = yuv2vyu444_X_c;
         break;
     case AV_PIX_FMT_YA8:
         *yuv2packed1 = yuv2ya8_1_c;
