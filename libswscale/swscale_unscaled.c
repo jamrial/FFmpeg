@@ -35,7 +35,7 @@
 #include "libavutil/avassert.h"
 #include "libavutil/avconfig.h"
 
-DECLARE_ALIGNED(8, static const uint8_t, dithers)[8][8][8]={
+static const DECLARE_ALIGNED(8, uint8_t, dithers)[8][8][8]={
 {
   {   0,  1,  0,  1,  0,  1,  0,  1,},
   {   1,  0,  1,  0,  1,  0,  1,  0,},
