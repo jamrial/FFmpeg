@@ -4690,7 +4690,9 @@ static void mov_build_index(MOVContext *mov, AVStream *st)
     unsigned int stps_index = 0;
     unsigned int i, j;
     uint64_t stream_size = 0;
+    MOVStts *stts_data_old = sc->stts_data;
     MOVCtts *ctts_data_old = sc->ctts_data;
+    unsigned int stts_count_old = sc->stts_count;
     unsigned int ctts_count_old = sc->ctts_count;
 
     int ret = build_open_gop_key_points(st);
@@ -4794,6 +4796,30 @@ static void mov_build_index(MOVContext *mov, AVStream *st)
                                    &sc->ctts_allocated_size, 1,
                                    ctts_data_old[i].offset);
             av_free(ctts_data_old);
+        }
+        if (stts_data_old) {
+            // Expand stts entries such that we have a 1-1 mapping with samples
+            if (sc->sample_count >= UINT_MAX / sizeof(*sc->stts_data))
+                return;
+            sc->stts_count = 0;
+            sc->stts_allocated_size = 0;
+            sc->stts_data = av_fast_realloc(NULL, &sc->stts_allocated_size,
+                                    sc->sample_count * sizeof(*sc->stts_data));
+            if (!sc->stts_data) {
+                av_free(stts_data_old);
+                return;
+            }
+
+            memset((uint8_t*)(sc->stts_data), 0, sc->stts_allocated_size);
+
+            for (i = 0; i < stts_count_old &&
+                        sc->stts_count < sc->sample_count; i++)
+                for (j = 0; j < stts_data_old[i].count &&
+                            sc->stts_count < sc->sample_count; j++)
+                    add_stts_entry(&sc->stts_data, &sc->stts_count,
+                                   &sc->stts_allocated_size, 1,
+                                   stts_data_old[i].duration);
+            av_free(stts_data_old);
         }
 
         for (i = 0; i < sc->chunk_count; i++) {
