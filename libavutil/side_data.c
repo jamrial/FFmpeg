@@ -24,44 +24,48 @@
 #include "mem.h"
 #include "side_data.h"
 
-static const AVSideDataDescriptor sd_props[] = {
-    [AV_FRAME_DATA_PANSCAN]                     = { "AVPanScan",                                    AV_SIDE_DATA_PROP_SIZE_DEPENDENT },
-    [AV_FRAME_DATA_A53_CC]                      = { "ATSC A53 Part 4 Closed Captions" },
-    [AV_FRAME_DATA_MATRIXENCODING]              = { "AVMatrixEncoding",                             AV_SIDE_DATA_PROP_CHANNEL_DEPENDENT },
-    [AV_FRAME_DATA_DOWNMIX_INFO]                = { "Metadata relevant to a downmix procedure",     AV_SIDE_DATA_PROP_CHANNEL_DEPENDENT },
-    [AV_FRAME_DATA_AFD]                         = { "Active format description" },
-    [AV_FRAME_DATA_MOTION_VECTORS]              = { "Motion vectors",                               AV_SIDE_DATA_PROP_SIZE_DEPENDENT },
-    [AV_FRAME_DATA_SKIP_SAMPLES]                = { "Skip samples" },
-    [AV_FRAME_DATA_GOP_TIMECODE]                = { "GOP timecode" },
-    [AV_FRAME_DATA_S12M_TIMECODE]               = { "SMPTE 12-1 timecode" },
-    [AV_FRAME_DATA_DYNAMIC_HDR_PLUS]            = { "HDR Dynamic Metadata SMPTE2094-40 (HDR10+)",   AV_SIDE_DATA_PROP_COLOR_DEPENDENT },
-    [AV_FRAME_DATA_DYNAMIC_HDR_VIVID]           = { "HDR Dynamic Metadata CUVA 005.1 2021 (Vivid)", AV_SIDE_DATA_PROP_COLOR_DEPENDENT },
-    [AV_FRAME_DATA_REGIONS_OF_INTEREST]         = { "Regions Of Interest",                          AV_SIDE_DATA_PROP_SIZE_DEPENDENT },
-    [AV_FRAME_DATA_VIDEO_ENC_PARAMS]            = { "Video encoding parameters" },
-    [AV_FRAME_DATA_FILM_GRAIN_PARAMS]           = { "Film grain parameters" },
-    [AV_FRAME_DATA_DETECTION_BBOXES]            = { "Bounding boxes for object detection and classification", AV_SIDE_DATA_PROP_SIZE_DEPENDENT },
-    [AV_FRAME_DATA_DOVI_RPU_BUFFER]             = { "Dolby Vision RPU Data",                        AV_SIDE_DATA_PROP_COLOR_DEPENDENT },
-    [AV_FRAME_DATA_DOVI_METADATA]               = { "Dolby Vision Metadata",                        AV_SIDE_DATA_PROP_COLOR_DEPENDENT },
-    [AV_FRAME_DATA_LCEVC]                       = { "LCEVC NAL data",                               AV_SIDE_DATA_PROP_SIZE_DEPENDENT },
-    [AV_FRAME_DATA_VIEW_ID]                     = { "View ID" },
-    [AV_FRAME_DATA_STEREO3D]                    = { "Stereo 3D",                                    AV_SIDE_DATA_PROP_GLOBAL },
-    [AV_FRAME_DATA_REPLAYGAIN]                  = { "AVReplayGain",                                 AV_SIDE_DATA_PROP_GLOBAL },
-    [AV_FRAME_DATA_DISPLAYMATRIX]               = { "3x3 displaymatrix",                            AV_SIDE_DATA_PROP_GLOBAL },
-    [AV_FRAME_DATA_AUDIO_SERVICE_TYPE]          = { "Audio service type",                           AV_SIDE_DATA_PROP_GLOBAL },
-    [AV_FRAME_DATA_MASTERING_DISPLAY_METADATA]  = { "Mastering display metadata",                   AV_SIDE_DATA_PROP_GLOBAL | AV_SIDE_DATA_PROP_COLOR_DEPENDENT },
-    [AV_FRAME_DATA_CONTENT_LIGHT_LEVEL]         = { "Content light level metadata",                 AV_SIDE_DATA_PROP_GLOBAL | AV_SIDE_DATA_PROP_COLOR_DEPENDENT },
-    [AV_FRAME_DATA_AMBIENT_VIEWING_ENVIRONMENT] = { "Ambient viewing environment",                  AV_SIDE_DATA_PROP_GLOBAL },
-    [AV_FRAME_DATA_SPHERICAL]                   = { "Spherical Mapping",                            AV_SIDE_DATA_PROP_GLOBAL | AV_SIDE_DATA_PROP_SIZE_DEPENDENT },
-    [AV_FRAME_DATA_ICC_PROFILE]                 = { "ICC profile",                                  AV_SIDE_DATA_PROP_GLOBAL | AV_SIDE_DATA_PROP_COLOR_DEPENDENT },
-    [AV_FRAME_DATA_SEI_UNREGISTERED]            = { "H.26[45] User Data Unregistered SEI message",  AV_SIDE_DATA_PROP_MULTI },
-    [AV_FRAME_DATA_VIDEO_HINT]                  = { "Encoding video hint",                          AV_SIDE_DATA_PROP_SIZE_DEPENDENT },
+typedef struct FFSideDataDescriptor {
+    AVSideDataDescriptor p;
+} FFSideDataDescriptor;
+
+static const FFSideDataDescriptor sd_props[] = {
+    [AV_FRAME_DATA_PANSCAN]                     = { .p = { "AVPanScan",                                    AV_SIDE_DATA_PROP_SIZE_DEPENDENT } },
+    [AV_FRAME_DATA_A53_CC]                      = { .p = { "ATSC A53 Part 4 Closed Captions" } },
+    [AV_FRAME_DATA_MATRIXENCODING]              = { .p = { "AVMatrixEncoding",                             AV_SIDE_DATA_PROP_CHANNEL_DEPENDENT } },
+    [AV_FRAME_DATA_DOWNMIX_INFO]                = { .p = { "Metadata relevant to a downmix procedure",     AV_SIDE_DATA_PROP_CHANNEL_DEPENDENT } },
+    [AV_FRAME_DATA_AFD]                         = { .p = { "Active format description" } },
+    [AV_FRAME_DATA_MOTION_VECTORS]              = { .p = { "Motion vectors",                               AV_SIDE_DATA_PROP_SIZE_DEPENDENT } },
+    [AV_FRAME_DATA_SKIP_SAMPLES]                = { .p = { "Skip samples" } },
+    [AV_FRAME_DATA_GOP_TIMECODE]                = { .p = { "GOP timecode" } },
+    [AV_FRAME_DATA_S12M_TIMECODE]               = { .p = { "SMPTE 12-1 timecode" } },
+    [AV_FRAME_DATA_DYNAMIC_HDR_PLUS]            = { .p = { "HDR Dynamic Metadata SMPTE2094-40 (HDR10+)",   AV_SIDE_DATA_PROP_COLOR_DEPENDENT } },
+    [AV_FRAME_DATA_DYNAMIC_HDR_VIVID]           = { .p = { "HDR Dynamic Metadata CUVA 005.1 2021 (Vivid)", AV_SIDE_DATA_PROP_COLOR_DEPENDENT } },
+    [AV_FRAME_DATA_REGIONS_OF_INTEREST]         = { .p = { "Regions Of Interest",                          AV_SIDE_DATA_PROP_SIZE_DEPENDENT } },
+    [AV_FRAME_DATA_VIDEO_ENC_PARAMS]            = { .p = { "Video encoding parameters" } },
+    [AV_FRAME_DATA_FILM_GRAIN_PARAMS]           = { .p = { "Film grain parameters" } },
+    [AV_FRAME_DATA_DETECTION_BBOXES]            = { .p = { "Bounding boxes for object detection and classification", AV_SIDE_DATA_PROP_SIZE_DEPENDENT } },
+    [AV_FRAME_DATA_DOVI_RPU_BUFFER]             = { .p = { "Dolby Vision RPU Data",                        AV_SIDE_DATA_PROP_COLOR_DEPENDENT } },
+    [AV_FRAME_DATA_DOVI_METADATA]               = { .p = { "Dolby Vision Metadata",                        AV_SIDE_DATA_PROP_COLOR_DEPENDENT } },
+    [AV_FRAME_DATA_LCEVC]                       = { .p = { "LCEVC NAL data",                               AV_SIDE_DATA_PROP_SIZE_DEPENDENT } },
+    [AV_FRAME_DATA_VIEW_ID]                     = { .p = { "View ID" } },
+    [AV_FRAME_DATA_STEREO3D]                    = { .p = { "Stereo 3D",                                    AV_SIDE_DATA_PROP_GLOBAL } },
+    [AV_FRAME_DATA_REPLAYGAIN]                  = { .p = { "AVReplayGain",                                 AV_SIDE_DATA_PROP_GLOBAL } },
+    [AV_FRAME_DATA_DISPLAYMATRIX]               = { .p = { "3x3 displaymatrix",                            AV_SIDE_DATA_PROP_GLOBAL } },
+    [AV_FRAME_DATA_AUDIO_SERVICE_TYPE]          = { .p = { "Audio service type",                           AV_SIDE_DATA_PROP_GLOBAL } },
+    [AV_FRAME_DATA_MASTERING_DISPLAY_METADATA]  = { .p = { "Mastering display metadata",                   AV_SIDE_DATA_PROP_GLOBAL | AV_SIDE_DATA_PROP_COLOR_DEPENDENT } },
+    [AV_FRAME_DATA_CONTENT_LIGHT_LEVEL]         = { .p = { "Content light level metadata",                 AV_SIDE_DATA_PROP_GLOBAL | AV_SIDE_DATA_PROP_COLOR_DEPENDENT } },
+    [AV_FRAME_DATA_AMBIENT_VIEWING_ENVIRONMENT] = { .p = { "Ambient viewing environment",                  AV_SIDE_DATA_PROP_GLOBAL } },
+    [AV_FRAME_DATA_SPHERICAL]                   = { .p = { "Spherical Mapping",                            AV_SIDE_DATA_PROP_GLOBAL | AV_SIDE_DATA_PROP_SIZE_DEPENDENT } },
+    [AV_FRAME_DATA_ICC_PROFILE]                 = { .p = { "ICC profile",                                  AV_SIDE_DATA_PROP_GLOBAL | AV_SIDE_DATA_PROP_COLOR_DEPENDENT } },
+    [AV_FRAME_DATA_SEI_UNREGISTERED]            = { .p = { "H.26[45] User Data Unregistered SEI message",  AV_SIDE_DATA_PROP_MULTI } },
+    [AV_FRAME_DATA_VIDEO_HINT]                  = { .p = { "Encoding video hint",                          AV_SIDE_DATA_PROP_SIZE_DEPENDENT } },
 };
 
 const AVSideDataDescriptor *av_frame_side_data_desc(enum AVFrameSideDataType type)
 {
     unsigned t = type;
-    if (t < FF_ARRAY_ELEMS(sd_props) && sd_props[t].name)
-        return &sd_props[t];
+    if (t < FF_ARRAY_ELEMS(sd_props) && sd_props[t].p.name)
+        return &sd_props[t].p;
     return NULL;
 }
 
