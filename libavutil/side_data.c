@@ -24,6 +24,10 @@
 #include "mem.h"
 #include "side_data.h"
 
+typedef struct FFFrameSideData {
+    AVFrameSideData p;
+} FFFrameSideData;
+
 typedef struct FFSideDataDescriptor {
     AVSideDataDescriptor p;
 } FFSideDataDescriptor;
@@ -147,6 +151,7 @@ static AVFrameSideData *add_side_data_from_buf_ext(AVFrameSideData ***sd,
                                                    AVBufferRef *buf, uint8_t *data,
                                                    size_t size)
 {
+    FFFrameSideData *sdp;
     AVFrameSideData *ret, **tmp;
 
     // *nb_sd + 1 needs to fit into an int and a size_t.
@@ -158,10 +163,11 @@ static AVFrameSideData *add_side_data_from_buf_ext(AVFrameSideData ***sd,
         return NULL;
     *sd = tmp;
 
-    ret = av_mallocz(sizeof(*ret));
-    if (!ret)
+    sdp = av_mallocz(sizeof(*sdp));
+    if (!sdp)
         return NULL;
 
+    ret = &sdp->p;
     ret->buf = buf;
     ret->data = data;
     ret->size = size;
