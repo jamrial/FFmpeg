@@ -26,6 +26,10 @@
 
 typedef struct FFFrameSideData {
     AVFrameSideData p;
+
+#if FF_API_SIDE_DATA_BUF == 0
+    AVBufferRef *buf;
+#endif
 } FFFrameSideData;
 
 typedef struct FFSideDataDescriptor {
@@ -65,6 +69,16 @@ static const FFSideDataDescriptor sd_props[] = {
     [AV_FRAME_DATA_VIDEO_HINT]                  = { .p = { "Encoding video hint",                          AV_SIDE_DATA_PROP_SIZE_DEPENDENT } },
 };
 
+static FFFrameSideData *sdp_from_sd(AVFrameSideData *sd)
+{
+    return (FFFrameSideData *)sd;
+}
+
+static const FFFrameSideData *csdp_from_sd(const AVFrameSideData *sd)
+{
+    return (const FFFrameSideData *)sd;
+}
+
 const AVSideDataDescriptor *av_frame_side_data_desc(enum AVFrameSideDataType type)
 {
     unsigned t = type;
@@ -82,8 +96,15 @@ const char *av_frame_side_data_name(enum AVFrameSideDataType type)
 static void free_side_data_entry(AVFrameSideData **ptr_sd)
 {
     AVFrameSideData *sd = *ptr_sd;
+    FFFrameSideData *sdp = sdp_from_sd(sd);
 
+#if FF_API_SIDE_DATA_BUF
+FF_DISABLE_DEPRECATION_WARNINGS
     av_buffer_unref(&sd->buf);
+FF_ENABLE_DEPRECATION_WARNINGS
+#else
+    av_buffer_unref(&sdp->buf);
+#endif
     av_dict_free(&sd->metadata);
     av_freep(ptr_sd);
 }
@@ -168,7 +189,13 @@ static AVFrameSideData *add_side_data_from_buf_ext(AVFrameSideData ***sd,
         return NULL;
 
     ret = &sdp->p;
+#if FF_API_SIDE_DATA_BUF
+FF_DISABLE_DEPRECATION_WARNINGS
     ret->buf = buf;
+FF_ENABLE_DEPRECATION_WARNINGS
+#else
+    sdp->buf = buf;
+#endif
     ret->data = data;
     ret->size = size;
     ret->type = type;
@@ -196,8 +223,15 @@ static AVFrameSideData *replace_side_data_from_buf(AVFrameSideData *dst,
         return NULL;
 
     av_dict_free(&dst->metadata);
+#if FF_API_SIDE_DATA_BUF
+FF_DISABLE_DEPRECATION_WARNINGS
     av_buffer_unref(&dst->buf);
     dst->buf  = buf;
+FF_ENABLE_DEPRECATION_WARNINGS
+#else
+    av_buffer_unref(&sdp_from_sd(dst)->buf);
+    sdp_from_sd(dst)->buf = buf;
+#endif
     dst->data = buf->data;
     dst->size = buf->size;
     return dst;
@@ -257,6 +291,7 @@ int av_frame_side_data_clone(AVFrameSideData ***sd, int *nb_sd,
                              const AVFrameSideData *src, unsigned int flags)
 {
     const AVSideDataDescriptor *desc;
+    const FFFrameSideData *srcp = csdp_from_sd(src);
     AVBufferRef     *buf    = NULL;
     AVFrameSideData *sd_dst = NULL;
     int              ret    = AVERROR_BUG;
@@ -269,6 +304,7 @@ int av_frame_side_data_clone(AVFrameSideData ***sd, int *nb_sd,
         av_frame_side_data_remove(sd, nb_sd, src->type);
     if ((!desc || !(desc->props & AV_SIDE_DATA_PROP_MULTI)) &&
         (sd_dst = (AVFrameSideData *)av_frame_side_data_get(*sd, *nb_sd, src->type))) {
+        FFFrameSideData *dstp = sdp_from_sd(sd_dst);
         AVDictionary *dict = NULL;
 
         if (!(flags & AV_FRAME_SIDE_DATA_FLAG_REPLACE))
@@ -278,7 +314,13 @@ int av_frame_side_data_clone(AVFrameSideData ***sd, int *nb_sd,
         if (ret < 0)
             return ret;
 
+#if FF_API_SIDE_DATA_BUF
+FF_DISABLE_DEPRECATION_WARNINGS
         ret = av_buffer_replace(&sd_dst->buf, src->buf);
+FF_ENABLE_DEPRECATION_WARNINGS
+#else
+        ret = av_buffer_replace(&dstp->buf, srcp->buf);
+#endif
         if (ret < 0) {
             av_dict_free(&dict);
             return ret;
@@ -291,7 +333,13 @@ int av_frame_side_data_clone(AVFrameSideData ***sd, int *nb_sd,
         return 0;
     }
 
+#if FF_API_SIDE_DATA_BUF
+FF_DISABLE_DEPRECATION_WARNINGS
     buf = av_buffer_ref(src->buf);
+FF_ENABLE_DEPRECATION_WARNINGS
+#else
+    buf = av_buffer_ref(srcp->buf);
+#endif
     if (!buf)
         return AVERROR(ENOMEM);
 

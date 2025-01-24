@@ -267,7 +267,10 @@ typedef struct AVFrameSideData {
     uint8_t *data;
     size_t   size;
     AVDictionary *metadata;
+#if FF_API_SIDE_DATA_BUF
+    attribute_deprecated
     AVBufferRef *buf;
+#endif
 } AVFrameSideData;
 
 enum AVSideDataProps {
