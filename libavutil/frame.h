@@ -307,6 +307,13 @@ enum AVSideDataProps {
      * or adjusted to the new layout.
      */
     AV_SIDE_DATA_PROP_CHANNEL_DEPENDENT = (1 << 4),
+
+    /**
+     * Side data stores a fixed-size C struct and not a flat byte array.
+     * Entries of this type should be allocated with
+     * @ref av_frame_side_data_new_struct(), and their size is not user settable.
+     */
+    AV_SIDE_DATA_PROP_STRUCT = (1 << 5),
 };
 
 /**
@@ -1123,6 +1130,10 @@ void av_frame_side_data_free(AVFrameSideData ***sd, int *nb_sd);
 AVFrameSideData *av_frame_side_data_new(AVFrameSideData ***sd, int *nb_sd,
                                         enum AVFrameSideDataType type,
                                         size_t size, unsigned int flags);
+
+AVFrameSideData *av_frame_side_data_new_struct(AVFrameSideData ***sd, int *nb_sd,
+                                               enum AVFrameSideDataType type,
+                                               unsigned int flags);
 
 /**
  * Add a new side data entry to an array from an existing AVBufferRef.

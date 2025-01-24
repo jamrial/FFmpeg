@@ -21,7 +21,15 @@
 #include "avstring.h"
 #include "macros.h"
 #include "mem.h"
+#include "side_data.h"
 #include "spherical.h"
+
+void ff_spherical_get_defaults(void *obj)
+{
+    AVSphericalMapping *spherical = obj;
+
+    spherical->projection = AV_SPHERICAL_RECTILINEAR;
+}
 
 AVSphericalMapping *av_spherical_alloc(size_t *size)
 {
@@ -29,7 +37,7 @@ AVSphericalMapping *av_spherical_alloc(size_t *size)
     if (!spherical)
         return NULL;
 
-    spherical->projection = AV_SPHERICAL_RECTILINEAR;
+    ff_spherical_get_defaults(spherical);
 
     if (size)
         *size = sizeof(*spherical);

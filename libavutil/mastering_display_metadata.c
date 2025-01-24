@@ -24,9 +24,12 @@
 
 #include "mastering_display_metadata.h"
 #include "mem.h"
+#include "side_data.h"
 
-static void get_defaults(AVMasteringDisplayMetadata *mastering)
+void ff_mdm_get_defaults(void *obj)
 {
+    AVMasteringDisplayMetadata *mastering = obj;
+
     for (int i = 0; i < 3; i++)
         for (int j = 0; j < 2; j++)
             mastering->display_primaries[i][j] = (AVRational) { 0, 1 };
@@ -47,7 +50,7 @@ AVMasteringDisplayMetadata *av_mastering_display_metadata_alloc_size(size_t *siz
     if (!mastering)
         return NULL;
 
-    get_defaults(mastering);
+    ff_mdm_get_defaults(mastering);
 
     if (size)
         *size = sizeof(*mastering);
@@ -64,7 +67,7 @@ AVMasteringDisplayMetadata *av_mastering_display_metadata_create_side_data(AVFra
         return NULL;
 
     memset(side_data->data, 0, sizeof(AVMasteringDisplayMetadata));
-    get_defaults((AVMasteringDisplayMetadata *)side_data->data);
+    ff_mdm_get_defaults(side_data->data);
 
     return (AVMasteringDisplayMetadata *)side_data->data;
 }
