@@ -43,12 +43,22 @@ typedef struct FFFrameSideData {
 #if FF_API_SIDE_DATA_BUF == 0
     AVBufferRef *buf;
 #endif
+    void *refstruct;
 } FFFrameSideData;
+
+enum FFSideDataProps {
+    FF_SIDE_DATA_PROP_REFSTRUCT = (1 << 0),
+};
 
 typedef struct FFSideDataDescriptor {
     AVSideDataDescriptor p;
 
+
+    unsigned props;
+
     void (*init)(void *obj);
+    int  (*copy)(void *dst, const void *src);
+    void (*uninit)(AVRefStructOpaque opaque, void *obj);
 
     size_t size;
 } FFSideDataDescriptor;
@@ -141,6 +151,7 @@ FF_ENABLE_DEPRECATION_WARNINGS
 #else
     av_buffer_unref(&sdp->buf);
 #endif
+    av_refstruct_unref(&sdp->refstruct);
     av_dict_free(&sd->metadata);
     av_freep(ptr_sd);
 }
@@ -208,11 +219,16 @@ static AVFrameSideData *add_side_data_from_buf_ext(AVFrameSideData ***sd,
                                                    AVBufferRef *buf, uint8_t *data,
                                                    size_t size)
 {
+    const AVSideDataDescriptor *desc = av_frame_side_data_desc(type);
+    const FFSideDataDescriptor *dp = dp_from_desc(desc);
     FFFrameSideData *sdp;
     AVFrameSideData *ret, **tmp;
 
     // *nb_sd + 1 needs to fit into an int and a size_t.
     if ((unsigned)*nb_sd >= FFMIN(INT_MAX, SIZE_MAX))
+        return NULL;
+
+    if (dp && (dp->props & FF_SIDE_DATA_PROP_REFSTRUCT))
         return NULL;
 
     tmp = av_realloc_array(*sd, sizeof(**sd), *nb_sd + 1);
@@ -255,7 +271,13 @@ AVFrameSideData *ff_frame_side_data_add_from_buf(AVFrameSideData ***sd,
 static AVFrameSideData *replace_side_data_from_buf(AVFrameSideData *dst,
                                                    AVBufferRef *buf, int flags)
 {
+    const AVSideDataDescriptor *desc = av_frame_side_data_desc(dst->type);
+    const FFSideDataDescriptor *dp = dp_from_desc(desc);
+
     if (!(flags & AV_FRAME_SIDE_DATA_FLAG_REPLACE))
+        return NULL;
+
+    if (dp && (dp->props & FF_SIDE_DATA_PROP_REFSTRUCT))
         return NULL;
 
     av_dict_free(&dst->metadata);
@@ -323,6 +345,64 @@ AVFrameSideData *av_frame_side_data_add(AVFrameSideData ***sd, int *nb_sd,
     return sd_dst;
 }
 
+static AVFrameSideData *add_side_data_from_refstruct(AVFrameSideData ***sd,
+                                                     int *nb_sd,
+                                                     enum AVFrameSideDataType type,
+                                                     void *obj, size_t size)
+{
+    const AVSideDataDescriptor *desc = av_frame_side_data_desc(type);
+    const FFSideDataDescriptor *dp = dp_from_desc(desc);
+    FFFrameSideData *sdp;
+    AVFrameSideData *ret, **tmp;
+
+    // *nb_sd + 1 needs to fit into an int and a size_t.
+    if ((unsigned)*nb_sd >= FFMIN(INT_MAX, SIZE_MAX))
+        return NULL;
+
+    if (dp && (dp->props & FF_SIDE_DATA_PROP_REFSTRUCT))
+        return NULL;
+
+    tmp = av_realloc_array(*sd, sizeof(**sd), *nb_sd + 1);
+    if (!tmp)
+        return NULL;
+    *sd = tmp;
+
+    sdp = av_mallocz(sizeof(*sdp));
+    if (!sdp)
+        return NULL;
+
+    sdp->refstruct = obj;
+    ret = &sdp->p;
+    ret->data = obj;
+    ret->size = size;
+    ret->type = type;
+
+    (*sd)[(*nb_sd)++] = ret;
+
+    return ret;
+}
+
+static AVFrameSideData *replace_side_data_from_refstruct(AVFrameSideData *sd,
+                                                         void *obj, size_t size, int flags)
+{
+    FFFrameSideData *sdp = sdp_from_sd(sd);
+
+    if (!(flags & AV_FRAME_SIDE_DATA_FLAG_REPLACE))
+        return NULL;
+
+    av_dict_free(&sd->metadata);
+#if FF_API_SIDE_DATA_BUF
+FF_DISABLE_DEPRECATION_WARNINGS
+    av_buffer_unref(&sd->buf);
+FF_ENABLE_DEPRECATION_WARNINGS
+#endif
+    av_refstruct_unref(&sdp->refstruct);
+    sdp->refstruct = obj;
+    sd->data = obj;
+    sd->size = size;
+    return sd;
+}
+
 AVFrameSideData *av_frame_side_data_new_struct(AVFrameSideData ***sd, int *nb_sd,
                                                enum AVFrameSideDataType type,
                                                unsigned int flags)
@@ -330,36 +410,110 @@ AVFrameSideData *av_frame_side_data_new_struct(AVFrameSideData ***sd, int *nb_sd
     const AVSideDataDescriptor *desc = av_frame_side_data_desc(type);
     const FFSideDataDescriptor *dp = dp_from_desc(desc);
     AVFrameSideData *ret;
+    void *obj;
 
     if (!desc || !(desc->props & AV_SIDE_DATA_PROP_STRUCT))
         return NULL;
 
     av_assert0(dp->size);
+
+    if (!(dp->props & FF_SIDE_DATA_PROP_REFSTRUCT)) {
     ret = av_frame_side_data_new(sd, nb_sd, type, dp->size, flags);
     if (ret && dp->init)
          dp->init(ret->data);
     return ret;
+    }
+
+    if (!(obj = av_refstruct_alloc_ext(dp->size, 0, NULL, dp->uninit)))
+        return NULL;
+    if (flags & AV_FRAME_SIDE_DATA_FLAG_UNIQUE)
+        av_frame_side_data_remove(sd, nb_sd, type);
+    if ((!desc || !(desc->props & AV_SIDE_DATA_PROP_MULTI)) &&
+        (ret = (AVFrameSideData *)av_frame_side_data_get(*sd, *nb_sd, type))) {
+        ret = replace_side_data_from_refstruct(ret, obj, dp->size, flags);
+        if (!ret)
+            av_refstruct_unref(&obj);
+        return ret;
+    }
+
+    ret = add_side_data_from_refstruct(sd, nb_sd, type, obj, dp->size);
+    if (!ret)
+        av_refstruct_unref(&obj);
+
+    return ret;
+}
+
+AVFrameSideData *ff_frame_side_data_copy(AVFrameSideData ***sd, int *nb_sd,
+                                         const AVFrameSideData *src)
+{
+    const AVSideDataDescriptor *desc;
+    const FFSideDataDescriptor *dp;
+    const FFFrameSideData *srcp = csdp_from_sd(src);
+    AVBufferRef     *buf    = NULL;
+    AVFrameSideData *sd_dst = NULL;
+    void            *obj    = NULL;
+    int              ret    = AVERROR_BUG;
+
+    if (!sd || !src || !nb_sd || (*nb_sd && !*sd))
+        return NULL;
+
+    desc = av_frame_side_data_desc(src->type);
+    dp = dp_from_desc(desc);
+
+    if (dp && (dp->props & FF_SIDE_DATA_PROP_REFSTRUCT)) {
+        obj = av_refstruct_alloc_ext(dp->size, 0, NULL, dp->uninit);
+        if (!obj || dp->copy(obj, srcp->refstruct) < 0) {
+            av_refstruct_unref(&obj);
+            return NULL;
+        }
+        sd_dst = add_side_data_from_refstruct(sd, nb_sd, src->type, obj,
+                                              dp->size);
+    } else {
+        buf = av_buffer_alloc(src->size);
+        if (!buf)
+            return NULL;
+        memcpy(buf->data, src->data, src->size);
+        sd_dst = ff_frame_side_data_add_from_buf(sd, nb_sd, src->type, buf);
+    }
+    if (!sd_dst) {
+        av_buffer_unref(&buf);
+        av_refstruct_unref(&obj);
+        return NULL;
+    }
+
+    ret = av_dict_copy(&sd_dst->metadata, src->metadata, 0);
+    if (ret < 0) {
+        remove_side_data_by_entry(sd, nb_sd, sd_dst);
+        return NULL;
+    }
+
+    return sd_dst;
 }
 
 int av_frame_side_data_clone(AVFrameSideData ***sd, int *nb_sd,
                              const AVFrameSideData *src, unsigned int flags)
 {
     const AVSideDataDescriptor *desc;
+    const FFSideDataDescriptor *dp;
     const FFFrameSideData *srcp = csdp_from_sd(src);
     AVBufferRef     *buf    = NULL;
     AVFrameSideData *sd_dst = NULL;
+    void            *obj    = NULL;
     int              ret    = AVERROR_BUG;
 
     if (!sd || !src || !nb_sd || (*nb_sd && !*sd))
         return AVERROR(EINVAL);
 
     desc = av_frame_side_data_desc(src->type);
+    dp = dp_from_desc(desc);
     if (flags & AV_FRAME_SIDE_DATA_FLAG_UNIQUE)
         av_frame_side_data_remove(sd, nb_sd, src->type);
     if ((!desc || !(desc->props & AV_SIDE_DATA_PROP_MULTI)) &&
         (sd_dst = (AVFrameSideData *)av_frame_side_data_get(*sd, *nb_sd, src->type))) {
         FFFrameSideData *dstp = sdp_from_sd(sd_dst);
         AVDictionary *dict = NULL;
+        uint8_t *data;
+        size_t size;
 
         if (!(flags & AV_FRAME_SIDE_DATA_FLAG_REPLACE))
             return AVERROR(EEXIST);
@@ -368,6 +522,11 @@ int av_frame_side_data_clone(AVFrameSideData ***sd, int *nb_sd,
         if (ret < 0)
             return ret;
 
+        if (dp && (dp->props & FF_SIDE_DATA_PROP_REFSTRUCT)) {
+            av_refstruct_replace(&dstp->refstruct, srcp->refstruct);
+            data = dstp->refstruct;
+            size = dp->size;
+        } else {
 #if FF_API_SIDE_DATA_BUF
 FF_DISABLE_DEPRECATION_WARNINGS
         ret = av_buffer_replace(&sd_dst->buf, src->buf);
@@ -375,6 +534,9 @@ FF_ENABLE_DEPRECATION_WARNINGS
 #else
         ret = av_buffer_replace(&dstp->buf, srcp->buf);
 #endif
+            data = src->data;
+            size = src->size;
+        }
         if (ret < 0) {
             av_dict_free(&dict);
             return ret;
@@ -382,11 +544,16 @@ FF_ENABLE_DEPRECATION_WARNINGS
 
         av_dict_free(&sd_dst->metadata);
         sd_dst->metadata = dict;
-        sd_dst->data     = src->data;
-        sd_dst->size     = src->size;
+        sd_dst->data     = data;
+        sd_dst->size     = size;
         return 0;
     }
 
+    if (dp && (dp->props & FF_SIDE_DATA_PROP_REFSTRUCT)) {
+        obj = av_refstruct_ref(srcp->refstruct);
+        sd_dst = add_side_data_from_refstruct(sd, nb_sd, src->type, obj,
+                                              dp->size);
+    } else {
 #if FF_API_SIDE_DATA_BUF
 FF_DISABLE_DEPRECATION_WARNINGS
     buf = av_buffer_ref(src->buf);
@@ -399,8 +566,10 @@ FF_ENABLE_DEPRECATION_WARNINGS
 
     sd_dst = add_side_data_from_buf_ext(sd, nb_sd, src->type, buf,
                                         src->data, src->size);
+    }
     if (!sd_dst) {
         av_buffer_unref(&buf);
+        av_refstruct_unref(&obj);
         return AVERROR(ENOMEM);
     }
 
@@ -426,21 +595,44 @@ const AVFrameSideData *av_frame_side_data_get_c(const AVFrameSideData * const *s
 
 int av_frame_side_data_is_writable(const AVFrameSideData *sd)
 {
+    const AVSideDataDescriptor *desc = av_frame_side_data_desc(sd->type);
+    const FFSideDataDescriptor *dp = dp_from_desc(desc);
+    const FFFrameSideData *sdp = csdp_from_sd(sd);
+
+    if (dp && (dp->props & FF_SIDE_DATA_PROP_REFSTRUCT))
+        return av_refstruct_exclusive(sdp->refstruct);
 #if FF_API_SIDE_DATA_BUF
 FF_DISABLE_DEPRECATION_WARNINGS
     return !!av_buffer_is_writable(sd->buf);
 FF_ENABLE_DEPRECATION_WARNINGS
 #else
-    const FFFrameSideData *sdp = csdp_from_sd(sd);
     return !!av_buffer_is_writable(sdp->buf);
 #endif
 }
 
 int av_frame_side_data_make_writable(AVFrameSideData *sd)
 {
+    const AVSideDataDescriptor *desc = av_frame_side_data_desc(sd->type);
+    const FFSideDataDescriptor *dp = dp_from_desc(desc);
     FFFrameSideData *sdp = sdp_from_sd(sd);
     AVBufferRef *buf = NULL;
+    void *obj = NULL;
+    uint8_t *data;
 
+    if (dp && (dp->props & FF_SIDE_DATA_PROP_REFSTRUCT)) {
+        int ret;
+        if (av_refstruct_exclusive(sdp->refstruct))
+            return 0;
+        obj = av_refstruct_alloc_ext(dp->size, 0, NULL, dp->uninit);
+        if (!obj)
+            return AVERROR(ENOMEM);
+        ret = dp->copy(obj, sdp->refstruct);
+        if (ret < 0) {
+            av_refstruct_unref(&obj);
+            return ret;
+        }
+        data = obj;
+    } else {
 #if FF_API_SIDE_DATA_BUF
 FF_DISABLE_DEPRECATION_WARNINGS
     if (av_buffer_is_writable(sd->buf))
@@ -456,6 +648,8 @@ FF_ENABLE_DEPRECATION_WARNINGS
 
     if (sd->size)
         memcpy(buf->data, sd->data, sd->size);
+    data = buf->data;
+    }
 #if FF_API_SIDE_DATA_BUF
 FF_DISABLE_DEPRECATION_WARNINGS
     av_buffer_unref(&sd->buf);
@@ -465,7 +659,9 @@ FF_ENABLE_DEPRECATION_WARNINGS
     av_buffer_unref(&sdp->buf);
     sdp->buf = buf;
 #endif
-    sd->data = buf->data;
+    av_refstruct_unref(&sdp->refstruct);
+    sdp->refstruct = obj;
+    sd->data = data;
 
     return 0;
 }

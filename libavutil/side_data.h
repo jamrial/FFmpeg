@@ -27,6 +27,9 @@ AVFrameSideData *ff_frame_side_data_add_from_buf(AVFrameSideData ***sd,
                                                  enum AVFrameSideDataType type,
                                                  AVBufferRef *buf);
 
+AVFrameSideData *ff_frame_side_data_copy(AVFrameSideData ***sd, int *nb_sd,
+                                         const AVFrameSideData *src);
+
 void ff_mdm_get_defaults(void *obj);
 void ff_ave_get_defaults(void *obj);
 void ff_spherical_get_defaults(void *obj);
