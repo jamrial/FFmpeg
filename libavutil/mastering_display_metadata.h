@@ -21,8 +21,10 @@
 #ifndef AVUTIL_MASTERING_DISPLAY_METADATA_H
 #define AVUTIL_MASTERING_DISPLAY_METADATA_H
 
+#include "attributes.h"
 #include "frame.h"
 #include "rational.h"
+#include "version.h"
 
 
 /**
@@ -86,14 +88,18 @@ AVMasteringDisplayMetadata *av_mastering_display_metadata_alloc(void);
  */
 AVMasteringDisplayMetadata *av_mastering_display_metadata_alloc_size(size_t *size);
 
+#if FF_API_CREATE_SIDE_DATA
 /**
  * Allocate a complete AVMasteringDisplayMetadata and add it to the frame.
  *
  * @param frame The frame which side data is added to.
  *
+ * @deprecated use @ref av_frame_side_data_new_struct()
  * @return The AVMasteringDisplayMetadata structure to be filled by caller.
  */
+attribute_deprecated
 AVMasteringDisplayMetadata *av_mastering_display_metadata_create_side_data(AVFrame *frame);
+#endif
 
 /**
  * Content light level needed by to transmit HDR over HDMI (CTA-861.3).
@@ -125,13 +131,17 @@ typedef struct AVContentLightMetadata {
  */
 AVContentLightMetadata *av_content_light_metadata_alloc(size_t *size);
 
+#if FF_API_CREATE_SIDE_DATA
 /**
  * Allocate a complete AVContentLightMetadata and add it to the frame.
  *
  * @param frame The frame which side data is added to.
  *
+ * @deprecated use @ref av_frame_side_data_new_struct()
  * @return The AVContentLightMetadata structure to be filled by caller.
  */
+attribute_deprecated
 AVContentLightMetadata *av_content_light_metadata_create_side_data(AVFrame *frame);
+#endif
 
 #endif /* AVUTIL_MASTERING_DISPLAY_METADATA_H */

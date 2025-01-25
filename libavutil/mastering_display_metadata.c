@@ -58,6 +58,7 @@ AVMasteringDisplayMetadata *av_mastering_display_metadata_alloc_size(size_t *siz
     return mastering;
 }
 
+#if FF_API_CREATE_SIDE_DATA
 AVMasteringDisplayMetadata *av_mastering_display_metadata_create_side_data(AVFrame *frame)
 {
     AVFrameSideData *side_data = av_frame_new_side_data(frame,
@@ -71,6 +72,7 @@ AVMasteringDisplayMetadata *av_mastering_display_metadata_create_side_data(AVFra
 
     return (AVMasteringDisplayMetadata *)side_data->data;
 }
+#endif
 
 AVContentLightMetadata *av_content_light_metadata_alloc(size_t *size)
 {
@@ -82,6 +84,7 @@ AVContentLightMetadata *av_content_light_metadata_alloc(size_t *size)
     return metadata;
 }
 
+#if FF_API_CREATE_SIDE_DATA
 AVContentLightMetadata *av_content_light_metadata_create_side_data(AVFrame *frame)
 {
     AVFrameSideData *side_data = av_frame_new_side_data(frame,
@@ -94,3 +97,4 @@ AVContentLightMetadata *av_content_light_metadata_create_side_data(AVFrame *fram
 
     return (AVContentLightMetadata *)side_data->data;
 }
+#endif
