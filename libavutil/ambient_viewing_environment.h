@@ -22,8 +22,10 @@
 #define AVUTIL_AMBIENT_VIEWING_ENVIRONMENT_H
 
 #include <stddef.h>
+#include "attributes.h"
 #include "frame.h"
 #include "rational.h"
+#include "version.h"
 
 /**
  * Ambient viewing environment metadata as defined by H.274. The values are
@@ -61,12 +63,16 @@ typedef struct AVAmbientViewingEnvironment {
  */
 AVAmbientViewingEnvironment *av_ambient_viewing_environment_alloc(size_t *size);
 
+#if FF_API_CREATE_SIDE_DATA
 /**
  * Allocate and add an AVAmbientViewingEnvironment structure to an existing
  * AVFrame as side data.
  *
+ * @deprecated use @ref av_frame_side_data_new_struct()
  * @return the newly allocated struct, or NULL on failure
  */
+attribute_deprecated
 AVAmbientViewingEnvironment *av_ambient_viewing_environment_create_side_data(AVFrame *frame);
+#endif
 
 #endif /* AVUTIL_AMBIENT_VIEWING_ENVIRONMENT_H */

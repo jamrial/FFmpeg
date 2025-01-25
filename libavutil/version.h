@@ -118,6 +118,7 @@
 #define FF_API_OPT_INT_LIST             (LIBAVUTIL_VERSION_MAJOR < 60)
 #define FF_API_OPT_PTR                  (LIBAVUTIL_VERSION_MAJOR < 60)
 #define FF_API_SIDE_DATA_BUF            (LIBAVUTIL_VERSION_MAJOR < 60)
+#define FF_API_CREATE_SIDE_DATA         (LIBAVUTIL_VERSION_MAJOR < 60)
 
 /**
  * @}

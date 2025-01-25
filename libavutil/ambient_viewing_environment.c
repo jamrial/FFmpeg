@@ -46,6 +46,7 @@ AVAmbientViewingEnvironment *av_ambient_viewing_environment_alloc(size_t *size)
     return env;
 }
 
+#if FF_API_CREATE_SIDE_DATA
 AVAmbientViewingEnvironment *av_ambient_viewing_environment_create_side_data(AVFrame *frame)
 {
     AVFrameSideData *side_data =
@@ -60,3 +61,4 @@ AVAmbientViewingEnvironment *av_ambient_viewing_environment_create_side_data(AVF
 
     return (AVAmbientViewingEnvironment *)side_data->data;
 }
+#endif
