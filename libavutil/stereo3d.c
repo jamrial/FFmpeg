@@ -51,6 +51,7 @@ AVStereo3D *av_stereo3d_alloc_size(size_t *size)
     return stereo;
 }
 
+#if FF_API_CREATE_SIDE_DATA
 AVStereo3D *av_stereo3d_create_side_data(AVFrame *frame)
 {
     AVFrameSideData *side_data = av_frame_new_side_data(frame,
@@ -64,6 +65,7 @@ AVStereo3D *av_stereo3d_create_side_data(AVFrame *frame)
 
     return (AVStereo3D *)side_data->data;
 }
+#endif
 
 static const char * const stereo3d_type_names[] = {
     [AV_STEREO3D_2D]                  = "2D",

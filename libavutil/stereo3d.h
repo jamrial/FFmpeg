@@ -29,7 +29,9 @@
 
 #include <stdint.h>
 
+#include "attributes.h"
 #include "frame.h"
+#include "version.h"
 
 /**
  * @defgroup lavu_video_stereo3d Stereo3D types and functions
@@ -255,14 +257,18 @@ AVStereo3D *av_stereo3d_alloc(void);
  */
 AVStereo3D *av_stereo3d_alloc_size(size_t *size);
 
+#if FF_API_CREATE_SIDE_DATA
 /**
  * Allocate a complete AVFrameSideData and add it to the frame.
  *
  * @param frame The frame which side data is added to.
  *
+ * @deprecated use @ref av_frame_side_data_new_struct()
  * @return The AVStereo3D structure to be filled by caller.
  */
+attribute_deprecated
 AVStereo3D *av_stereo3d_create_side_data(AVFrame *frame);
+#endif
 
 /**
  * Provide a human-readable name of a given stereo3d type.
