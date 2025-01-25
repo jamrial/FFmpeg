@@ -21,8 +21,10 @@
 #ifndef AVUTIL_HDR_DYNAMIC_METADATA_H
 #define AVUTIL_HDR_DYNAMIC_METADATA_H
 
+#include "attributes.h"
 #include "frame.h"
 #include "rational.h"
+#include "version.h"
 
 /**
  * Option for overlapping elliptical pixel selectors in an image.
@@ -331,14 +333,18 @@ typedef struct AVDynamicHDRPlus {
  */
 AVDynamicHDRPlus *av_dynamic_hdr_plus_alloc(size_t *size);
 
+#if FF_API_CREATE_SIDE_DATA
 /**
  * Allocate a complete AVDynamicHDRPlus and add it to the frame.
  * @param frame The frame which side data is added to.
  *
+ * @deprecated use @ref av_frame_side_data_new_struct()
  * @return The AVDynamicHDRPlus structure to be filled by caller or NULL
  *         on failure.
  */
+attribute_deprecated
 AVDynamicHDRPlus *av_dynamic_hdr_plus_create_side_data(AVFrame *frame);
+#endif
 
 /**
  * Parse the user data registered ITU-T T.35 to AVbuffer (AVDynamicHDRPlus).
