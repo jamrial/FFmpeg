@@ -21,8 +21,10 @@
 #ifndef AVUTIL_HDR_DYNAMIC_VIVID_METADATA_H
 #define AVUTIL_HDR_DYNAMIC_VIVID_METADATA_H
 
+#include "attributes.h"
 #include "frame.h"
 #include "rational.h"
+#include "version.h"
 
 /**
  * HDR Vivid three spline params.
@@ -334,13 +336,17 @@ typedef struct AVDynamicHDRVivid {
  */
 AVDynamicHDRVivid *av_dynamic_hdr_vivid_alloc(size_t *size);
 
+#if FF_API_CREATE_SIDE_DATA
 /**
  * Allocate a complete AVDynamicHDRVivid and add it to the frame.
  * @param frame The frame which side data is added to.
  *
+ * @deprecated use @ref av_frame_side_data_new_struct()
  * @return The AVDynamicHDRVivid structure to be filled by caller or NULL
  *         on failure.
  */
+attribute_deprecated
 AVDynamicHDRVivid *av_dynamic_hdr_vivid_create_side_data(AVFrame *frame);
+#endif
 
 #endif /* AVUTIL_HDR_DYNAMIC_VIVID_METADATA_H */

@@ -33,6 +33,7 @@ AVDynamicHDRVivid *av_dynamic_hdr_vivid_alloc(size_t *size)
     return hdr_vivid;
 }
 
+#if FF_API_CREATE_SIDE_DATA
 AVDynamicHDRVivid *av_dynamic_hdr_vivid_create_side_data(AVFrame *frame)
 {
     AVFrameSideData *side_data = av_frame_new_side_data(frame,
@@ -45,3 +46,4 @@ AVDynamicHDRVivid *av_dynamic_hdr_vivid_create_side_data(AVFrame *frame)
 
     return (AVDynamicHDRVivid *)side_data->data;
 }
+#endif
