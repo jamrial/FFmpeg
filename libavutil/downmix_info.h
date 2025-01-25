@@ -21,7 +21,9 @@
 #ifndef AVUTIL_DOWNMIX_INFO_H
 #define AVUTIL_DOWNMIX_INFO_H
 
+#include "attributes.h"
 #include "frame.h"
+#include "version.h"
 
 /**
  * @file
@@ -92,6 +94,7 @@ typedef struct AVDownmixInfo {
     double lfe_mix_level;
 } AVDownmixInfo;
 
+#if FF_API_CREATE_SIDE_DATA
 /**
  * Get a frame's AV_FRAME_DATA_DOWNMIX_INFO side data for editing.
  *
@@ -99,10 +102,13 @@ typedef struct AVDownmixInfo {
  *
  * @param frame the frame for which the side data is to be obtained or created
  *
+ * @deprecated use @ref av_frame_side_data_new_struct() and @ref av_frame_side_data_get()
  * @return the AVDownmixInfo structure to be edited by the caller, or NULL if
  *         the structure cannot be allocated.
  */
+attribute_deprecated
 AVDownmixInfo *av_downmix_info_update_side_data(AVFrame *frame);
+#endif
 
 /**
  * @}

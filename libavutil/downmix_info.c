@@ -21,6 +21,7 @@
 #include "downmix_info.h"
 #include "frame.h"
 
+#if FF_API_CREATE_SIDE_DATA
 AVDownmixInfo *av_downmix_info_update_side_data(AVFrame *frame)
 {
     AVFrameSideData *side_data;
@@ -38,3 +39,4 @@ AVDownmixInfo *av_downmix_info_update_side_data(AVFrame *frame)
 
     return (AVDownmixInfo*)side_data->data;
 }
+#endif
