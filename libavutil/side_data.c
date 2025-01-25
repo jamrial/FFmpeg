@@ -63,6 +63,24 @@ typedef struct FFSideDataDescriptor {
     size_t size;
 } FFSideDataDescriptor;
 
+/* Type specific refstruct callbacks */
+
+static int copy_param_change(void *_dst, const void *_src)
+{
+    const AVParamChange *src = _src;
+    AVParamChange *dst = _dst;
+    int ret = av_dict_copy(&dst->opts, src->opts, 0);
+    if (ret < 0)
+        av_dict_free(&dst->opts);
+    return ret;
+}
+
+static void uninit_param_change(AVRefStructOpaque opaque, void *obj)
+{
+    AVParamChange *param = obj;
+    av_dict_free(&param->opts);
+}
+
 static const FFSideDataDescriptor sd_props[] = {
     [AV_FRAME_DATA_PANSCAN]                     = { .p = { "AVPanScan",                                    AV_SIDE_DATA_PROP_STRUCT | AV_SIDE_DATA_PROP_SIZE_DEPENDENT },
                                                     .size = sizeof(AVPanScan) },
@@ -88,6 +106,11 @@ static const FFSideDataDescriptor sd_props[] = {
     [AV_FRAME_DATA_DOVI_METADATA]               = { .p = { "Dolby Vision Metadata",                        AV_SIDE_DATA_PROP_COLOR_DEPENDENT } },
     [AV_FRAME_DATA_LCEVC]                       = { .p = { "LCEVC NAL data",                               AV_SIDE_DATA_PROP_SIZE_DEPENDENT } },
     [AV_FRAME_DATA_VIEW_ID]                     = { .p = { "View ID" } },
+    [AV_FRAME_DATA_PARAM_CHANGE]                = { .p = { "Param Change",                                 AV_SIDE_DATA_PROP_STRUCT },
+                                                    .props = FF_SIDE_DATA_PROP_REFSTRUCT,
+                                                    .copy = copy_param_change,
+                                                    .uninit = uninit_param_change,
+                                                    .size = sizeof(AVParamChange) },
     [AV_FRAME_DATA_STEREO3D]                    = { .p = { "Stereo 3D",                                    AV_SIDE_DATA_PROP_GLOBAL | AV_SIDE_DATA_PROP_STRUCT },
                                                     .size = sizeof(AVStereo3D) },
     [AV_FRAME_DATA_REPLAYGAIN]                  = { .p = { "AVReplayGain",                                 AV_SIDE_DATA_PROP_GLOBAL | AV_SIDE_DATA_PROP_STRUCT },

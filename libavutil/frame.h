@@ -243,7 +243,21 @@ enum AVFrameSideDataType {
      * The data is an int storing the view ID.
      */
     AV_FRAME_DATA_VIEW_ID,
+
+    /**
+     * A side data used to signal an encoder that certain parameters changed.
+     * The payload is an AVParamChange struct.
+     */
+    AV_FRAME_DATA_PARAM_CHANGE,
 };
+
+typedef struct AVParamChange {
+    /**
+     * A dictionary filled with options to be passed to an already initialized
+     * encoder. May contain global and encoder private options.
+     */
+    AVDictionary *opts;
+} AVParamChange;
 
 enum AVActiveFormatDescription {
     AV_AFD_SAME         = 8,
