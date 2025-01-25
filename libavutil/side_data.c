@@ -369,3 +369,49 @@ const AVFrameSideData *av_frame_side_data_get_c(const AVFrameSideData * const *s
     }
     return NULL;
 }
+
+int av_frame_side_data_is_writable(const AVFrameSideData *sd)
+{
+#if FF_API_SIDE_DATA_BUF
+FF_DISABLE_DEPRECATION_WARNINGS
+    return !!av_buffer_is_writable(sd->buf);
+FF_ENABLE_DEPRECATION_WARNINGS
+#else
+    const FFFrameSideData *sdp = csdp_from_sd(sd);
+    return !!av_buffer_is_writable(sdp->buf);
+#endif
+}
+
+int av_frame_side_data_make_writable(AVFrameSideData *sd)
+{
+    FFFrameSideData *sdp = sdp_from_sd(sd);
+    AVBufferRef *buf = NULL;
+
+#if FF_API_SIDE_DATA_BUF
+FF_DISABLE_DEPRECATION_WARNINGS
+    if (av_buffer_is_writable(sd->buf))
+FF_ENABLE_DEPRECATION_WARNINGS
+#else
+    if (av_buffer_is_writable(sdp->buf))
+#endif
+        return 0;
+
+    buf = av_buffer_alloc(sd->size);
+    if (!buf)
+        return AVERROR(ENOMEM);
+
+    if (sd->size)
+        memcpy(buf->data, sd->data, sd->size);
+#if FF_API_SIDE_DATA_BUF
+FF_DISABLE_DEPRECATION_WARNINGS
+    av_buffer_unref(&sd->buf);
+    sd->buf  = buf;
+FF_ENABLE_DEPRECATION_WARNINGS
+#else
+    av_buffer_unref(&sdp->buf);
+    sdp->buf = buf;
+#endif
+    sd->data = buf->data;
+
+    return 0;
+}

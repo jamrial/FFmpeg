@@ -1215,6 +1215,25 @@ void av_frame_side_data_remove_by_props(AVFrameSideData ***sd, int *nb_sd,
                                         int props);
 
 /**
+ * Check whether the data described by a given AVFrameSideData can be
+ * written to.
+ *
+ * @return 1 if the caller may write to the data, 0 otherwise.
+ */
+int av_frame_side_data_is_writable(const AVFrameSideData *sd);
+
+/**
+ * Create a writable reference for the data described by a given
+ * AVFrameSideData, avoiding data copy if possible.
+ *
+ * @param sd Side data whose data should be made writable.
+ *
+ * @return 0 on success, a negative AVERROR on failure. On failure, the
+ *         side data is unchanged.
+ */
+int av_frame_side_data_make_writable(AVFrameSideData *sd);
+
+/**
  * @}
  */
 
