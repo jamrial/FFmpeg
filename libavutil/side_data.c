@@ -418,10 +418,10 @@ AVFrameSideData *av_frame_side_data_new_struct(AVFrameSideData ***sd, int *nb_sd
     av_assert0(dp->size);
 
     if (!(dp->props & FF_SIDE_DATA_PROP_REFSTRUCT)) {
-    ret = av_frame_side_data_new(sd, nb_sd, type, dp->size, flags);
-    if (ret && dp->init)
-         dp->init(ret->data);
-    return ret;
+        ret = av_frame_side_data_new(sd, nb_sd, type, dp->size, flags);
+        if (ret && dp->init)
+             dp->init(ret->data);
+        return ret;
     }
 
     if (!(obj = av_refstruct_alloc_ext(dp->size, 0, NULL, dp->uninit)))
@@ -529,10 +529,10 @@ int av_frame_side_data_clone(AVFrameSideData ***sd, int *nb_sd,
         } else {
 #if FF_API_SIDE_DATA_BUF
 FF_DISABLE_DEPRECATION_WARNINGS
-        ret = av_buffer_replace(&sd_dst->buf, src->buf);
+            ret = av_buffer_replace(&sd_dst->buf, src->buf);
 FF_ENABLE_DEPRECATION_WARNINGS
 #else
-        ret = av_buffer_replace(&dstp->buf, srcp->buf);
+            ret = av_buffer_replace(&dstp->buf, srcp->buf);
 #endif
             data = src->data;
             size = src->size;
@@ -556,16 +556,16 @@ FF_ENABLE_DEPRECATION_WARNINGS
     } else {
 #if FF_API_SIDE_DATA_BUF
 FF_DISABLE_DEPRECATION_WARNINGS
-    buf = av_buffer_ref(src->buf);
+        buf = av_buffer_ref(src->buf);
 FF_ENABLE_DEPRECATION_WARNINGS
 #else
-    buf = av_buffer_ref(srcp->buf);
+        buf = av_buffer_ref(srcp->buf);
 #endif
-    if (!buf)
-        return AVERROR(ENOMEM);
+        if (!buf)
+            return AVERROR(ENOMEM);
 
-    sd_dst = add_side_data_from_buf_ext(sd, nb_sd, src->type, buf,
-                                        src->data, src->size);
+        sd_dst = add_side_data_from_buf_ext(sd, nb_sd, src->type, buf,
+                                            src->data, src->size);
     }
     if (!sd_dst) {
         av_buffer_unref(&buf);
@@ -635,20 +635,20 @@ int av_frame_side_data_make_writable(AVFrameSideData *sd)
     } else {
 #if FF_API_SIDE_DATA_BUF
 FF_DISABLE_DEPRECATION_WARNINGS
-    if (av_buffer_is_writable(sd->buf))
+        if (av_buffer_is_writable(sd->buf))
 FF_ENABLE_DEPRECATION_WARNINGS
 #else
-    if (av_buffer_is_writable(sdp->buf))
+        if (av_buffer_is_writable(sdp->buf))
 #endif
-        return 0;
+            return 0;
 
-    buf = av_buffer_alloc(sd->size);
-    if (!buf)
-        return AVERROR(ENOMEM);
+        buf = av_buffer_alloc(sd->size);
+        if (!buf)
+            return AVERROR(ENOMEM);
 
-    if (sd->size)
-        memcpy(buf->data, sd->data, sd->size);
-    data = buf->data;
+        if (sd->size)
+            memcpy(buf->data, sd->data, sd->size);
+        data = buf->data;
     }
 #if FF_API_SIDE_DATA_BUF
 FF_DISABLE_DEPRECATION_WARNINGS
