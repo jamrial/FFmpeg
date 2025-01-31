@@ -35,6 +35,7 @@
 #include "libavutil/mem.h"
 #include "libavutil/opt.h"
 #include "libavutil/pixdesc.h"
+#include "libavutil/ref_displays_info.h"
 #include "libavutil/stereo3d.h"
 #include "libavutil/timecode.h"
 
@@ -4021,6 +4022,58 @@ static int hevc_update_thread_context(AVCodecContext *dst,
 }
 #endif
 
+static int hevc_sei_to_context(AVCodecContext *avctx, HEVCSEI *sei)
+{
+    const HEVCSEITDRDI *tdrdi = sei->tdrdi;
+    int ret;
+
+    if (tdrdi && tdrdi->num_ref_displays) {
+        AVBufferRef *buf;
+        size_t size;
+        AV3DReferenceDisplaysInfo *rdi = av_ref_displays_info_alloc(tdrdi->num_ref_displays, &size);
+
+        if (!rdi)
+            return AVERROR(ENOMEM);
+
+        buf = av_buffer_create((uint8_t *)rdi, size, NULL, NULL, 0);
+        if (!buf) {
+            av_free(rdi);
+            return AVERROR(ENOMEM);
+        }
+
+        rdi->prec_ref_display_width = tdrdi->prec_ref_display_width;
+        rdi->ref_viewing_distance_flag = tdrdi->ref_viewing_distance_flag;
+        rdi->prec_ref_viewing_dist = tdrdi->prec_ref_viewing_dist;
+        rdi->num_ref_displays = tdrdi->num_ref_displays;
+
+        for (int i = 0; i < rdi->num_ref_displays; i++) {
+            AV3DReferenceDisplay *ref = av_ref_displays_info_display(rdi, i);
+
+            ref->left_view_id = tdrdi->left_view_id[i];
+            ref->right_view_id = tdrdi->right_view_id[i];
+            ref->exponent_ref_display_width = tdrdi->exponent_ref_display_width[i];
+            ref->mantissa_ref_display_width = tdrdi->mantissa_ref_display_width[i];
+            ref->exponent_ref_viewing_distance = tdrdi->exponent_ref_viewing_distance[i];
+            ref->mantissa_ref_viewing_distance = tdrdi->mantissa_ref_viewing_distance[i];
+            ref->additional_shift_present_flag = tdrdi->additional_shift_present_flag[i];
+            ref->num_sample_shift = tdrdi->num_sample_shift[i];
+        }
+
+        ret = ff_frame_new_side_data_from_buf_ext(avctx, &avctx->decoded_side_data, &avctx->nb_decoded_side_data,
+                                                  AV_FRAME_DATA_3D_REFERENCE_DISPLAYS, &buf);
+        if (ret < 0) {
+            av_buffer_unref(&buf);
+            return ret;
+        }
+    }
+
+    ret = ff_h2645_sei_to_context(avctx, &sei->common);
+    if (ret < 0)
+        return ret;
+
+    return 0;
+}
+
 static av_cold int hevc_decode_init(AVCodecContext *avctx)
 {
     HEVCContext *s = avctx->priv_data;
@@ -4044,7 +4097,7 @@ static av_cold int hevc_decode_init(AVCodecContext *avctx)
                 return ret;
             }
 
-            ret = ff_h2645_sei_to_context(avctx, &s->sei.common);
+            ret = hevc_sei_to_context(avctx, &s->sei);
             if (ret < 0)
                 return ret;
         }
