@@ -77,6 +77,7 @@ HEADERS = adler32.h                                                     \
           random_seed.h                                                 \
           rc4.h                                                         \
           rational.h                                                    \
+          ref_displays_info.h                                           \
           refstruct.h                                                   \
           replaygain.h                                                  \
           ripemd.h                                                      \
@@ -167,6 +168,7 @@ OBJS = adler32.o                                                        \
        pixelutils.o                                                     \
        random_seed.o                                                    \
        rational.o                                                       \
+       ref_displays_info.o                                              \
        refstruct.o                                                      \
        reverse.o                                                        \
        rc4.o                                                            \
