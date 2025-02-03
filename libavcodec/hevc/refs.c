@@ -104,7 +104,7 @@ static HEVCFrame *alloc_frame(HEVCContext *s, HEVCLayerContext *l)
 
         // add view ID side data if it's nontrivial
         if (vps->nb_layers > 1 || view_id) {
-            HEVCSEITDRDI *tdrdi = &s->sei.tdrdi;
+            HEVCSEITDRDI *tdrdi = s->sei.tdrdi;
             AVFrameSideData *sd = av_frame_side_data_new(&frame->f->side_data,
                                                          &frame->f->nb_side_data,
                                                          AV_FRAME_DATA_VIEW_ID,
@@ -113,7 +113,7 @@ static HEVCFrame *alloc_frame(HEVCContext *s, HEVCLayerContext *l)
                 goto fail;
             *(int*)sd->data = view_id;
 
-            if (tdrdi->num_ref_displays) {
+            if (tdrdi && tdrdi->num_ref_displays) {
                 AVStereo3D *stereo_3d;
 
                 stereo_3d = av_stereo3d_create_side_data(frame->f);

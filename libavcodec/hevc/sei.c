@@ -220,7 +220,11 @@ static int decode_nal_sei_prefix(GetBitContext *gb, GetByteContext *gbyte,
     case SEI_TYPE_TIME_CODE:
         return decode_nal_sei_timecode(&s->timecode, gb);
     case SEI_TYPE_THREE_DIMENSIONAL_REFERENCE_DISPLAYS_INFO:
-        return decode_nal_sei_3d_reference_displays_info(&s->tdrdi, gb);
+        av_refstruct_unref(&s->tdrdi);
+        s->tdrdi = av_refstruct_allocz(sizeof(*s->tdrdi));
+        if (!s->tdrdi)
+            return AVERROR(ENOMEM);
+        return decode_nal_sei_3d_reference_displays_info(s->tdrdi, gb);
     default: {
         int ret = ff_h2645_sei_message_decode(&s->common, type, AV_CODEC_ID_HEVC,
                                               gb, gbyte, logctx);

@@ -24,6 +24,7 @@
 #include <stdint.h>
 
 #include "libavutil/buffer.h"
+#include "libavutil/refstruct.h"
 
 #include "libavcodec/get_bits.h"
 #include "libavcodec/h2645_sei.h"
@@ -101,7 +102,9 @@ typedef struct HEVCSEI {
     HEVCSEIPictureTiming picture_timing;
     int active_seq_parameter_set_id;
     HEVCSEITimeCode timecode;
-    HEVCSEITDRDI tdrdi;
+
+    // Dynamic allocations due to large size.
+    HEVCSEITDRDI *tdrdi;
 } HEVCSEI;
 
 struct HEVCParamSets;
@@ -118,6 +121,7 @@ int ff_hevc_decode_nal_sei(GetBitContext *gb, void *logctx, HEVCSEI *s,
  */
 static inline void ff_hevc_reset_sei(HEVCSEI *sei)
 {
+    av_refstruct_unref(&sei->tdrdi);
     ff_h2645_sei_reset(&sei->common);
 }
 

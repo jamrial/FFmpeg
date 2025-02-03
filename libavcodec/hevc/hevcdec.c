@@ -429,7 +429,7 @@ FF_ENABLE_DEPRECATION_WARNINGS
 
 static int export_multilayer(HEVCContext *s, const HEVCVPS *vps)
 {
-    const HEVCSEITDRDI *tdrdi = &s->sei.tdrdi;
+    const HEVCSEITDRDI *tdrdi = s->sei.tdrdi;
 
     av_freep(&s->view_ids_available);
     s->nb_view_ids_available = 0;
@@ -444,7 +444,7 @@ static int export_multilayer(HEVCContext *s, const HEVCVPS *vps)
     if (!s->view_ids_available)
         return AVERROR(ENOMEM);
 
-    if (tdrdi->num_ref_displays) {
+    if (tdrdi && tdrdi->num_ref_displays) {
         s->view_pos_available = av_calloc(vps->nb_layers, sizeof(*s->view_pos_available));
         if (!s->view_pos_available)
             return AVERROR(ENOMEM);
@@ -454,9 +454,9 @@ static int export_multilayer(HEVCContext *s, const HEVCVPS *vps)
         s->view_ids_available[i] = vps->view_id[i];
 
         if (s->view_pos_available) {
-            s->view_pos_available[i] = vps->view_id[i] == tdrdi->left_view_id[0]  ?
+            s->view_pos_available[i] = tdrdi && (vps->view_id[i] == tdrdi->left_view_id[0])  ?
                                        AV_STEREO3D_VIEW_LEFT                      :
-                                       vps->view_id[i] == tdrdi->right_view_id[0] ?
+                                       tdrdi && (vps->view_id[i] == tdrdi->right_view_id[0]) ?
                                        AV_STEREO3D_VIEW_RIGHT : AV_STEREO3D_VIEW_UNSPEC;
         }
     }
@@ -4015,7 +4015,7 @@ static int hevc_update_thread_context(AVCodecContext *dst,
     s->sei.common.frame_packing        = s0->sei.common.frame_packing;
     s->sei.common.display_orientation  = s0->sei.common.display_orientation;
     s->sei.common.alternative_transfer = s0->sei.common.alternative_transfer;
-    s->sei.tdrdi                       = s0->sei.tdrdi;
+    av_refstruct_replace(&s->sei.tdrdi, s0->sei.tdrdi);
 
     return 0;
 }
