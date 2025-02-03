@@ -152,6 +152,8 @@ static int decode_nal_sei_timecode(HEVCSEITimeCode *s, GetBitContext *gb)
 
 static int decode_nal_sei_3d_reference_displays_info(HEVCSEITDRDI *s, GetBitContext *gb)
 {
+    unsigned int num_ref_displays;
+
     s->prec_ref_display_width = get_ue_golomb(gb);
     if (s->prec_ref_display_width > 31)
         return AVERROR_INVALIDDATA;
@@ -161,12 +163,12 @@ static int decode_nal_sei_3d_reference_displays_info(HEVCSEITDRDI *s, GetBitCont
         if (s->prec_ref_viewing_dist > 31)
             return AVERROR_INVALIDDATA;
     }
-    s->num_ref_displays = get_ue_golomb(gb);
-    if (s->num_ref_displays > 31)
+    num_ref_displays = get_ue_golomb(gb);
+    if (num_ref_displays > 31)
         return AVERROR_INVALIDDATA;
-    s->num_ref_displays += 1;
+    num_ref_displays += 1;
 
-    for (int i = 0; i < s->num_ref_displays; i++) {
+    for (int i = 0; i < num_ref_displays; i++) {
         int length;
         s->left_view_id[i] = get_ue_golomb(gb);
         s->right_view_id[i] = get_ue_golomb(gb);
@@ -199,6 +201,7 @@ static int decode_nal_sei_3d_reference_displays_info(HEVCSEITDRDI *s, GetBitCont
         }
     }
     s->three_dimensional_reference_displays_extension_flag = get_bits1(gb);
+    s->num_ref_displays = num_ref_displays;
 
     return 0;
 }
