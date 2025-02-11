@@ -1490,6 +1490,52 @@ static av_cold int av1_init(AVCodecContext *avctx)
 
 #define OFFSET(x) offsetof(AOMContext, x)
 #define VE AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_ENCODING_PARAM
+static av_cold int av1_reconf(AVCodecContext *avctx, AVDictionary **dict)
+{
+    AOMContext *ctx = avctx->priv_data;
+    static const AVOption global_opts[] = {
+        { "aspect",  NULL, offsetof(AVCodecContext, sample_aspect_ratio), AV_OPT_TYPE_RATIONAL, {.dbl = 0}, 0, 10, VE },
+        { "sar",     NULL, offsetof(AVCodecContext, sample_aspect_ratio), AV_OPT_TYPE_RATIONAL, {.dbl = 0}, 0, 10, VE },
+        { "bufsize", NULL, offsetof(AVCodecContext, rc_buffer_size),      AV_OPT_TYPE_INT,      {.i64 = 0 }, INT_MIN, INT_MAX, VE },
+        { "b",       NULL, offsetof(AVCodecContext, bit_rate),            AV_OPT_TYPE_INT64,    {.i64 = 0 }, 0, INT64_MAX, VE },
+        { "maxrate", NULL, offsetof(AVCodecContext, rc_max_rate),         AV_OPT_TYPE_INT64,    {.i64 = 0 }, 0, INT_MAX, VE },
+        { "minrate", NULL, offsetof(AVCodecContext, rc_min_rate),         AV_OPT_TYPE_INT64,    {.i64 = 0 }, INT_MIN, INT_MAX, VE },
+        { "qmin",    NULL, offsetof(AVCodecContext, qmin),                AV_OPT_TYPE_INT,      {.i64 = 2 }, -1, 69, VE },
+        { "qmax",    NULL, offsetof(AVCodecContext, qmax),                AV_OPT_TYPE_INT,      {.i64 = 31 }, -1, 1024, VE },
+        { NULL },
+    };
+    static const AVOption private_opts[] = {
+        { "cpu-used", NULL, OFFSET(cpu_used), AV_OPT_TYPE_INT, {.i64 = 1},   0 , 8, VE },
+        { "crf",      NULL, OFFSET(crf),      AV_OPT_TYPE_INT, {.i64 = -1}, -1, 63, VE },
+        { NULL },
+    };
+    int loglevel;
+    int res;
+
+    res = ff_encode_reconf_parse_dict(avctx, global_opts, private_opts, dict);
+    if (res < 0)
+        return res;
+
+    res = aom_config(avctx, ctx->encoder.iface);
+    if (res < 0)
+        return res;
+
+    res = aom_codec_enc_config_set(&ctx->encoder, &ctx->enccfg);
+    loglevel = res != AOM_CODEC_OK ? AV_LOG_WARNING : AV_LOG_DEBUG;
+    av_log(avctx, loglevel, "Reconfigure options:\n");
+    dump_enc_cfg(avctx, &ctx->enccfg, loglevel);
+    if (res != AOM_CODEC_OK) {
+        log_encoder_error(avctx, "Failed to reconfigure encoder");
+        return AVERROR(EINVAL);
+    }
+
+    res = aom_codecctl(avctx);
+    if (res < 0)
+        return res;
+
+    return 0;
+}
+
 static const AVOption options[] = {
     { "cpu-used",        "Quality/Speed ratio modifier",           OFFSET(cpu_used),        AV_OPT_TYPE_INT, {.i64 = 1}, 0, 8, VE},
     { "auto-alt-ref",    "Enable use of alternate reference "
@@ -1591,6 +1637,7 @@ FFCodec ff_libaom_av1_encoder = {
     .p.id           = AV_CODEC_ID_AV1,
     .p.capabilities = AV_CODEC_CAP_DR1 | AV_CODEC_CAP_DELAY |
                       AV_CODEC_CAP_ENCODER_RECON_FRAME |
+                      AV_CODEC_CAP_RECONF |
                       AV_CODEC_CAP_OTHER_THREADS,
     .color_ranges   = AVCOL_RANGE_MPEG | AVCOL_RANGE_JPEG,
     .p.profiles     = NULL_IF_CONFIG_SMALL(ff_av1_profiles),
@@ -1598,6 +1645,7 @@ FFCodec ff_libaom_av1_encoder = {
     .p.wrapper_name = "libaom",
     .priv_data_size = sizeof(AOMContext),
     .init           = av1_init,
+    .reconf         = av1_reconf,
     FF_CODEC_ENCODE_CB(aom_encode),
     .close          = aom_free,
     .caps_internal  = FF_CODEC_CAP_NOT_INIT_THREADSAFE |
