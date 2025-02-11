@@ -560,6 +560,74 @@ int attribute_align_arg avcodec_receive_packet(AVCodecContext *avctx, AVPacket *
     return 0;
 }
 
+av_cold int ff_encode_reconf_parse_dict(AVCodecContext *avctx, const AVOption *global_opts,
+                                        const AVOption *private_opts, AVDictionary **dict)
+{
+    const AVCodec *codec = avctx->codec;
+    AVCodecContext *tmp_ctx = NULL;
+    AVClass *global_class = NULL, *private_class = NULL;
+    AVDictionary *copy = NULL;
+    int ret = AVERROR_BUG;
+
+    global_class = av_memdup(avcodec_get_class(), sizeof(*global_class));
+    if (!global_class)
+        return AVERROR(ENOMEM);
+
+    tmp_ctx = avcodec_alloc_context3(codec);
+    if (!tmp_ctx)
+        return AVERROR(ENOMEM);
+
+    global_class->option = global_opts;
+    tmp_ctx->av_class = global_class;
+
+    if (ffcodec(codec)->priv_data_size > 0) {
+        tmp_ctx->priv_data = av_mallocz(ffcodec(codec)->priv_data_size);
+        if (!tmp_ctx->priv_data) {
+            ret = AVERROR(ENOMEM);
+            goto end;
+        }
+        if (codec->priv_class) {
+            private_class = av_memdup(codec->priv_class, sizeof(*codec->priv_class));
+            if (!private_class)
+                goto end;
+            av_assert0(private_opts || !private_class->option);
+            private_class->option = private_opts;
+            *(const AVClass **)tmp_ctx->priv_data = private_class;
+        }
+    }
+
+    ret = av_dict_copy(&copy, *dict, 0);
+    if (ret < 0)
+        goto end;
+
+    ret = av_opt_set_dict2(tmp_ctx, &copy, AV_OPT_SEARCH_CHILDREN);
+    if (ret < 0)
+        goto end;
+
+    if (av_dict_count(copy)) {
+        av_dict_free(dict);
+        *dict = copy;
+        copy = NULL;
+        ret = AVERROR_OPTION_NOT_FOUND;
+        goto end;
+    }
+
+    ret = av_opt_set_dict2(avctx, dict, AV_OPT_SEARCH_CHILDREN);
+    if (ret < 0)
+        goto end;
+
+    av_assert0(!av_dict_iterate(*dict, NULL));
+
+    ret = 0;
+end:
+    avcodec_free_context(&tmp_ctx);
+    av_dict_free(&copy);
+    av_freep(&private_class);
+    av_freep(&global_class);
+
+    return ret;
+}
+
 av_cold int avcodec_encode_reconf(AVCodecContext *avctx, AVDictionary **dict)
 {
     int ret = AVERROR_BUG;
