@@ -1490,13 +1490,13 @@ static int ost_add(Muxer *mux, const OptionsContext *o, enum AVMediaType type,
         ost->st->codecpar->codec_tag = tag;
         ms->par_in->codec_tag = tag;
         if (ost->enc)
-            ost->enc->enc_ctx->codec_tag = tag;
+            ost->enc->codec_tag = tag;
     }
 
     opt_match_per_stream_dbl(ost, &o->qscale, oc, st, &qscale);
     if (ost->enc && qscale >= 0) {
-        ost->enc->enc_ctx->flags |= AV_CODEC_FLAG_QSCALE;
-        ost->enc->enc_ctx->global_quality = FF_QP2LAMBDA * qscale;
+        ost->enc->flags          |= AV_CODEC_FLAG_QSCALE;
+        ost->enc->global_quality  = FF_QP2LAMBDA * qscale;
     }
 
     if (ms->sch_idx >= 0) {
@@ -1519,7 +1519,7 @@ static int ost_add(Muxer *mux, const OptionsContext *o, enum AVMediaType type,
                              oc, st, &ost->fix_sub_duration_heartbeat);
 
     if (oc->oformat->flags & AVFMT_GLOBALHEADER && ost->enc)
-        ost->enc->enc_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+        ost->enc->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
     opt_match_per_stream_int(ost, &o->copy_initial_nonkeyframes,
                              oc, st, &ms->copy_initial_nonkeyframes);
