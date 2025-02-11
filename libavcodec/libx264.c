@@ -771,22 +771,9 @@ static void X264_flush(AVCodecContext *avctx)
 
 static av_cold int X264_reconf(AVCodecContext *avctx, AVDictionary **dict)
 {
-    static const AVOption global_opts[] = {
-        { "aspect", "sample aspect ratio", offsetof(AVCodecContext, sample_aspect_ratio), AV_OPT_TYPE_RATIONAL, {.dbl = 0}, 0, 10, AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_ENCODING_PARAM},
-        { "sar",    "sample aspect ratio", offsetof(AVCodecContext, sample_aspect_ratio), AV_OPT_TYPE_RATIONAL, {.dbl = 0}, 0, 10, AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_ENCODING_PARAM},
-        { "bufsize", "set ratecontrol buffer size (in bits)", offsetof(AVCodecContext, rc_buffer_size), AV_OPT_TYPE_INT, {.i64 = 0 }, INT_MIN, INT_MAX, AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_ENCODING_PARAM},
-        { "b", "set bitrate (in bits/s)", offsetof(AVCodecContext, bit_rate), AV_OPT_TYPE_INT64, {.i64 = 0 }, 0, INT64_MAX, AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_ENCODING_PARAM},
-        { NULL },
-    };
-    static const AVOption private_opts[] = {
-        { "crf",     "Select the quality for constant quality mode",    offsetof(X264Context, crf), AV_OPT_TYPE_FLOAT, {.dbl = -1 }, -1, FLT_MAX, AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_ENCODING_PARAM },
-        { "crf_max", "In CRF mode, prevents VBV from lowering quality beyond this point.", offsetof(X264Context, crf_max), AV_OPT_TYPE_FLOAT, {.dbl = -1 }, -1, FLT_MAX, AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_ENCODING_PARAM },
-        { "qp",      "Constant quantization parameter rate control method", offsetof(X264Context, cqp), AV_OPT_TYPE_INT, { .i64 = -1 }, -1, INT_MAX, AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_ENCODING_PARAM },
-        { NULL },
-    };
     int ret;
 
-    ret = ff_encode_reconf_parse_dict(avctx, global_opts, private_opts, dict);
+    ret = ff_encode_reconf_parse_dict(avctx, dict);
     if (ret < 0)
         return ret;
 
@@ -1536,6 +1523,7 @@ static const enum AVPixelFormat pix_fmts_8bit_rgb[] = {
 
 #define OFFSET(x) offsetof(X264Context, x)
 #define VE AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_ENCODING_PARAM
+#define VER VE | AV_OPT_FLAG_RUNTIME_PARAM
 static const AVOption options[] = {
     { "preset",        "Set the encoding preset (cf. x264 --fullhelp)",   OFFSET(preset),        AV_OPT_TYPE_STRING, { .str = "medium" }, 0, 0, VE},
     { "tune",          "Tune the encoding params (cf. x264 --fullhelp)",  OFFSET(tune),          AV_OPT_TYPE_STRING, { 0 }, 0, 0, VE},
@@ -1546,9 +1534,9 @@ static const AVOption options[] = {
     {"wpredp", "Weighted prediction for P-frames", OFFSET(wpredp), AV_OPT_TYPE_STRING, {.str=NULL}, 0, 0, VE},
     {"a53cc",          "Use A53 Closed Captions (if available)",          OFFSET(a53_cc),        AV_OPT_TYPE_BOOL,   {.i64 = 1}, 0, 1, VE},
     {"x264opts", "x264 options", OFFSET(x264opts), AV_OPT_TYPE_STRING, {.str=NULL}, 0, 0, VE},
-    { "crf",           "Select the quality for constant quality mode",    OFFSET(crf),           AV_OPT_TYPE_FLOAT,  {.dbl = -1 }, -1, FLT_MAX, VE },
-    { "crf_max",       "In CRF mode, prevents VBV from lowering quality beyond this point.",OFFSET(crf_max), AV_OPT_TYPE_FLOAT, {.dbl = -1 }, -1, FLT_MAX, VE },
-    { "qp",            "Constant quantization parameter rate control method",OFFSET(cqp),        AV_OPT_TYPE_INT,    { .i64 = -1 }, -1, INT_MAX, VE },
+    { "crf",           "Select the quality for constant quality mode",    OFFSET(crf),           AV_OPT_TYPE_FLOAT,  {.dbl = -1 }, -1, FLT_MAX, VER },
+    { "crf_max",       "In CRF mode, prevents VBV from lowering quality beyond this point.",OFFSET(crf_max), AV_OPT_TYPE_FLOAT, {.dbl = -1 }, -1, FLT_MAX, VER },
+    { "qp",            "Constant quantization parameter rate control method",OFFSET(cqp),        AV_OPT_TYPE_INT,    { .i64 = -1 }, -1, INT_MAX, VER },
     { "aq-mode",       "AQ method",                                       OFFSET(aq_mode),       AV_OPT_TYPE_INT,    { .i64 = -1 }, -1, INT_MAX, VE, .unit = "aq_mode"},
     { "none",          NULL,                              0, AV_OPT_TYPE_CONST, {.i64 = X264_AQ_NONE},         INT_MIN, INT_MAX, VE, .unit = "aq_mode" },
     { "variance",      "Variance AQ (complexity mask)",   0, AV_OPT_TYPE_CONST, {.i64 = X264_AQ_VARIANCE},     INT_MIN, INT_MAX, VE, .unit = "aq_mode" },
@@ -1618,7 +1606,10 @@ static const AVOption options[] = {
 };
 
 static const FFCodecDefault x264_defaults[] = {
-    { "b",                "0" },
+    { "sar",              "0", AV_OPT_FLAG_RUNTIME_PARAM },
+    { "b",                "0", AV_OPT_FLAG_RUNTIME_PARAM },
+    { "bufsize",          "0", AV_OPT_FLAG_RUNTIME_PARAM },
+    { "maxrate",          "0", AV_OPT_FLAG_RUNTIME_PARAM },
     { "bf",               "-1" },
     { "flags2",           "0" },
     { "g",                "-1" },
