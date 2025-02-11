@@ -769,6 +769,32 @@ static void X264_flush(AVCodecContext *avctx)
         x4->sei_size = -x4->sei_size;
 }
 
+static av_cold int X264_reconf(AVCodecContext *avctx, AVDictionary **dict)
+{
+    static const AVOption global_opts[] = {
+        { "aspect", "sample aspect ratio", offsetof(AVCodecContext, sample_aspect_ratio), AV_OPT_TYPE_RATIONAL, {.dbl = 0}, 0, 10, AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_ENCODING_PARAM},
+        { "sar",    "sample aspect ratio", offsetof(AVCodecContext, sample_aspect_ratio), AV_OPT_TYPE_RATIONAL, {.dbl = 0}, 0, 10, AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_ENCODING_PARAM},
+        { "bufsize", "set ratecontrol buffer size (in bits)", offsetof(AVCodecContext, rc_buffer_size), AV_OPT_TYPE_INT, {.i64 = 0 }, INT_MIN, INT_MAX, AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_ENCODING_PARAM},
+        { "b", "set bitrate (in bits/s)", offsetof(AVCodecContext, bit_rate), AV_OPT_TYPE_INT64, {.i64 = 0 }, 0, INT64_MAX, AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_ENCODING_PARAM},
+        { NULL },
+    };
+    static const AVOption private_opts[] = {
+        { "crf",     "Select the quality for constant quality mode",    offsetof(X264Context, crf), AV_OPT_TYPE_FLOAT, {.dbl = -1 }, -1, FLT_MAX, AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_ENCODING_PARAM },
+        { "crf_max", "In CRF mode, prevents VBV from lowering quality beyond this point.", offsetof(X264Context, crf_max), AV_OPT_TYPE_FLOAT, {.dbl = -1 }, -1, FLT_MAX, AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_ENCODING_PARAM },
+        { "qp",      "Constant quantization parameter rate control method", offsetof(X264Context, cqp), AV_OPT_TYPE_INT, { .i64 = -1 }, -1, INT_MAX, AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_ENCODING_PARAM },
+        { NULL },
+    };
+    int ret;
+
+    ret = ff_encode_reconf_parse_dict(avctx, global_opts, private_opts, dict);
+    if (ret < 0)
+        return ret;
+
+    reconfig_encoder(avctx);
+
+    return 0;
+}
+
 static av_cold int X264_close(AVCodecContext *avctx)
 {
     X264Context *x4 = avctx->priv_data;
@@ -1634,6 +1660,7 @@ const FFCodec ff_libx264_encoder = {
                         AV_CODEC_CAP_OTHER_THREADS |
                         AV_CODEC_CAP_ENCODER_REORDERED_OPAQUE |
                         AV_CODEC_CAP_ENCODER_FLUSH |
+                        AV_CODEC_CAP_RECONF |
                         AV_CODEC_CAP_ENCODER_RECON_FRAME,
     .p.priv_class     = &x264_class,
     .p.wrapper_name   = "libx264",
@@ -1641,6 +1668,7 @@ const FFCodec ff_libx264_encoder = {
     .init             = X264_init,
     FF_CODEC_ENCODE_CB(X264_frame),
     .flush            = X264_flush,
+    .reconf           = X264_reconf,
     .close            = X264_close,
     .defaults         = x264_defaults,
     CODEC_PIXFMTS_ARRAY(pix_fmts_all),
