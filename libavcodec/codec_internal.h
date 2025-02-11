@@ -96,9 +96,11 @@
 typedef struct FFCodecDefault {
     const char *key;
     const char *value;
+    int flags;
 } FFCodecDefault;
 
 struct AVCodecContext;
+struct AVDictionary;
 struct AVSubtitle;
 struct AVPacket;
 enum AVCodecConfig;
@@ -242,6 +244,12 @@ typedef struct FFCodec {
      * Will be called when seeking
      */
     void (*flush)(struct AVCodecContext *);
+
+    /**
+     * Reconfigure the encoder
+     * Called by avcodec_encode_reconfigure()
+     */
+    int (*reconf)(struct AVCodecContext *avctx, struct AVDictionary **dict);
 
     /**
      * Decoding only, a comma-separated list of bitstream filters to apply to
