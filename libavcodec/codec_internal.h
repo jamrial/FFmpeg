@@ -22,6 +22,7 @@
 #include <stdint.h>
 
 #include "libavutil/attributes.h"
+#include "libavutil/dict.h"
 #include "avcodec.h"
 #include "codec.h"
 #include "config.h"
@@ -242,6 +243,8 @@ typedef struct FFCodec {
      * Will be called when seeking
      */
     void (*flush)(struct AVCodecContext *);
+
+    int (*reconf)(struct AVCodecContext *, AVDictionary **dict);
 
     /**
      * Decoding only, a comma-separated list of bitstream filters to apply to

@@ -26,6 +26,7 @@
 #include "libavutil/imgutils.h"
 #include "libavutil/internal.h"
 #include "libavutil/mem.h"
+#include "libavutil/opt.h"
 #include "libavutil/pixdesc.h"
 #include "libavutil/samplefmt.h"
 
@@ -555,6 +556,24 @@ int attribute_align_arg avcodec_receive_packet(AVCodecContext *avctx, AVPacket *
         if (ret < 0)
             return ret;
     }
+
+    return 0;
+}
+
+av_cold int avcodec_encode_reconf(AVCodecContext *avctx, AVDictionary **dict)
+{
+    int ret = AVERROR_BUG;
+
+    if (!(avctx->codec->capabilities & AV_CODEC_CAP_RECONF)) {
+        av_log(avctx, AV_LOG_ERROR, "This encoder does not support parameter "
+               "changes, but PARAM_CHANGE side data was sent to it.\n");
+        return AVERROR(EINVAL);
+    }
+
+    av_assert0(ffcodec(avctx->codec)->reconf);
+    ret = ffcodec(avctx->codec)->reconf(avctx, dict);
+    if (ret < 0)
+        return ret;
 
     return 0;
 }

@@ -2417,6 +2417,8 @@ attribute_deprecated
 int avcodec_close(AVCodecContext *avctx);
 #endif
 
+int avcodec_encode_reconf(AVCodecContext *avctx, AVDictionary **dict);
+
 /**
  * Free all allocated data in the given subtitle struct.
  *
