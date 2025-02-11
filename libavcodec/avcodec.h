@@ -2418,6 +2418,25 @@ int avcodec_close(AVCodecContext *avctx);
 #endif
 
 /**
+ * Try to reconfigure the encoder with the provided dictionary. May only be used
+ * if a codec with AV_CODEC_CAP_RECONF has been opened.
+ *
+ * Not all options can be changed, and it depends on the encoder. If any of the
+ * options can't be applied (Either because the option can't be changed, because
+ * invalid values for them were passed, or other errors), the encoder remains
+ * untouched and can continue as normal. Unapplied options will remain in *dict,
+ * and owned by the caller.
+ *
+ * @retval 0                         success
+ * @retval AVERROR_OPTION_NOT_FOUND  an entry with an invalid key was passed.
+ * @retval AVERROR(EINVAL)           an entry with an invalid value or an invalid
+ *                                   argument was passed.
+ * @retval AVERROR(ENOSYS)           unsupported encoder.
+ * @retval "another negative error code" other errors.
+ */
+int avcodec_encode_reconfigure(AVCodecContext *avctx, AVDictionary **dict);
+
+/**
  * Free all allocated data in the given subtitle struct.
  *
  * @param sub AVSubtitle to free.
