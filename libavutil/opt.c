@@ -171,7 +171,7 @@ static int opt_set_init(void *obj, const char *name, int search_flags,
     void *tgt;
 
     o = av_opt_find2(obj, name, NULL, 0, search_flags, &tgt);
-    if (!o || !tgt)
+    if (!o || (!tgt && !(search_flags & AV_OPT_SEARCH_FAKE_OBJ)))
         return AVERROR_OPTION_NOT_FOUND;
 
     if (o->flags & AV_OPT_FLAG_READONLY)
@@ -226,7 +226,7 @@ static int opt_set_init(void *obj, const char *name, int search_flags,
     if (ptgt)
         *ptgt = tgt;
     if (pdst)
-        *pdst = ((uint8_t *)tgt) + o->offset;
+        *pdst = tgt ? ((uint8_t *)tgt) + o->offset : NULL;
 
     return 0;
 }
@@ -301,6 +301,9 @@ static int write_number(void *obj, const AVOption *o, void *dst, double num, int
         }
     }
 
+    if (!dst)
+        return 0;
+
     switch (type) {
     case AV_OPT_TYPE_PIXEL_FMT:
         *(enum AVPixelFormat *)dst = llrint(num / den) * intnum;
@@ -367,12 +370,15 @@ static int hexchar2int(char c) {
 
 static int set_string_binary(void *obj, const AVOption *o, const char *val, uint8_t **dst)
 {
-    int *lendst = (int *)(dst + 1);
+    int *lendst;
     uint8_t *bin, *ptr;
     int len;
 
+    if (dst) {
+        lendst = (int *)(dst + 1);
     av_freep(dst);
     *lendst = 0;
+    }
 
     if (!val || !(len = strlen(val)))
         return 0;
@@ -393,14 +399,19 @@ static int set_string_binary(void *obj, const AVOption *o, const char *val, uint
         }
         *ptr++ = (a << 4) | b;
     }
+    if (dst) {
     *dst    = bin;
     *lendst = len;
+    } else
+        av_free(bin);
 
     return 0;
 }
 
 static int set_string(void *obj, const AVOption *o, const char *val, uint8_t **dst)
 {
+    if (!dst)
+        return 0;
     av_freep(dst);
     if (!val)
         return 0;
@@ -495,7 +506,7 @@ static int set_string_number(void *obj, void *target_obj, const AVOption *o, con
                 }
             }
         }
-        if (type == AV_OPT_TYPE_FLAGS) {
+        if (type == AV_OPT_TYPE_FLAGS && dst) {
             intnum = *(unsigned int*)dst;
             if (cmd == '+')
                 d = intnum | (int64_t)d;
@@ -513,24 +524,32 @@ static int set_string_number(void *obj, void *target_obj, const AVOption *o, con
 
 static int set_string_image_size(void *obj, const AVOption *o, const char *val, int *dst)
 {
+    int tmp[2];
     int ret;
 
     if (!val || !strcmp(val, "none")) {
+        if (dst) {
         dst[0] =
         dst[1] = 0;
+        }
         return 0;
     }
-    ret = av_parse_video_size(dst, dst + 1, val);
+    ret = av_parse_video_size(&tmp[0], &tmp[1], val);
     if (ret < 0)
         av_log(obj, AV_LOG_ERROR, "Unable to parse option value \"%s\" as image size\n", val);
+    if (dst)
+        memcpy(dst, tmp, sizeof(tmp));
     return ret;
 }
 
 static int set_string_video_rate(void *obj, const AVOption *o, const char *val, AVRational *dst)
 {
-    int ret = av_parse_video_rate(dst, val);
+    AVRational tmp;
+    int ret = av_parse_video_rate(&tmp, val);
     if (ret < 0)
         av_log(obj, AV_LOG_ERROR, "Unable to parse option value \"%s\" as video rate\n", val);
+    if (dst)
+        *dst = tmp;
     return ret;
 }
 
@@ -541,9 +560,12 @@ static int set_string_color(void *obj, const AVOption *o, const char *val, uint8
     if (!val) {
         return 0;
     } else {
-        ret = av_parse_color(dst, val, -1, obj);
+        uint8_t tmp[4];
+        ret = av_parse_color(tmp, val, -1, obj);
         if (ret < 0)
             av_log(obj, AV_LOG_ERROR, "Unable to parse option value \"%s\" as color\n", val);
+        if (dst)
+            memcpy(dst, tmp, sizeof(tmp));
         return ret;
     }
     return 0;
@@ -579,6 +601,7 @@ static int set_string_bool(void *obj, const AVOption *o, const char *val, int *d
     if (n < o->min || n > o->max)
         goto fail;
 
+    if (dst)
     *dst = n;
     return 0;
 
@@ -623,6 +646,7 @@ static int set_string_fmt(void *obj, const AVOption *o, const char *val, uint8_t
         return AVERROR(ERANGE);
     }
 
+    if (dst)
     *(int *)dst = fmt;
     return 0;
 }
@@ -661,6 +685,9 @@ static int set_string_dict(void *obj, const AVOption *o, const char *val, uint8_
         }
     }
 
+    if (!dst)
+        return 0;
+
     av_dict_free((AVDictionary **)dst);
     *dst = (uint8_t *)options;
 
@@ -670,11 +697,21 @@ static int set_string_dict(void *obj, const AVOption *o, const char *val, uint8_
 static int set_string_channel_layout(void *obj, const AVOption *o,
                                      const char *val, void *dst)
 {
+    AVChannelLayout tmp;
     AVChannelLayout *channel_layout = dst;
+    int ret;
+    if (dst)
     av_channel_layout_uninit(channel_layout);
+    else
+        channel_layout = &tmp;
     if (!val)
         return 0;
-    return av_channel_layout_from_string(channel_layout, val);
+    ret = av_channel_layout_from_string(channel_layout, val);
+    if (ret < 0)
+        return ret;
+    if (!dst)
+        av_channel_layout_uninit(channel_layout);
+    return 0;
 }
 
 static int opt_set_elem(void *obj, void *target_obj, const AVOption *o,
@@ -733,6 +770,7 @@ static int opt_set_elem(void *obj, void *target_obj, const AVOption *o,
                        usecs / 1000000.0, o->name, o->min / 1000000.0, o->max / 1000000.0);
                 return AVERROR(ERANGE);
             }
+            if (dst)
             *(int64_t *)dst = usecs;
             return 0;
         }
@@ -812,6 +850,7 @@ static int opt_set_array(void *obj, void *target_obj, const AVOption *o,
     }
     av_freep(&str);
 
+    if (dst)
     opt_free_array(o, dst, opt_array_pcount(dst));
 
     if (arr && nb_elems < arr->size_min) {
@@ -822,8 +861,10 @@ static int opt_set_array(void *obj, void *target_obj, const AVOption *o,
         goto fail;
     }
 
+    if (dst) {
     *((void **)dst)        = elems;
     *opt_array_pcount(dst) = nb_elems;
+    }
 
     return 0;
 fail:
@@ -873,8 +914,10 @@ static int set_number(void *obj, const char *name, double num, int den, int64_t 
     ret = opt_set_init(obj, name, search_flags, require_type, NULL, &o, &dst);
     if (ret < 0)
         return ret;
+    if (dst)
+        ret = write_number(obj, o, dst, num, den, intnum);
 
-    return write_number(obj, o, dst, num, den, intnum);
+    return ret;
 }
 
 int av_opt_set_int(void *obj, const char *name, int64_t val, int search_flags)
@@ -904,6 +947,7 @@ int av_opt_set_bin(void *obj, const char *name, const uint8_t *val, int len, int
     if (ret < 0)
         return ret;
 
+    if (dst) {
     ptr = len ? av_malloc(len) : NULL;
     if (len && !ptr)
         return AVERROR(ENOMEM);
@@ -915,6 +959,7 @@ int av_opt_set_bin(void *obj, const char *name, const uint8_t *val, int len, int
     *lendst = len;
     if (len)
         memcpy(ptr, val, len);
+    }
 
     return 0;
 }
@@ -936,8 +981,10 @@ int av_opt_set_image_size(void *obj, const char *name, int w, int h, int search_
         return AVERROR(EINVAL);
     }
 
+    if (dst) {
     dst[0] = w;
     dst[1] = h;
+    }
 
     return 0;
 }
@@ -967,6 +1014,7 @@ static int set_format(void *obj, const char *name, int fmt, int search_flags,
                fmt, name, desc, min, max);
         return AVERROR(ERANGE);
     }
+    if (dst)
     *dst = fmt;
     return 0;
 }
@@ -992,9 +1040,13 @@ int av_opt_set_dict_val(void *obj, const char *name, const AVDictionary *val,
     if (ret < 0)
         return ret;
 
+    if (dst) {
     av_dict_free(dst);
 
-    return av_dict_copy(dst, val, 0);
+        ret = av_dict_copy(dst, val, 0);
+    }
+
+    return ret;
 }
 
 int av_opt_set_chlayout(void *obj, const char *name,
@@ -1009,7 +1061,10 @@ int av_opt_set_chlayout(void *obj, const char *name,
     if (ret < 0)
         return ret;
 
-    return av_channel_layout_copy(dst, channel_layout);
+    if (dst)
+        ret = av_channel_layout_copy(dst, channel_layout);
+
+    return ret;
 }
 
 static void format_duration(char *buf, size_t size, int64_t d)
