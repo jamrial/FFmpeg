@@ -1027,11 +1027,7 @@ const FFCodec ff_atrac3_decoder = {
     .init             = atrac3_decode_init,
     .close            = atrac3_decode_close,
     FF_CODEC_DECODE_CB(atrac3_decode_frame),
-    .p.capabilities   =
-#if FF_API_SUBFRAMES
-                        AV_CODEC_CAP_SUBFRAMES |
-#endif
-                        AV_CODEC_CAP_DR1,
+    .p.capabilities   = AV_CODEC_CAP_DR1,
     .p.sample_fmts    = (const enum AVSampleFormat[]) { AV_SAMPLE_FMT_FLTP,
                                                         AV_SAMPLE_FMT_NONE },
     .caps_internal    = FF_CODEC_CAP_INIT_CLEANUP,
@@ -1046,11 +1042,7 @@ const FFCodec ff_atrac3al_decoder = {
     .init             = atrac3_decode_init,
     .close            = atrac3_decode_close,
     FF_CODEC_DECODE_CB(atrac3al_decode_frame),
-    .p.capabilities   =
-#if FF_API_SUBFRAMES
-                        AV_CODEC_CAP_SUBFRAMES |
-#endif
-                        AV_CODEC_CAP_DR1,
+    .p.capabilities   = AV_CODEC_CAP_DR1,
     .p.sample_fmts    = (const enum AVSampleFormat[]) { AV_SAMPLE_FMT_FLTP,
                                                         AV_SAMPLE_FMT_NONE },
     .caps_internal    = FF_CODEC_CAP_INIT_CLEANUP,
