@@ -115,6 +115,22 @@ typedef struct FFV1SliceContext {
         uint32_t val; //this is unneeded if you accept a dereference on each access
         uint16_t ndx;
     } unit[4][65536];
+    struct RemapEncoderState {
+        int delta_stack[65536];     //We need to encode the run value before the adjustments, this stores the adjustments until we know the length of the run
+        int16_t index_stack[65537]; //only needed with multiple segments
+        uint8_t state[2][3][32];
+        int mul[4096+1];
+        RangeCoder rc;
+        int lu;
+        int run;
+        int64_t last_val;
+        int compact_index;
+        int mul_count;
+        int i;
+        int pixel_num;
+        int p;
+        int current_mul_index;
+    } remap_state;
 } FFV1SliceContext;
 
 typedef struct FFV1Context {
