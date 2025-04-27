@@ -43,6 +43,8 @@ const tmatrix_col_odd
     dw  50, -89,  18,  75
     dw  18, -50,  75, -89
 
+scale_shuffle: db 0, 8, 1, 9, 2, 10, 3, 11, 4, 12, 5, 13, 6, 14, 7, 15
+
 ; Memory targets for vpbroadcastd (register version requires AVX512).
 cextern pd_1
 cextern pd_64
@@ -304,5 +306,65 @@ store_10:
     NORMALISE_AND_STORE_10 6, 7
 
     RET
+
+%macro SCALE_QMATRIX 0
+cglobal apv_scale_qmatrix, 3, 3, 9, output, input, scale
+    pxor        m8, m8
+%if cpuflag(ssse3)
+    mova        m1, [scale_shuffle]
+%endif
+    movu        m0, [inputq]
+    movu        m2, [inputq+16]
+    movu        m4, [inputq+32]
+    movu        m6, [inputq+48]
+%if cpuflag(ssse3)
+    pshufb      m0, m1
+    pshufb      m2, m1
+    pshufb      m4, m1
+    pshufb      m6, m1
+%else
+    pshufd      m1, m0, q3232
+    pshufd      m3, m2, q3232
+    pshufd      m5, m4, q3232
+    pshufd      m7, m6, q3232
+    punpcklbw   m0, m1
+    punpcklbw   m2, m3
+    punpcklbw   m4, m5
+    punpcklbw   m6, m7
+%endif
+    TRANSPOSE4x4W 0, 2, 4, 6, 3
+    punpckhbw   m1, m0, m8
+    punpcklbw   m0, m8
+    punpckhbw   m3, m2, m8
+    punpcklbw   m2, m8
+    punpckhbw   m5, m4, m8
+    punpcklbw   m4, m8
+    punpckhbw   m7, m6, m8
+    punpcklbw   m6, m8
+    movd        m8, scaled
+    SPLATW      m8, m8, 0
+    pmullw      m0, m8
+    pmullw      m1, m8
+    pmullw      m2, m8
+    pmullw      m3, m8
+    pmullw      m4, m8
+    pmullw      m5, m8
+    pmullw      m6, m8
+    pmullw      m7, m8
+    mova [outputq], m0
+    mova [outputq+16], m1
+    mova [outputq+32], m2
+    mova [outputq+48], m3
+    mova [outputq+64], m4
+    mova [outputq+80], m5
+    mova [outputq+96], m6
+    mova [outputq+112], m7
+    RET
+%endmacro
+
+INIT_XMM sse2
+SCALE_QMATRIX
+INIT_XMM ssse3
+SCALE_QMATRIX
 
 %endif ; ARCH_X86_64

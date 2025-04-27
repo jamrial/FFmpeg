@@ -32,9 +32,20 @@ void ff_apv_decode_transquant_avx2(void *output,
                                    int bit_depth,
                                    int qp_shift);
 
+void ff_apv_scale_qmatrix_sse2(uint16_t *output, const uint8_t *input, int scale);
+void ff_apv_scale_qmatrix_ssse3(uint16_t *output, const uint8_t *input, int scale);
+
 av_cold void ff_apv_dsp_init_x86_64(APVDSPContext *dsp)
 {
     int cpu_flags = av_get_cpu_flags();
+
+    if (EXTERNAL_SSE2_FAST(cpu_flags)) {
+        dsp->scale_qmatrix = ff_apv_scale_qmatrix_sse2;
+    }
+
+    if (EXTERNAL_SSSE3(cpu_flags)) {
+        dsp->scale_qmatrix = ff_apv_scale_qmatrix_ssse3;
+    }
 
     if (EXTERNAL_AVX2_FAST(cpu_flags)) {
         dsp->decode_transquant = ff_apv_decode_transquant_avx2;
