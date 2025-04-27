@@ -30,6 +30,7 @@ typedef struct APVDSPContext {
                               const int16_t *qmatrix,
                               int bit_depth,
                               int qp_shift);
+   void (*scale_qmatrix)(uint16_t *output, const uint8_t *input, int scale);
 } APVDSPContext;
 
 void ff_apv_dsp_init(APVDSPContext *dsp);

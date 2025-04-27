@@ -221,11 +221,8 @@ static int apv_decode_tile_component(AVCodecContext *avctx, void *data,
         bit_depth = apv_cbc->bit_depth;
         qp_shift  = qp / 6;
 
-        for (int y = 0; y < 8; y++) {
-            for (int x = 0; x < 8; x++)
-                qmatrix_scaled[y * 8 + x] = level_scale *
-                    input->frame_header.quantization_matrix.q_matrix[comp_index][x][y];
-        }
+        apv->dsp.scale_qmatrix(qmatrix_scaled, (uint8_t *)input->frame_header.quantization_matrix.q_matrix[comp_index],
+                               level_scale);
     }
 
     for (int mb_y = 0; mb_y < tile_mb_height; mb_y++) {

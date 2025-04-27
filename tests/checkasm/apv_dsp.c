@@ -21,6 +21,7 @@
 #include "checkasm.h"
 
 #include "libavutil/attributes.h"
+#include "libavutil/intreadwrite.h"
 #include "libavutil/mem_internal.h"
 #include "libavcodec/apv_dsp.h"
 
@@ -93,6 +94,31 @@ static void check_decode_transquant_10(void)
     bench_new(new_output, 16, input, qmatrix, 10, 4);
 }
 
+static void check_scale_qmatrix(void)
+{
+    static const uint8_t level_scale_array[6] = { 40, 45, 51, 57, 64, 71 };
+    LOCAL_ALIGNED_4 (uint8_t,  input,      [64]);
+    LOCAL_ALIGNED_32(uint16_t, new_output, [64]);
+    LOCAL_ALIGNED_32(uint16_t, ref_output, [64]);
+    int level_scale = level_scale_array[rnd() % 6];
+
+    declare_func(void,
+                 uint16_t *output,
+                 const uint8_t *input,
+                 int level_scale);
+
+    for (int i = 0; i < 16; i += 4)
+        AV_WN32A(&input[i], rnd());
+
+    call_ref(ref_output, input, level_scale);
+    call_new(new_output, input, level_scale);
+
+    if (memcmp(new_output, ref_output, 64 * sizeof(*ref_output)))
+        fail();
+
+    bench_new(new_output, input, level_scale);
+}
+
 void checkasm_check_apv_dsp(void)
 {
     APVDSPContext dsp;
@@ -106,4 +132,9 @@ void checkasm_check_apv_dsp(void)
         check_decode_transquant_10();
 
     report("decode_transquant");
+
+    if (check_func(dsp.scale_qmatrix, "scale_qmatrix"))
+        check_scale_qmatrix();
+
+    report("scale_qmatrix");
 }
