@@ -29,11 +29,11 @@
 #include "mem.h"
 #include "random_seed.h"
 
-#define AES_BLOCK_SIZE (16)
+#define FF_AES_BLOCK_SIZE (16)
 
 typedef struct AVAESCTR {
-    DECLARE_ALIGNED(8, uint8_t, counter)[AES_BLOCK_SIZE];
-    DECLARE_ALIGNED(8, uint8_t, encrypted_counter)[AES_BLOCK_SIZE];
+    DECLARE_ALIGNED(8, uint8_t, counter)[FF_AES_BLOCK_SIZE];
+    DECLARE_ALIGNED(8, uint8_t, encrypted_counter)[FF_AES_BLOCK_SIZE];
     AVAES aes;
 } AVAESCTR;
 
@@ -96,19 +96,19 @@ void av_aes_ctr_increment_iv(struct AVAESCTR *a)
 
 void av_aes_ctr_crypt(struct AVAESCTR *a, uint8_t *dst, const uint8_t *src, int count)
 {
-    while (count >= AES_BLOCK_SIZE) {
+    while (count >= FF_AES_BLOCK_SIZE) {
         av_aes_crypt(&a->aes, a->encrypted_counter, a->counter, 1, NULL, 0);
         av_aes_ctr_increment_be64(a->counter + 8);
 #if HAVE_FAST_64BIT
-        for (int len = 0; len < AES_BLOCK_SIZE; len += 8)
+        for (int len = 0; len < FF_AES_BLOCK_SIZE; len += 8)
             AV_WN64(&dst[len], AV_RN64(&src[len]) ^ AV_RN64A(&a->encrypted_counter[len]));
 #else
-        for (int len = 0; len < AES_BLOCK_SIZE; len += 4)
+        for (int len = 0; len < FF_AES_BLOCK_SIZE; len += 4)
             AV_WN32(&dst[len], AV_RN32(&src[len]) ^ AV_RN32A(&a->encrypted_counter[len]));
 #endif
-        dst += AES_BLOCK_SIZE;
-        src += AES_BLOCK_SIZE;
-        count -= AES_BLOCK_SIZE;
+        dst += FF_AES_BLOCK_SIZE;
+        src += FF_AES_BLOCK_SIZE;
+        count -= FF_AES_BLOCK_SIZE;
     }
 
     if (count > 0) {
