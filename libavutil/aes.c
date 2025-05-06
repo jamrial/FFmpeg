@@ -39,6 +39,7 @@ struct AVAES *av_aes_alloc(void)
     return av_mallocz(sizeof(struct AVAES));
 }
 
+#if !CONFIG_LIBCRYPTO
 static const uint8_t rcon[10] = {
     0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36
 };
@@ -167,13 +168,29 @@ static void aes_decrypt(AVAES *a, uint8_t *dst, const uint8_t *src,
         dst += 16;
     }
 }
+#endif
 
 void av_aes_crypt(AVAES *a, uint8_t *dst, const uint8_t *src,
                   int count, uint8_t *iv, int decrypt)
 {
+#if CONFIG_LIBCRYPTO
+    if (iv)
+        AES_cbc_encrypt((const unsigned char *)src,
+                        (unsigned char *)dst,
+                        count, &a->key,
+                        (unsigned char *)iv, !decrypt);
+    else {
+        for (int i = 0; i < count; i++)
+            AES_ecb_encrypt((const unsigned char *)&src[i*16],
+                            (unsigned char *)&dst[i*16],
+                            &a->key, !decrypt);
+    }
+#else
     a->crypt(a, dst, src, count, iv, a->rounds);
+#endif
 }
 
+#if !CONFIG_LIBCRYPTO
 static void init_multbl2(uint32_t tbl[][256], const int c[4],
                          const uint8_t *log8, const uint8_t *alog8,
                          const uint8_t *sbox)
@@ -226,10 +243,17 @@ static av_cold void aes_init_static(void)
     init_multbl2(enc_multbl, (const int[4]) { 0x2, 0x1, 0x1, 0x3 },
                  log8, alog8, sbox);
 }
+#endif
 
 // this is based on the reference AES code by Paulo Barreto and Vincent Rijmen
 int av_aes_init(AVAES *a, const uint8_t *key, int key_bits, int decrypt)
 {
+#if CONFIG_LIBCRYPTO
+    int ret = decrypt ? AES_set_decrypt_key(key, key_bits, &a->key) :
+                        AES_set_encrypt_key(key, key_bits, &a->key);
+    if (ret < 0)
+        return AVERROR_EXTERNAL;
+#else
     int i, j, t, rconpointer = 0;
     uint8_t tk[8][4];
     int KC = key_bits >> 5;
@@ -278,6 +302,7 @@ int av_aes_init(AVAES *a, const uint8_t *key, int key_bits, int decrypt)
         for (i = 0; i < (rounds + 1) >> 1; i++)
             FFSWAP(av_aes_block, a->round_key[i], a->round_key[rounds - i]);
     }
+#endif
 
     return 0;
 }

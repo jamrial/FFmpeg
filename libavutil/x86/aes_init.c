@@ -37,6 +37,7 @@ void ff_aes_encrypt_14_aesni(AVAES *a, uint8_t *dst, const uint8_t *src,
 
 void ff_init_aes_x86(AVAES *a, int decrypt)
 {
+#if !CONFIG_LIBCRYPTO
     int cpu_flags = av_get_cpu_flags();
 
     if (EXTERNAL_AESNI(cpu_flags)) {
@@ -47,4 +48,5 @@ void ff_init_aes_x86(AVAES *a, int decrypt)
         else if (a->rounds == 14)
             a->crypt = decrypt ? ff_aes_decrypt_14_aesni : ff_aes_encrypt_14_aesni;
     }
+#endif
 }

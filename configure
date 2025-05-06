@@ -224,6 +224,7 @@ External library support:
   --enable-libcelt         enable CELT decoding via libcelt [no]
   --enable-libcdio         enable audio CD grabbing with libcdio [no]
   --enable-libcodec2       enable codec2 en/decoding using libcodec2 [no]
+  --enable-libcrypto       enable crypto via libcrypto (AES only) [no]
   --enable-libdav1d        enable AV1 decoding via libdav1d [no]
   --enable-libdavs2        enable AVS2 decoding via libdavs2 [no]
   --enable-libdc1394       enable IIDC-1394 grabbing using libdc1394
@@ -1931,6 +1932,7 @@ EXTERNAL_LIBRARY_LIST="
     libcaca
     libcelt
     libcodec2
+    libcrypto
     libdav1d
     libdc1394
     libflite
@@ -4085,7 +4087,7 @@ avfilter_deps="avutil"
 avfilter_suggest="libm stdatomic spirv_compiler"
 avformat_deps="avcodec avutil"
 avformat_suggest="libm network zlib stdatomic"
-avutil_suggest="clock_gettime ffnvcodec gcrypt libm libdrm libmfx opencl openssl user32 vaapi vulkan videotoolbox corefoundation corevideo coremedia bcrypt stdatomic"
+avutil_suggest="clock_gettime ffnvcodec gcrypt libcrypto libm libdrm libmfx opencl openssl user32 vaapi vulkan videotoolbox corefoundation corevideo coremedia bcrypt stdatomic"
 postproc_deps="avutil gpl"
 postproc_suggest="libm stdatomic"
 swresample_deps="avutil"
@@ -6955,6 +6957,10 @@ enabled libcelt           && require libcelt celt/celt.h celt_decode -lcelt0 &&
                                die "ERROR: libcelt must be installed and version must be >= 0.11.0."; }
 enabled libcaca           && require_pkg_config libcaca caca caca.h caca_create_canvas
 enabled libcodec2         && require libcodec2 codec2/codec2.h codec2_create -lcodec2
+enabled libcrypto         && { { check_pkg_config libcrypto "libcrypto >= 3.0.0" openssl/aes.h AES_set_encrypt_key &&
+                                 { enabled gplv3 || ! enabled gpl || enabled nonfree || die "ERROR: OpenSSL-libcrypto >= 3.0.0 requires --enable-version3"; }; } ||
+                               { enabled gpl && ! enabled nonfree && die "ERROR: OpenSSL-libcrypto < 3.0.0 is incompatible with the gpl"; } ||
+                               require_pkg_config libcrypto libcrypto openssl/aes.h AES_set_encrypt_key; }
 enabled libdav1d          && require_pkg_config libdav1d "dav1d >= 0.5.0" "dav1d/dav1d.h" dav1d_version
 enabled libdavs2          && require_pkg_config libdavs2 "davs2 >= 1.6.0" davs2.h davs2_decoder_open
 enabled libdc1394         && require_pkg_config libdc1394 libdc1394-2 dc1394/dc1394.h dc1394_new
