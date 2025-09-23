@@ -2775,7 +2775,17 @@ ffmpeg will return exit code 69. Crossing this threshold does not terminate
 processing. Range is a floating-point number between 0 to 1. Default is 2/3.
 
 @item -xerror (@emph{global})
-Stop and exit on error
+Stop and exit on error. This option is deprecated and will be removed in the future.
+
+@item -exit_on_error @var{arg} (@emph{global})
+Stop and exit on error. The following arguments are available:
+
+@table @option
+@item strict
+Stop and exit on any error.
+@item lax
+Stop and exit on any error save for easily recoverable ones like invalid data.
+@end table
 
 @item -max_muxing_queue_size @var{packets} (@emph{output,per-stream})
 When transcoding audio and/or video streams, ffmpeg will not begin writing into

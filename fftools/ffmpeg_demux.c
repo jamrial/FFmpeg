@@ -752,7 +752,8 @@ static int input_thread(void *arg)
             else {
                 av_log(d, AV_LOG_ERROR, "Error during demuxing: %s\n",
                        av_err2str(ret));
-                ret = exit_on_error ? ret : 0;
+                if (!check_exit_on_error_int(ret))
+                    ret = 0;
             }
 
             ret_bsf = demux_bsf_flush(d, &dt);
@@ -790,10 +791,11 @@ static int input_thread(void *arg)
         }
 
         if (dt.pkt_demux->flags & AV_PKT_FLAG_CORRUPT) {
-            av_log(d, exit_on_error ? AV_LOG_FATAL : AV_LOG_WARNING,
+            int err = check_exit_on_error();
+            av_log(d, err ? AV_LOG_FATAL : AV_LOG_WARNING,
                    "corrupt input packet in stream %d\n",
                    dt.pkt_demux->stream_index);
-            if (exit_on_error) {
+            if (err) {
                 av_packet_unref(dt.pkt_demux);
                 ret = AVERROR_INVALIDDATA;
                 break;

@@ -60,6 +60,7 @@
 #define FFMPEG_OPT_VSYNC_DROP 1
 #define FFMPEG_OPT_VSYNC 1
 #define FFMPEG_OPT_FILTER_SCRIPT 1
+#define FFMPEG_OPT_XERROR 1
 
 #define FFMPEG_ERROR_RATE_EXCEEDED FFERRTAG('E', 'R', 'E', 'D')
 
@@ -523,6 +524,9 @@ enum forced_keyframes_const {
     FKF_NB
 };
 
+#define EXIT_ON_ERROR_FLAG_STRICT         1
+#define EXIT_ON_ERROR_FLAG_LAX            2
+
 #define ABORT_ON_FLAG_EMPTY_OUTPUT        (1 <<  0)
 #define ABORT_ON_FLAG_EMPTY_OUTPUT_STREAM (1 <<  1)
 
@@ -729,6 +733,7 @@ extern int copy_ts;
 extern int start_at_zero;
 extern int copy_tb;
 extern int debug_ts;
+extern int xerror;
 extern int exit_on_error;
 extern int abort_on_flags;
 extern int print_stats;
@@ -928,6 +933,9 @@ void opt_match_per_stream_int64(void *logctx, const SpecifierOptList *sol,
                                 AVFormatContext *fc, AVStream *st, int64_t *out);
 void opt_match_per_stream_dbl(void *logctx, const SpecifierOptList *sol,
                               AVFormatContext *fc, AVStream *st, double *out);
+
+int check_exit_on_error(void);
+int check_exit_on_error_int(int err);
 
 int view_specifier_parse(const char **pspec, ViewSpecifier *vs);
 

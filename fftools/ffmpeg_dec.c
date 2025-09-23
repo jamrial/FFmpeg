@@ -670,7 +670,7 @@ static int transcode_subtitles(DecoderPriv *dp, const AVPacket *pkt,
         av_log(dp, AV_LOG_ERROR, "Error decoding subtitles: %s\n",
                av_err2str(ret));
         dp->dec.decode_errors++;
-        return exit_on_error ? ret : 0;
+        return check_exit_on_error_int(ret) ? ret : 0;
     }
 
     if (!got_output)
@@ -737,7 +737,7 @@ static int packet_decode(DecoderPriv *dp, AVPacket *pkt, AVFrame *frame)
             return ret;
 
         dp->dec.decode_errors++;
-        if (exit_on_error)
+        if (check_exit_on_error_int(ret))
             return ret;
     }
 
@@ -760,16 +760,17 @@ static int packet_decode(DecoderPriv *dp, AVPacket *pkt, AVFrame *frame)
             av_log(dp, AV_LOG_ERROR, "Decoding error: %s\n", av_err2str(ret));
             dp->dec.decode_errors++;
 
-            if (exit_on_error)
+            if (check_exit_on_error_int(ret))
                 return ret;
 
             continue;
         }
 
         if (frame->decode_error_flags || (frame->flags & AV_FRAME_FLAG_CORRUPT)) {
-            av_log(dp, exit_on_error ? AV_LOG_FATAL : AV_LOG_WARNING,
+            int err = check_exit_on_error();
+            av_log(dp, err ? AV_LOG_FATAL : AV_LOG_WARNING,
                    "corrupt decoded frame\n");
-            if (exit_on_error)
+            if (err)
                 return AVERROR_INVALIDDATA;
         }
 
@@ -1180,12 +1181,13 @@ static int multiview_setup(DecoderPriv *dp, AVCodecContext *dec_ctx)
         switch (vs->type) {
         case VIEW_SPECIFIER_TYPE_IDX:
             if (vs->val >= nb_view_ids_av) {
-                av_log(dp, exit_on_error ? AV_LOG_ERROR : AV_LOG_WARNING,
+                int err = check_exit_on_error();
+                av_log(dp, err ? AV_LOG_ERROR : AV_LOG_WARNING,
                        "View with index %u requested, but only %u views available "
                        "in current video sequence (more views may or may not be "
                        "available in later sequences).\n",
                        vs->val, nb_view_ids_av);
-                if (exit_on_error) {
+                if (err) {
                     ret = AVERROR(EINVAL);
                     goto fail;
                 }
@@ -1206,10 +1208,11 @@ static int multiview_setup(DecoderPriv *dp, AVCodecContext *dec_ctx)
                 }
             }
             if (view_idx < 0) {
-                av_log(dp, exit_on_error ? AV_LOG_ERROR : AV_LOG_WARNING,
+                int err = check_exit_on_error();
+                av_log(dp, err ? AV_LOG_ERROR : AV_LOG_WARNING,
                        "View with ID %u requested, but is not available "
                        "in the video sequence\n", vs->val);
-                if (exit_on_error) {
+                if (err) {
                     ret = AVERROR(EINVAL);
                     goto fail;
                 }
@@ -1231,10 +1234,11 @@ static int multiview_setup(DecoderPriv *dp, AVCodecContext *dec_ctx)
                 }
             }
             if (view_idx < 0) {
-                av_log(dp, exit_on_error ? AV_LOG_ERROR : AV_LOG_WARNING,
+                int err = check_exit_on_error();
+                av_log(dp, err ? AV_LOG_ERROR : AV_LOG_WARNING,
                        "View position '%s' requested, but is not available "
                        "in the video sequence\n", av_stereo3d_view_name(vs->val));
-                if (exit_on_error) {
+                if (err) {
                     ret = AVERROR(EINVAL);
                     goto fail;
                 }

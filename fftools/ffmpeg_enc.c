@@ -397,7 +397,7 @@ static int do_subtitle_out(OutputFile *of, OutputStream *ost, const AVSubtitle *
 
     if (sub->pts == AV_NOPTS_VALUE) {
         av_log(e, AV_LOG_ERROR, "Subtitle packets must have a pts\n");
-        return exit_on_error ? AVERROR(EINVAL) : 0;
+        return check_exit_on_error() ? AVERROR(EINVAL) : 0;
     }
     if ((of->start_time != AV_NOPTS_VALUE && sub->pts < of->start_time))
         return 0;

@@ -68,6 +68,9 @@ int copy_ts           = 0;
 int start_at_zero     = 0;
 int copy_tb           = -1;
 int debug_ts          = 0;
+#if FFMPEG_OPT_XERROR
+int xerror            = 0;
+#endif
 int exit_on_error     = 0;
 int abort_on_flags    = 0;
 int print_stats       = -1;
@@ -424,6 +427,47 @@ static int opt_filter_threads(void *optctx, const char *opt, const char *arg)
 {
     av_free(filter_nbthreads);
     filter_nbthreads = av_strdup(arg);
+    return 0;
+}
+
+static int opt_exit_on_error(void *optctx, const char *opt, const char *arg)
+{
+    static const AVOption opts[] = {
+        { "exit_on_error"      , NULL, 0, AV_OPT_TYPE_INT,   { .i64 = 0 }, INT64_MIN, INT64_MAX,   .unit = "exit_on_error" },
+        { "strict"             , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = EXIT_ON_ERROR_FLAG_STRICT }, .unit = "exit_on_error" },
+        { "lax"                , NULL, 0, AV_OPT_TYPE_CONST, { .i64 = EXIT_ON_ERROR_FLAG_LAX    }, .unit = "exit_on_error" },
+        { NULL },
+    };
+    static const AVClass class = {
+        .class_name = "",
+        .item_name  = av_default_item_name,
+        .option     = opts,
+        .version    = LIBAVUTIL_VERSION_INT,
+    };
+    const AVClass *pclass = &class;
+
+    return av_opt_eval_int(&pclass, &opts[0], arg, &exit_on_error);
+}
+
+int check_exit_on_error(void)
+{
+#if FFMPEG_OPT_XERROR
+    if (xerror)
+        return 1;
+#endif
+    return exit_on_error == EXIT_ON_ERROR_FLAG_STRICT;
+}
+
+int check_exit_on_error_int(int err)
+{
+    if (!err)
+        return 0;
+    if (check_exit_on_error())
+        return 1;
+    if (exit_on_error == EXIT_ON_ERROR_FLAG_LAX &&
+        err != AVERROR_INVALIDDATA)
+        return 1;
+
     return 0;
 }
 
@@ -1678,8 +1722,13 @@ const OptionDef options[] = {
     { "dts_error_threshold",    OPT_TYPE_FLOAT, OPT_EXPERT,
         { &dts_error_threshold },
         "timestamp error delta threshold", "threshold" },
+#if FFMPEG_OPT_XERROR
     { "xerror",                 OPT_TYPE_BOOL, OPT_EXPERT,
-        { &exit_on_error },
+        { &xerror },
+        "deprecated, use -exit_on_error strict", "error" },
+#endif
+    { "exit_on_error",          OPT_TYPE_FUNC, OPT_FUNC_ARG | OPT_EXPERT,
+        { .func_arg = opt_exit_on_error },
         "exit on error", "error" },
     { "abort_on",               OPT_TYPE_FUNC, OPT_FUNC_ARG | OPT_EXPERT,
         { .func_arg = opt_abort_on },

@@ -180,12 +180,13 @@ static int mux_fixup_ts(Muxer *mux, MuxStream *ms, AVPacket *pkt)
             int64_t max = ms->last_mux_dts + !(mux->fc->oformat->flags & AVFMT_TS_NONSTRICT);
             if (pkt->dts < max) {
                 int loglevel = max - pkt->dts > 2 || ost->type == AVMEDIA_TYPE_VIDEO ? AV_LOG_WARNING : AV_LOG_DEBUG;
-                if (exit_on_error)
+                int err = check_exit_on_error();
+                if (err)
                     loglevel = AV_LOG_ERROR;
                 av_log(ost, loglevel, "Non-monotonic DTS; "
                        "previous: %"PRId64", current: %"PRId64"; ",
                        ms->last_mux_dts, pkt->dts);
-                if (exit_on_error) {
+                if (err) {
                     return AVERROR(EINVAL);
                 }
 
@@ -339,7 +340,7 @@ static int mux_packet_filter(Muxer *mux, MuxThreadContext *mt,
                 av_log(ost, AV_LOG_ERROR,
                        "Error applying bitstream filters to a packet: %s",
                        av_err2str(ret));
-                if (exit_on_error)
+                if (check_exit_on_error_int(ret))
                     return ret;
                 continue;
             }
