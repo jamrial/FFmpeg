@@ -1704,6 +1704,7 @@ static int map_auto_video(Muxer *mux, const OptionsContext *o)
 static int map_auto_audio(Muxer *mux, const OptionsContext *o)
 {
     AVFormatContext *oc = mux->fc;
+    InputStreamGroup *best_istg = NULL;
     InputStream *best_ist = NULL;
     int best_score = 0;
 
@@ -1713,8 +1714,35 @@ static int map_auto_audio(Muxer *mux, const OptionsContext *o)
 
     for (int j = 0; j < nb_input_files; j++) {
         InputFile *ifile = input_files[j];
+        InputStreamGroup *file_best_istg = NULL;
         InputStream *file_best_ist = NULL;
         int file_best_score = 0;
+        for (int i = 0; i < ifile->nb_stream_groups; i++) {
+            InputStreamGroup *istg = ifile->stream_groups[i];
+            const AVIAMFAudioElement *iamf = NULL;
+            int64_t score = 0;
+
+            if (!istg->fg)
+                continue;
+
+            for (int j = 0; j < istg->stg->nb_streams; j++) {
+                const AVStream *st = istg->stg->streams[j];
+
+                if (st->event_flags & AVSTREAM_EVENT_FLAG_NEW_PACKETS) {
+                    score = 100000000;
+                    break;
+                }
+            }
+
+            iamf = istg->stg->params.iamf_audio_element;
+            score += iamf->layers[0]->ch_layout.nb_channels
+                       + 5000000*!!(istg->stg->disposition & AV_DISPOSITION_DEFAULT);
+
+            if (score > file_best_score) {
+                file_best_score = score;
+                file_best_istg  = istg;
+            }
+        }
         for (int i = 0; i < ifile->nb_streams; i++) {
             InputStream *ist = ifile->streams[i];
             int score;
@@ -1729,6 +1757,15 @@ static int map_auto_audio(Muxer *mux, const OptionsContext *o)
             if (score > file_best_score) {
                 file_best_score = score;
                 file_best_ist   = ist;
+                file_best_istg  = NULL;
+            }
+        }
+        if (file_best_istg) {
+            file_best_score -= 5000000*!!(file_best_istg->stg->disposition & AV_DISPOSITION_DEFAULT);
+            if (file_best_score > best_score) {
+                best_score = file_best_score;
+                best_istg = file_best_istg;
+                best_ist = NULL;
             }
         }
         if (file_best_ist) {
@@ -1736,8 +1773,18 @@ static int map_auto_audio(Muxer *mux, const OptionsContext *o)
             if (file_best_score > best_score) {
                 best_score = file_best_score;
                 best_ist   = file_best_ist;
+                best_istg = NULL;
             }
        }
+    }
+    if (best_istg) {
+        FilterGraph *fg = best_istg->fg;
+        OutputFilter *ofilter = fg->outputs[0];
+
+        av_assert0(fg->nb_outputs == 1);
+        av_log(mux, AV_LOG_VERBOSE, "Creating output stream from stream group derived complex filtergraph %d.\n", fg->index);
+
+        return ost_add(mux, o, AVMEDIA_TYPE_AUDIO, NULL, ofilter, NULL, NULL);
     }
     if (best_ist)
         return ost_add(mux, o, AVMEDIA_TYPE_AUDIO, best_ist, NULL, NULL, NULL);

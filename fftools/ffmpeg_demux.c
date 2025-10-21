@@ -27,6 +27,7 @@
 #include "libavutil/avstring.h"
 #include "libavutil/display.h"
 #include "libavutil/error.h"
+#include "libavutil/iamf.h"
 #include "libavutil/intreadwrite.h"
 #include "libavutil/mem.h"
 #include "libavutil/opt.h"
@@ -1720,6 +1721,42 @@ fail:
     return ret;
 }
 
+static int istg_parse_iamf_audio_element(const OptionsContext *o, Demuxer *d, InputStreamGroup *istg)
+{
+    InputFile *f = &d->f;
+    AVStreamGroup *stg = istg->stg;
+    const AVIAMFAudioElement *iamf = stg->params.iamf_audio_element;
+    AVBPrint bp;
+    char *graph_str;
+    int ret, i;
+
+    av_bprint_init(&bp, 0, AV_BPRINT_SIZE_UNLIMITED);
+    for (i = 0; i < stg->nb_streams; i++)
+        av_bprintf(&bp, "[%d:g:%d:%d]", f->index, stg->index, i);
+    if (stg->nb_streams > 1)
+        av_bprintf(&bp, "amerge=inputs=%d,", stg->nb_streams);
+    av_bprintf(&bp, "channelmap=map=");
+    for (i = 0; iamf->layers[0]->ch_layout.nb_channels > 1 &&
+            i < iamf->layers[0]->ch_layout.nb_channels - 1; i++)
+        av_bprintf(&bp, "%d|", i);
+    av_bprintf(&bp, "%d:channel_layout=", i);
+    av_channel_layout_describe_bprint(&iamf->layers[0]->ch_layout, &bp);
+    av_bprintf(&bp, "[%d:g:%d]", f->index, stg->index);
+
+    ret = av_bprint_finalize(&bp, &graph_str);
+    if (ret < 0)
+        return ret;
+
+    ret = fg_create(NULL, graph_str, d->sch, NULL);
+    if (ret < 0)
+        return ret;
+
+    istg->fg = filtergraphs[nb_filtergraphs-1];
+    istg->fg->is_internal = 1;
+
+    return 0;
+}
+
 static int istg_add(const OptionsContext *o, Demuxer *d, AVStreamGroup *stg)
 {
     DemuxStreamGroup *dsg;
@@ -1735,6 +1772,11 @@ static int istg_add(const OptionsContext *o, Demuxer *d, AVStreamGroup *stg)
     switch (stg->type) {
     case AV_STREAM_GROUP_PARAMS_TILE_GRID:
         ret = istg_parse_tile_grid(o, d, istg);
+        if (ret < 0)
+            return ret;
+        break;
+    case AV_STREAM_GROUP_PARAMS_IAMF_AUDIO_ELEMENT:
+        ret = istg_parse_iamf_audio_element(o, d, istg);
         if (ret < 0)
             return ret;
         break;
