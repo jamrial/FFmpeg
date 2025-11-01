@@ -1735,19 +1735,15 @@ static int istg_parse_iamf_audio_element(const OptionsContext *o, Demuxer *d, In
         av_bprintf(&bp, "[%d:g:%d:%d]", f->index, stg->index, i);
     if (stg->nb_streams > 1)
         av_bprintf(&bp, "amerge=inputs=%d,", stg->nb_streams);
-    av_bprintf(&bp, "channelmap=map=");
-    for (i = 0; iamf->layers[0]->ch_layout.nb_channels > 1 &&
-            i < iamf->layers[0]->ch_layout.nb_channels - 1; i++)
-        av_bprintf(&bp, "%d|", i);
-    av_bprintf(&bp, "%d:channel_layout=", i);
-    av_channel_layout_describe_bprint(&iamf->layers[0]->ch_layout, &bp);
+    av_bprintf(&bp, "channelmap=channel_layout=");
+    av_channel_layout_describe_bprint(&iamf->layers[iamf->nb_layers-1]->ch_layout, &bp);
     av_bprintf(&bp, "[%d:g:%d]", f->index, stg->index);
 
     ret = av_bprint_finalize(&bp, &graph_str);
     if (ret < 0)
         return ret;
 
-    ret = fg_create(NULL, graph_str, d->sch, NULL);
+    ret = fg_create(NULL, &graph_str, d->sch, NULL);
     if (ret < 0)
         return ret;
 
